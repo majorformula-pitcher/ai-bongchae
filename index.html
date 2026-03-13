@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI News Real-Time Dashboard</title>
+    <title>Daily Insight | AI & Robot News</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
@@ -14,24 +14,31 @@
     
     <header>
         <div class="container">
-            <h1 class="gradient-text">AI INSIGHTS</h1>
-            <p class="subtitle">Real-time Artificial Intelligence News from ETNews</p>
+            <h1 class="gradient-text">DAILY INSIGHT</h1>
+            <p class="subtitle">Exploring the frontiers of Technology & Innovation</p>
         </div>
     </header>
+
+    <nav class="tabs-nav container">
+        <div class="tabs-container">
+            <button class="tab-btn active" data-tab="ai">AI Insights</button>
+            <button class="tab-btn" data-tab="robot">Robot Tech</button>
+        </div>
+    </nav>
 
     <main class="container">
         <div id="news-grid" class="news-grid">
             <!-- News items will be injected here -->
             <div class="loader-container" id="loader">
                 <div class="loader"></div>
-                <p>Fetching latest AI news...</p>
+                <p>Loading latest insights...</p>
             </div>
         </div>
     </main>
 
     <footer>
         <div class="container">
-            <p>&copy; 2026 AI Insights Dashboard. Data provided by ETNews.</p>
+            <p>&copy; 2026 Daily Insight Dashboard. Powered by modern web standards.</p>
         </div>
     </footer>
 

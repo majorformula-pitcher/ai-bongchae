@@ -1,61 +1,58 @@
-# AI News Real-Time Dashboard - Blueprint
+# Daily Insight - Blueprint
 
 ## Overview
-The AI News Real-Time Dashboard is a modern, high-performance web application designed to fetch and display the latest AI-related news from the ETNews RSS feed (`http://rss.etnews.com/04046.xml`). This project focuses on a "Cyber/AI" aesthetic, utilizing modern web standards such as Web Components, OKLCH color spaces, and container queries to provide a seamless and visually stunning experience across all devices.
+Daily Insight is a high-performance, multi-tab news dashboard that brings real-time insights into Artificial Intelligence and Robotics. It aggregates data from top-tier news sources (ETNews and RobotNews) to provide a centralized hub for modern technology enthusiasts.
 
 ## Project Vision
-To provide users with a clean, focused, and real-time news experience that feels futuristic and intuitive. The design is inspired by modern tech interfaces with a focus on typography, depth, and interactivity.
+To become the primary dashboard for real-time tech news, offering a seamless, futuristic, and focused reading experience with a "Cyber/AI" aesthetic.
 
 ## Style, Design, and Features
 
 ### 1. Visual Design (Aesthetics)
 - **Aesthetic**: Modern Tech/AI theme with dark mode by default.
-- **Typography**: "Inter" (sans-serif) for body text and bold headlines.
+- **Brand Name**: "Daily Insight"
+- **Typography**: "Inter" (sans-serif) with bold headlines and responsive sizing.
 - **Color Palette (OKLCH)**:
   - Background: `oklch(15% 0.02 240)` (Deep Space Blue)
-  - Primary Accent: `oklch(60% 0.15 250)` (Deep AI Blue)
-  - Secondary Accent: `oklch(80% 0.1 180)` (Cyber Cyan)
-  - Text: `oklch(95% 0.01 240)` (Off-white)
-- **Effects**:
-  - **Glassmorphism**: Translucent card backgrounds with backdrop blur.
-  - **Glows**: Subtle blue and cyan glows on interactive elements.
-  - **Texture**: A subtle noise texture applied to the main background for a premium feel.
-  - **Depth**: Multi-layered drop shadows (`box-shadow`) to create a sense of elevation.
+  - Primary Accent: `oklch(65% 0.18 250)` (Deep AI Blue)
+  - Secondary Accent: `oklch(85% 0.12 180)` (Cyber Cyan)
+- **UI Components**:
+  - **Tab Navigation**: Custom-styled navigation bar with active indicators and glow effects.
+  - **Glassmorphism**: Translucent cards with `backdrop-filter: blur(10px)`.
+  - **Interactive Glows**: Hover states with subtle glows and staggered animations.
 
 ### 2. Functional Features
-- **RSS Integration**: Fetches real-time data from ETNews AI RSS feed.
-- **Web Components**:
-  - `<ai-news-item>`: Encapsulated news cards with title, summary, and link.
-- **Responsive Layout**: Adapts from mobile to ultra-wide screens using CSS Grid.
-- **Accessibility**: ARIA-compliant semantic HTML and high-contrast color choices.
+- **Multi-Feed Integration**:
+  - **AI Feed**: `https://rss.etnews.com/04046.xml`
+  - **Robot Feed**: `https://www.irobotnews.com/rss/S1N1.xml`
+- **Tab Switching Logic**: Dynamic feed loading based on the active tab (AI or Robot).
+- **RSS-to-JSON Pipeline**: Utilizing the `rss2json` API for robust data retrieval and CORS handling.
+- **Real-Time Polling**: Automatic refresh every 10 minutes.
 
-### 3. Implementation Details (Current Version)
-- **V1 - Initial Setup (Current)**:
-  - Framework-less approach (Vanilla JS, CSS, HTML).
-  - RSS parsing using native `DOMParser`.
-  - Responsive Grid layout for news cards.
+### 3. Implementation Details (V2 - Multi-Tab)
+- **Structure**: Updated `index.html` with a tab navigation container.
+- **Styling**: New tab-specific styles in `style.css`.
+- **Logic**: Updated `main.js` to manage multiple feed URLs and state-based rendering.
 
 ---
 
-## Current Plan: AI News Implementation
+## Current Plan: Multi-Tab Refactor
 
-### Step 1: Base Structure (`index.html`)
-- Setup semantic HTML5 boilerplate.
-- Add containers for the header and the news grid.
-- Link `style.css` and `main.js` (as module).
+### Step 1: UI Structure (`index.html`)
+- Rename title to "Daily Insight".
+- Add a `<nav>` element for the tabs.
+- Ensure the news grid remains the main container for injected content.
 
-### Step 2: Global Styles (`style.css`)
-- Define CSS Variables for the OKLCH color palette.
-- Apply global resets and background textures.
-- Create a responsive grid for the news feed.
-- Implement glassmorphism styles.
+### Step 2: Tab Styling (`style.css`)
+- Style the tab bar with glassmorphism.
+- Define active/hover states for tabs with a bottom-border glow.
 
-### Step 3: Core Logic & Web Components (`main.js`)
-- Define the `AINewsItem` custom element.
-- Implement the `fetchNews` function to retrieve and parse RSS.
-- Dynamically render `<ai-news-item>` elements for each news story.
+### Step 3: Logic Refactor (`main.js`)
+- Store multiple feed URLs in a config object.
+- Implement tab switching logic that triggers `fetchNews()` with the corresponding URL.
+- Maintain the `AINewsItem` component for consistent card rendering.
 
-### Step 4: Refinement & Verification
-- Test feed loading and parsing.
-- Refine card layout and typography.
-- Ensure smooth transitions and hover effects.
+### Step 4: Verification
+- Test switching between AI and Robot tabs.
+- Ensure loading states are displayed correctly for each tab.
+- Verify content accuracy from both feeds.

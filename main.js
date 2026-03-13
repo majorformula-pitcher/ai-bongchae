@@ -1,6 +1,5 @@
 /**
- * AI News Real-Time Dashboard
- * Powered by ETNews RSS
+ * Daily Insight - Multi-Tab News Dashboard
  */
 
 class AINewsItem extends HTMLElement {
@@ -133,31 +132,40 @@ class AINewsItem extends HTMLElement {
 
 customElements.define('ai-news-item', AINewsItem);
 
-const RSS_URL = 'https://rss.etnews.com/04046.xml';
-// Using rss2json service which is more specialized for RSS feeds and often more stable
-const API_URL = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_URL)}`;
+const FEEDS = {
+    ai: 'https://rss.etnews.com/04046.xml',
+    robot: 'https://www.irobotnews.com/rss/S1N1.xml'
+};
 
-async function fetchNews() {
+let currentTab = 'ai';
+
+async function fetchNews(tab) {
     const grid = document.getElementById('news-grid');
     
+    // Show loader
+    grid.innerHTML = `
+        <div class="loader-container">
+            <div class="loader"></div>
+            <p>Fetching ${tab.toUpperCase()} insights...</p>
+        </div>
+    `;
+
+    const rssUrl = FEEDS[tab];
+    const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
+
     try {
-        const response = await fetch(API_URL);
-        if (!response.ok) throw new Error('Failed to fetch news from RSS API');
+        const response = await fetch(apiUrl);
+        if (!response.ok) throw new Error('Network response was not ok');
         
         const data = await response.json();
-        
-        if (data.status !== 'ok') {
-            throw new Error(data.message || 'Error parsing RSS feed');
-        }
+        if (data.status !== 'ok') throw new Error(data.message);
         
         const items = data.items;
-        
         if (!items || items.length === 0) {
-            grid.innerHTML = '<p class="loader-container">No news found at the moment.</p>';
+            grid.innerHTML = '<p class="loader-container">No articles found in this category.</p>';
             return;
         }
 
-        // Clear loader and previous items
         grid.innerHTML = '';
 
         items.forEach((item, index) => {
@@ -166,7 +174,6 @@ async function fetchNews() {
             const description = item.description || '';
             const pubDate = item.pubDate || '';
 
-            // Format date
             const dateObj = new Date(pubDate);
             const formattedDate = dateObj.toLocaleDateString('ko-KR', {
                 year: 'numeric',
@@ -174,7 +181,6 @@ async function fetchNews() {
                 day: 'numeric'
             });
 
-            // Strip HTML from description
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = description;
             const cleanDescription = tempDiv.textContent || tempDiv.innerText || '';
@@ -185,14 +191,12 @@ async function fetchNews() {
             newsItem.setAttribute('link', link);
             newsItem.setAttribute('date', formattedDate);
             
-            // Add staggered animation delay
             newsItem.style.opacity = '0';
             newsItem.style.transform = 'translateY(20px)';
             newsItem.style.transition = `all 0.5s ease ${index * 0.05}s`;
 
             grid.appendChild(newsItem);
 
-            // Trigger animation
             requestAnimationFrame(() => {
                 newsItem.style.opacity = '1';
                 newsItem.style.transform = 'translateY(0)';
@@ -200,18 +204,38 @@ async function fetchNews() {
         });
 
     } catch (error) {
-        console.error('Error fetching news:', error);
+        console.error('Error:', error);
         grid.innerHTML = `
             <div class="loader-container">
-                <p>Unable to load news. Please try again later.</p>
-                <small style="margin-top: 1rem; color: var(--text-dim);">${error.message}</small>
+                <p>Failed to load ${tab.toUpperCase()} news.</p>
+                <small style="margin-top:1rem; color:var(--text-dim)">${error.message}</small>
             </div>
         `;
     }
 }
 
-// Initial fetch
-document.addEventListener('DOMContentLoaded', fetchNews);
+function setupTabs() {
+    const tabs = document.querySelectorAll('.tab-btn');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const tabId = tab.getAttribute('data-tab');
+            if (tabId === currentTab) return;
 
-// Refresh every 10 minutes
-setInterval(fetchNews, 10 * 60 * 1000);
+            // Update UI
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            // Update State
+            currentTab = tabId;
+            fetchNews(currentTab);
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setupTabs();
+    fetchNews(currentTab);
+});
+
+// Auto refresh every 10 mins
+setInterval(() => fetchNews(currentTab), 10 * 60 * 1000);
