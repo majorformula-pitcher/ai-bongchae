@@ -206,61 +206,27 @@ const lastFetchedIds = {
 function extractCoreInsight(text) {
     if (!text) return 'No summary available.';
 
-    // 1. Initial Cleaning
+    // 1. Initial Cleaning (Remove basic HTML and normalize whitespace)
     let cleanText = text
+        .replace(/<[^>]*>?/gm, '') // Remove HTML tags just in case
         .replace(/&nbsp;/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 
-    // 2. Remove common news agency prefixes (at the start only)
+    // 2. Remove only common news agency prefixes at the very start
     cleanText = cleanText
         .replace(/^\[[^\]]+\]\s*/, '')      // [서울=뉴시스]
         .replace(/^\([^\)]+\)\s*/, '')      // (대전=연합뉴스)
         .replace(/^【[^】]+】\s*/, '')      // 【세종=뉴시스】
         .trim();
 
-    // 3. Remove email addresses
-    cleanText = cleanText.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '');
-
-    // 4. Remove reporter info ONLY if it's near the very end (last 100 chars)
-    // Avoids cutting off the middle of the text
-    const reporterIndex = cleanText.search(/[가-힣]{2,4}\s*(기자|특파원|기자단)/);
-    if (reporterIndex > cleanText.length - 150) {
-        cleanText = cleanText.substring(0, reporterIndex).trim();
+    // 3. Instead of aggressive sentence splitting, we just take a generous chunk
+    // This ensures we definitely fill the 9 lines if the content exists.
+    if (cleanText.length > 1200) {
+        return cleanText.substring(0, 1200) + '...';
     }
 
-    // 5. Split by sentence enders (. ! ?)
-    // Improved regex to handle various sentence endings
-    const sentences = cleanText.split(/(?<=[.!?])\s+/);
-
-    // 6. Take up to 15 sentences OR ~1500 characters to ensure we fill the 9 lines
-    let core = [];
-    let currentLength = 0;
-    
-    for (const sentence of sentences) {
-        const trimmed = sentence.trim();
-        if (trimmed.length > 5 && !trimmed.includes('제공=')) {
-            core.push(trimmed);
-            currentLength += trimmed.length;
-            if (core.length >= 15 || currentLength > 1500) break;
-        }
-    }
-
-    // 7. Fallback if no clear sentences were found
-    if (core.length === 0) {
-        return cleanText.length > 800 ? cleanText.substring(0, 800) + '...' : cleanText;
-    }
-
-    let result = core.join(' ');
-    
-    // Add ellipsis if we truncated the original text
-    if (result.length < cleanText.length && !result.endsWith('...') && !result.endsWith('…')) {
-        if (!/[.!?]$/.test(result)) {
-            result += '...';
-        }
-    }
-
-    return result;
+    return cleanText;
 }
 
 async function fetchNews(tab, isSilent = false) {
