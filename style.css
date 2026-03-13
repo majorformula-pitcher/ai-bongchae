@@ -8,7 +8,7 @@
     --card-border: rgba(255, 255, 255, 0.1);
     --shadow-color: rgba(0, 0, 0, 0.5);
     --glow-color: oklch(65% 0.18 250 / 0.2);
-    --container-width: 1200px;
+    --container-width: 1400px;
     --transition-speed: 0.3s;
 }
 
@@ -113,8 +113,8 @@ main {
 
 .news-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 2rem;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 2.5rem;
 }
 
 /* Loader Styles */
@@ -162,5 +162,9 @@ footer {
     .tab-btn {
         padding: 0.6rem 1.2rem;
         font-size: 0.85rem;
+    }
+
+    .news-grid {
+        grid-template-columns: 1fr;
     }
 }
