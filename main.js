@@ -38,15 +38,16 @@ class AINewsItem extends HTMLElement {
                     backdrop-filter: blur(10px);
                     -webkit-backdrop-filter: blur(10px);
                     border: 1px solid rgba(255, 255, 255, 0.1);
-                    border-radius: 16px;
-                    padding: 1.5rem;
+                    border-radius: 20px;
+                    padding: 2rem;
                     display: flex;
                     flex-direction: column;
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
                     color: inherit;
                     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
                     position: relative;
-                    height: 500px;
+                    height: 520px; /* Slightly increased for better spacing */
+                    overflow: hidden;
                 }
                 .card:hover {
                     transform: translateY(-8px);
@@ -84,30 +85,34 @@ class AINewsItem extends HTMLElement {
                     z-index: 2;
                 }
                 .date {
-                    font-size: 0.75rem;
+                    font-size: 0.8rem;
                     color: oklch(75% 0.02 240);
-                    margin-bottom: 0.5rem;
+                    margin-bottom: 0.75rem;
                     font-weight: 500;
                     text-transform: uppercase;
                     letter-spacing: 0.05em;
                 }
                 h2 {
-                    font-size: 1.25rem;
-                    margin: 0 0 0.75rem;
+                    font-size: 1.4rem;
+                    margin: 0 0 1rem;
                     font-weight: 700;
                     line-height: 1.3;
                     color: oklch(95% 0.01 240);
+                    display: -webkit-box;
+                    -webkit-line-clamp: 2;
+                    -webkit-box-orient: vertical;
+                    overflow: hidden;
                 }
                 .summary-container {
                     display: flex;
                     flex-direction: column;
-                    gap: 0.5rem;
+                    gap: 0.75rem;
                     flex-grow: 1;
-                    margin-bottom: 1rem;
+                    margin-bottom: 1.5rem;
                     overflow: hidden;
                 }
                 .insight-label {
-                    font-size: 0.7rem;
+                    font-size: 0.75rem;
                     font-weight: 800;
                     color: var(--secondary-accent, oklch(85% 0.12 180));
                     letter-spacing: 0.1em;
@@ -126,12 +131,12 @@ class AINewsItem extends HTMLElement {
                     box-shadow: 0 0 8px currentColor;
                 }
                 p {
-                    font-size: 0.95rem;
-                    line-height: 1.6;
+                    font-size: 1.05rem; /* Increased font size */
+                    line-height: 1.8;   /* Increased line height */
                     color: oklch(85% 0.01 240);
                     margin: 0;
                     display: -webkit-box;
-                    -webkit-line-clamp: 9;
+                    -webkit-line-clamp: 8; /* Reduced clamp but larger text to fill same space */
                     -webkit-box-orient: vertical;
                     overflow: hidden;
                 }
@@ -141,13 +146,13 @@ class AINewsItem extends HTMLElement {
                     align-items: center;
                     justify-content: center;
                     gap: 0.5rem;
-                    padding: 0.9rem 1.5rem;
+                    padding: 1rem 1.5rem;
                     background: rgba(255, 255, 255, 0.05);
                     border: 1px solid rgba(255, 255, 255, 0.15);
                     border-radius: 12px;
                     color: var(--text-color, white);
                     text-decoration: none;
-                    font-size: 0.9rem;
+                    font-size: 0.95rem;
                     font-weight: 600;
                     transition: all 0.3s ease;
                     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
@@ -208,8 +213,12 @@ function extractCoreInsight(text) {
 
     // 1. Initial Cleaning (Remove basic HTML and normalize whitespace)
     let cleanText = text
-        .replace(/<[^>]*>?/gm, '') // Remove HTML tags just in case
+        .replace(/<[^>]*>?/gm, '') // Remove HTML tags
         .replace(/&nbsp;/g, ' ')
+        .replace(/&amp;/g, '&')
+        .replace(/&quot;/g, '"')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
         .replace(/\s+/g, ' ')
         .trim();
 
@@ -220,10 +229,9 @@ function extractCoreInsight(text) {
         .replace(/^【[^】]+】\s*/, '')      // 【세종=뉴시스】
         .trim();
 
-    // 3. Instead of aggressive sentence splitting, we just take a generous chunk
-    // This ensures we definitely fill the 9 lines if the content exists.
-    if (cleanText.length > 1200) {
-        return cleanText.substring(0, 1200) + '...';
+    // 3. Take a generous chunk to ensure it fills the space
+    if (cleanText.length > 1500) {
+        return cleanText.substring(0, 1500) + '...';
     }
 
     return cleanText;
@@ -295,7 +303,7 @@ async function fetchNews(tab, isSilent = false) {
 function renderItem(item, container, index, isNewBadge) {
     const title = item.title || '';
     const link = item.link || '';
-    const description = item.description || '';
+    const description = item.description || item.content || '';
     const pubDate = item.pubDate || '';
 
     const dateObj = new Date(pubDate);
