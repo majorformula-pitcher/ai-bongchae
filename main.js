@@ -128,7 +128,7 @@ class AINewsItem extends HTMLElement {
                 }
                 p {
                     font-size: 0.95rem;
-                    line-height: 1.6;
+                    line-height: 1.7;
                     color: oklch(85% 0.01 240);
                     margin: 0;
                 }
@@ -160,7 +160,7 @@ const lastFetchedIds = {
 };
 
 /**
- * Extracts the core insight (first 2-3 sentences) from a raw summary.
+ * Extracts the core insight (first 5-6 sentences) from a raw summary.
  */
 function extractCoreInsight(text) {
     if (!text) return 'No summary available.';
@@ -183,12 +183,13 @@ function extractCoreInsight(text) {
     // 3. Split by sentence enders (. ! ?)
     const sentences = cleanText.split(/(?<=[.!?])\s+/);
 
-    // 4. Take first 2-3 sentences (Relaxed limit for more info)
+    // 4. Take first 5-6 sentences (Increased for more context)
     let core = [];
     let currentLength = 0;
     
     for (const sentence of sentences) {
-        if (core.length >= 3 || currentLength > 220) break;
+        // Stop if we have 6 sentences OR exceeds ~450 characters
+        if (core.length >= 6 || currentLength > 450) break;
         const trimmed = sentence.trim();
         if (trimmed.length > 10 && !trimmed.includes('제공=')) {
             core.push(trimmed);
@@ -198,7 +199,7 @@ function extractCoreInsight(text) {
 
     // 5. If we failed to get sentences, take a substring
     if (core.length === 0) {
-        return cleanText.substring(0, 180) + '...';
+        return cleanText.substring(0, 300) + '...';
     }
 
     let result = core.join(' ');
