@@ -9,7 +9,7 @@ class AINewsItem extends HTMLElement {
     }
 
     static get observedAttributes() {
-        return ['title', 'summary', 'link', 'date'];
+        return ['title', 'summary', 'link', 'date', 'is-new'];
     }
 
     attributeChangedCallback() {
@@ -25,6 +25,7 @@ class AINewsItem extends HTMLElement {
         const summary = this.getAttribute('summary') || 'No summary available.';
         const link = this.getAttribute('link') || '#';
         const date = this.getAttribute('date') || '';
+        const isNew = this.hasAttribute('is-new');
 
         this.shadowRoot.innerHTML = `
             <style>
@@ -71,6 +72,20 @@ class AINewsItem extends HTMLElement {
                 .card:hover::after {
                     opacity: 1;
                 }
+                .badge-new {
+                    position: absolute;
+                    top: 1.25rem;
+                    right: 1.25rem;
+                    background: linear-gradient(135deg, #ff4d4d, #f9cb28);
+                    color: white;
+                    font-size: 0.65rem;
+                    font-weight: 800;
+                    padding: 2px 8px;
+                    border-radius: 20px;
+                    text-transform: uppercase;
+                    box-shadow: 0 4px 10px rgba(255, 77, 77, 0.4);
+                    z-index: 2;
+                }
                 .date {
                     font-size: 0.75rem;
                     color: oklch(75% 0.02 240);
@@ -115,6 +130,7 @@ class AINewsItem extends HTMLElement {
                 }
             </style>
             <a href="${link}" target="_blank" class="card">
+                ${isNew ? '<div class="badge-new">NEW</div>' : ''}
                 <div class="date">${date}</div>
                 <h2>${title}</h2>
                 <p>${summary}</p>
@@ -138,17 +154,23 @@ const FEEDS = {
 };
 
 let currentTab = 'ai';
+const lastFetchedIds = {
+    ai: new Set(),
+    robot: new Set()
+};
 
-async function fetchNews(tab) {
+async function fetchNews(tab, isSilent = false) {
     const grid = document.getElementById('news-grid');
     
-    // Show loader
-    grid.innerHTML = `
-        <div class="loader-container">
-            <div class="loader"></div>
-            <p>Fetching ${tab.toUpperCase()} insights...</p>
-        </div>
-    `;
+    // Only show loader if it's not a silent background update
+    if (!isSilent) {
+        grid.innerHTML = `
+            <div class="loader-container">
+                <div class="loader"></div>
+                <p>Fetching ${tab.toUpperCase()} insights...</p>
+            </div>
+        `;
+    }
 
     const rssUrl = FEEDS[tab];
     const apiUrl = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(rssUrl)}`;
@@ -162,56 +184,84 @@ async function fetchNews(tab) {
         
         const items = data.items;
         if (!items || items.length === 0) {
-            grid.innerHTML = '<p class="loader-container">No articles found in this category.</p>';
+            if (!isSilent) grid.innerHTML = '<p class="loader-container">No articles found in this category.</p>';
             return;
         }
 
-        grid.innerHTML = '';
+        const newItems = [];
+        const existingIds = lastFetchedIds[tab];
 
-        items.forEach((item, index) => {
-            const title = item.title || '';
-            const link = item.link || '';
-            const description = item.description || '';
-            const pubDate = item.pubDate || '';
-
-            const dateObj = new Date(pubDate);
-            const formattedDate = dateObj.toLocaleDateString('ko-KR', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric'
-            });
-
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = description;
-            const cleanDescription = tempDiv.textContent || tempDiv.innerText || '';
-
-            const newsItem = document.createElement('ai-news-item');
-            newsItem.setAttribute('title', title);
-            newsItem.setAttribute('summary', cleanDescription);
-            newsItem.setAttribute('link', link);
-            newsItem.setAttribute('date', formattedDate);
-            
-            newsItem.style.opacity = '0';
-            newsItem.style.transform = 'translateY(20px)';
-            newsItem.style.transition = `all 0.5s ease ${index * 0.05}s`;
-
-            grid.appendChild(newsItem);
-
-            requestAnimationFrame(() => {
-                newsItem.style.opacity = '1';
-                newsItem.style.transform = 'translateY(0)';
-            });
+        items.forEach(item => {
+            const id = item.guid || item.link;
+            if (!existingIds.has(id)) {
+                newItems.push(item);
+                existingIds.add(id);
+            }
         });
+
+        if (!isSilent) {
+            grid.innerHTML = '';
+            // If not silent, we render all items from scratch but mark them as seen
+            items.forEach((item, index) => renderItem(item, grid, index, false));
+        } else if (newItems.length > 0) {
+            // If silent and we have new items, prepend them
+            console.log(`[Real-time] Found ${newItems.length} new items for ${tab}`);
+            newItems.reverse().forEach((item) => renderItem(item, grid, 0, true));
+        }
 
     } catch (error) {
         console.error('Error:', error);
-        grid.innerHTML = `
-            <div class="loader-container">
-                <p>Failed to load ${tab.toUpperCase()} news.</p>
-                <small style="margin-top:1rem; color:var(--text-dim)">${error.message}</small>
-            </div>
-        `;
+        if (!isSilent) {
+            grid.innerHTML = `
+                <div class="loader-container">
+                    <p>Failed to load ${tab.toUpperCase()} news.</p>
+                    <small style="margin-top:1rem; color:var(--text-dim)">${error.message}</small>
+                </div>
+            `;
+        }
     }
+}
+
+function renderItem(item, container, index, isNewBadge) {
+    const title = item.title || '';
+    const link = item.link || '';
+    const description = item.description || '';
+    const pubDate = item.pubDate || '';
+
+    const dateObj = new Date(pubDate);
+    const formattedDate = dateObj.toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = description;
+    const cleanDescription = tempDiv.textContent || tempDiv.innerText || '';
+
+    const newsItem = document.createElement('ai-news-item');
+    newsItem.setAttribute('title', title);
+    newsItem.setAttribute('summary', cleanDescription);
+    newsItem.setAttribute('link', link);
+    newsItem.setAttribute('date', formattedDate);
+    if (isNewBadge) {
+        newsItem.setAttribute('is-new', '');
+    }
+    
+    newsItem.style.opacity = '0';
+    newsItem.style.transform = 'translateY(20px)';
+    newsItem.style.transition = `all 0.5s ease ${index * 0.05}s`;
+
+    if (isNewBadge) {
+        container.insertBefore(newsItem, container.firstChild);
+    } else {
+        container.appendChild(newsItem);
+    }
+
+    requestAnimationFrame(() => {
+        newsItem.style.opacity = '1';
+        newsItem.style.transform = 'translateY(0)';
+    });
 }
 
 function setupTabs() {
@@ -227,15 +277,16 @@ function setupTabs() {
 
             // Update State
             currentTab = tabId;
-            fetchNews(currentTab);
+            // When switching tabs, we do a full refresh (not silent)
+            fetchNews(currentTab, false);
         });
     });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     setupTabs();
-    fetchNews(currentTab);
+    fetchNews(currentTab, false);
 });
 
-// Auto refresh every 10 mins
-setInterval(() => fetchNews(currentTab), 10 * 60 * 1000);
+// Real-time refresh every 1 minute
+setInterval(() => fetchNews(currentTab, true), 60 * 1000);
