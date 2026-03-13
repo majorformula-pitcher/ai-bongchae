@@ -108,13 +108,14 @@ header {
 }
 
 main {
-    padding-bottom: 4rem;
+    padding-bottom: 6rem;
 }
 
 .news-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
-    gap: 2.5rem;
+    gap: 3.5rem;
+    align-items: start;
 }
 
 /* Loader Styles */
