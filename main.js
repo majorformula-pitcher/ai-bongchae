@@ -134,24 +134,25 @@ class AINewsItem extends HTMLElement {
 customElements.define('ai-news-item', AINewsItem);
 
 const RSS_URL = 'https://rss.etnews.com/04046.xml';
-const PROXY_URL = 'https://api.allorigins.win/get?url=';
+// Using rss2json service which is more specialized for RSS feeds and often more stable
+const API_URL = `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(RSS_URL)}`;
 
 async function fetchNews() {
     const grid = document.getElementById('news-grid');
-    const loader = document.getElementById('loader');
-
+    
     try {
-        const response = await fetch(PROXY_URL + encodeURIComponent(RSS_URL));
-        if (!response.ok) throw new Error('Failed to fetch news from proxy');
+        const response = await fetch(API_URL);
+        if (!response.ok) throw new Error('Failed to fetch news from RSS API');
         
         const data = await response.json();
-        const xmlText = data.contents;
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
         
-        const items = xmlDoc.querySelectorAll('item');
+        if (data.status !== 'ok') {
+            throw new Error(data.message || 'Error parsing RSS feed');
+        }
         
-        if (items.length === 0) {
+        const items = data.items;
+        
+        if (!items || items.length === 0) {
             grid.innerHTML = '<p class="loader-container">No news found at the moment.</p>';
             return;
         }
@@ -160,10 +161,10 @@ async function fetchNews() {
         grid.innerHTML = '';
 
         items.forEach((item, index) => {
-            const title = item.querySelector('title')?.textContent || '';
-            const link = item.querySelector('link')?.textContent || '';
-            const description = item.querySelector('description')?.textContent || '';
-            const pubDate = item.querySelector('pubDate')?.textContent || '';
+            const title = item.title || '';
+            const link = item.link || '';
+            const description = item.description || '';
+            const pubDate = item.pubDate || '';
 
             // Format date
             const dateObj = new Date(pubDate);
@@ -173,7 +174,7 @@ async function fetchNews() {
                 day: 'numeric'
             });
 
-            // Strip HTML from description if any
+            // Strip HTML from description
             const tempDiv = document.createElement('div');
             tempDiv.innerHTML = description;
             const cleanDescription = tempDiv.textContent || tempDiv.innerText || '';
@@ -187,7 +188,7 @@ async function fetchNews() {
             // Add staggered animation delay
             newsItem.style.opacity = '0';
             newsItem.style.transform = 'translateY(20px)';
-            newsItem.style.transition = `all 0.5s ease ${index * 0.1}s`;
+            newsItem.style.transition = `all 0.5s ease ${index * 0.05}s`;
 
             grid.appendChild(newsItem);
 
