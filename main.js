@@ -39,15 +39,14 @@ class AINewsItem extends HTMLElement {
                     -webkit-backdrop-filter: blur(10px);
                     border: 1px solid rgba(255, 255, 255, 0.1);
                     border-radius: 16px;
-                    padding: 1.5rem 1.5rem 0.75rem;
+                    padding: 1.75rem;
                     display: flex;
                     flex-direction: column;
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                    text-decoration: none;
                     color: inherit;
-                    cursor: pointer;
                     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
                     position: relative;
+                    min-height: 420px;
                 }
                 .card:hover {
                     transform: translateY(-8px);
@@ -72,29 +71,29 @@ class AINewsItem extends HTMLElement {
                 }
                 .badge-new {
                     position: absolute;
-                    top: 1rem;
-                    right: 1rem;
+                    top: 1.25rem;
+                    right: 1.25rem;
                     background: linear-gradient(135deg, #ff4d4d, #f9cb28);
                     color: white;
-                    font-size: 0.6rem;
+                    font-size: 0.65rem;
                     font-weight: 800;
-                    padding: 2px 6px;
+                    padding: 2px 8px;
                     border-radius: 20px;
                     text-transform: uppercase;
                     box-shadow: 0 4px 10px rgba(255, 77, 77, 0.4);
                     z-index: 2;
                 }
                 .date {
-                    font-size: 0.7rem;
+                    font-size: 0.75rem;
                     color: oklch(75% 0.02 240);
-                    margin-bottom: 0.5rem;
+                    margin-bottom: 0.75rem;
                     font-weight: 500;
                     text-transform: uppercase;
                     letter-spacing: 0.05em;
                 }
                 h2 {
-                    font-size: 1.25rem;
-                    margin: 0 0 1rem;
+                    font-size: 1.35rem;
+                    margin: 0 0 1.25rem;
                     font-weight: 700;
                     line-height: 1.4;
                     color: oklch(95% 0.01 240);
@@ -102,10 +101,12 @@ class AINewsItem extends HTMLElement {
                 .summary-container {
                     display: flex;
                     flex-direction: column;
-                    gap: 0.4rem;
+                    gap: 0.75rem;
+                    flex-grow: 1;
+                    margin-bottom: 1.75rem;
                 }
                 .insight-label {
-                    font-size: 0.65rem;
+                    font-size: 0.7rem;
                     font-weight: 800;
                     color: var(--secondary-accent, oklch(85% 0.12 180));
                     letter-spacing: 0.1em;
@@ -116,21 +117,56 @@ class AINewsItem extends HTMLElement {
                 }
                 .insight-label::before {
                     content: '';
-                    width: 5px;
-                    height: 5px;
+                    width: 6px;
+                    height: 6px;
                     background: currentColor;
                     border-radius: 50%;
                     display: inline-block;
                     box-shadow: 0 0 8px currentColor;
                 }
                 p {
-                    font-size: 0.95rem;
-                    line-height: 1.7;
+                    font-size: 1rem;
+                    line-height: 1.65;
                     color: oklch(85% 0.01 240);
                     margin: 0;
+                    display: -webkit-box;
+                    -webkit-line-clamp: 6;
+                    -webkit-box-orient: vertical;
+                    overflow: hidden;
+                }
+                .cta-button {
+                    margin-top: auto;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.5rem;
+                    padding: 0.9rem 1.5rem;
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.15);
+                    border-radius: 12px;
+                    color: var(--text-color, white);
+                    text-decoration: none;
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                    transition: all 0.3s ease;
+                    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+                }
+                .cta-button:hover {
+                    background: var(--primary-accent, oklch(65% 0.18 250));
+                    border-color: transparent;
+                    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3), 0 0 15px var(--glow-color);
+                    transform: translateY(-2px);
+                }
+                .cta-button svg {
+                    width: 18px;
+                    height: 18px;
+                    transition: transform 0.3s ease;
+                }
+                .cta-button:hover svg {
+                    transform: translateX(3px);
                 }
             </style>
-            <a href="${link}" target="_blank" class="card">
+            <div class="card">
                 ${isNew ? '<div class="badge-new">NEW</div>' : ''}
                 <div class="date">${date}</div>
                 <h2>${title}</h2>
@@ -138,7 +174,14 @@ class AINewsItem extends HTMLElement {
                     <div class="insight-label">Core Insight</div>
                     <p>${summary}</p>
                 </div>
-            </a>
+                <a href="${link}" target="_blank" class="cta-button">
+                    View Full Article
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                        <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                </a>
+            </div>
         `;
     }
 }
