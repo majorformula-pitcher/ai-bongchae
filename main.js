@@ -12,8 +12,10 @@ class AINewsItem extends HTMLElement {
         return ['title', 'summary', 'link', 'date', 'is-new'];
     }
 
-    attributeChangedCallback() {
-        this.render();
+    attributeChangedCallback(name, oldValue, newValue) {
+        if (oldValue !== newValue) {
+            this.render();
+        }
     }
 
     connectedCallback() {
@@ -46,7 +48,7 @@ class AINewsItem extends HTMLElement {
                     color: inherit;
                     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
                     position: relative;
-                    height: 520px; /* Slightly increased for better spacing */
+                    height: 520px;
                     overflow: hidden;
                 }
                 .card:hover {
@@ -131,14 +133,19 @@ class AINewsItem extends HTMLElement {
                     box-shadow: 0 0 8px currentColor;
                 }
                 p {
-                    font-size: 1.05rem; /* Increased font size */
-                    line-height: 1.8;   /* Increased line height */
+                    font-size: 1.05rem;
+                    line-height: 1.8;
                     color: oklch(85% 0.01 240);
                     margin: 0;
                     display: -webkit-box;
-                    -webkit-line-clamp: 8; /* Reduced clamp but larger text to fill same space */
+                    -webkit-line-clamp: 8;
                     -webkit-box-orient: vertical;
                     overflow: hidden;
+                    animation: fadeIn 0.5s ease-out;
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0.5; transform: translateY(5px); }
+                    to { opacity: 1; transform: translateY(0); }
                 }
                 .cta-button {
                     margin-top: auto;
@@ -211,9 +218,8 @@ const lastFetchedIds = {
 function extractCoreInsight(text) {
     if (!text) return 'No summary available.';
 
-    // 1. Initial Cleaning (Remove basic HTML and normalize whitespace)
     let cleanText = text
-        .replace(/<[^>]*>?/gm, '') // Remove HTML tags
+        .replace(/<[^>]*>?/gm, '')
         .replace(/&nbsp;/g, ' ')
         .replace(/&amp;/g, '&')
         .replace(/&quot;/g, '"')
@@ -222,14 +228,12 @@ function extractCoreInsight(text) {
         .replace(/\s+/g, ' ')
         .trim();
 
-    // 2. Remove only common news agency prefixes at the very start
     cleanText = cleanText
-        .replace(/^\[[^\]]+\]\s*/, '')      // [서울=뉴시스]
-        .replace(/^\([^\)]+\)\s*/, '')      // (대전=연합뉴스)
-        .replace(/^【[^】]+】\s*/, '')      // 【세종=뉴시스】
+        .replace(/^\[[^\]]+\]\s*/, '')
+        .replace(/^\([^\)]+\)\s*/, '')
+        .replace(/^【[^】]+】\s*/, '')
         .trim();
 
-    // 3. Take a generous chunk to ensure it fills the space
     if (cleanText.length > 1500) {
         return cleanText.substring(0, 1500) + '...';
     }
@@ -237,10 +241,76 @@ function extractCoreInsight(text) {
     return cleanText;
 }
 
+/**
+ * Fetches the full content of an article via a CORS proxy and parses the HTML.
+ */
+async function fetchFullArticle(url) {
+    try {
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+        const response = await fetch(proxyUrl);
+        if (!response.ok) return null;
+        
+        const data = await response.json();
+        const html = data.contents;
+        
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // Remove common non-article elements
+        const elementsToRemove = doc.querySelectorAll('script, style, nav, footer, header, .ads, .sidebar, .related, .comment, .footer-content');
+        elementsToRemove.forEach(el => el.remove());
+
+        // Target site-specific article bodies or common selectors
+        const selectors = [
+            'section.article-body', // ETNews
+            '#article-view-content-div', // iRobotNews
+            'article', 
+            '.article-content', 
+            '.post-content', 
+            '.entry-content',
+            'main p'
+        ];
+
+        let articleContent = '';
+        for (const selector of selectors) {
+            const container = doc.querySelector(selector);
+            if (container) {
+                // Get paragraphs from the container
+                const paragraphs = container.querySelectorAll('p');
+                if (paragraphs.length > 0) {
+                    articleContent = Array.from(paragraphs)
+                        .map(p => p.textContent.trim())
+                        .filter(text => text.length > 40) // Filter out short fragments
+                        .join(' ');
+                    if (articleContent.length > 200) break;
+                } else {
+                    // Fallback to text content of the container
+                    articleContent = container.textContent.trim();
+                    if (articleContent.length > 200) break;
+                }
+            }
+        }
+
+        if (!articleContent || articleContent.length < 100) {
+            // Last resort: extract all P tags from body
+            const allPs = doc.querySelectorAll('p');
+            articleContent = Array.from(allPs)
+                .map(p => p.textContent.trim())
+                .filter(text => text.length > 50)
+                .slice(0, 5) // Take first 5 relevant paragraphs
+                .join(' ');
+        }
+
+        return extractCoreInsight(articleContent);
+    } catch (e) {
+        console.error('Failed to fetch full article:', e);
+        return null;
+    }
+}
+
 async function fetchNews(tab, isSilent = false) {
     const grid = document.getElementById('news-grid');
     
-    // Only show loader if it's not a silent background update
     if (!isSilent) {
         grid.innerHTML = `
             <div class="loader-container">
@@ -279,11 +349,8 @@ async function fetchNews(tab, isSilent = false) {
 
         if (!isSilent) {
             grid.innerHTML = '';
-            // If not silent, we render all items from scratch but mark them as seen
             items.forEach((item, index) => renderItem(item, grid, index, false));
         } else if (newItems.length > 0) {
-            // If silent and we have new items, prepend them
-            console.log(`[Real-time] Found ${newItems.length} new items for ${tab}`);
             newItems.reverse().forEach((item) => renderItem(item, grid, 0, true));
         }
 
@@ -315,14 +382,11 @@ function renderItem(item, container, index, isNewBadge) {
 
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = description;
-    const cleanDescription = tempDiv.textContent || tempDiv.innerText || '';
-    
-    // Extract core insight instead of showing everything
-    const coreSummary = extractCoreInsight(cleanDescription);
+    const initialSummary = extractCoreInsight(tempDiv.textContent || tempDiv.innerText || '');
 
     const newsItem = document.createElement('ai-news-item');
     newsItem.setAttribute('title', title);
-    newsItem.setAttribute('summary', coreSummary);
+    newsItem.setAttribute('summary', initialSummary);
     newsItem.setAttribute('link', link);
     newsItem.setAttribute('date', formattedDate);
     if (isNewBadge) {
@@ -339,6 +403,13 @@ function renderItem(item, container, index, isNewBadge) {
         container.appendChild(newsItem);
     }
 
+    // Trigger full article content fetch asynchronously
+    fetchFullArticle(link).then(fullContent => {
+        if (fullContent && fullContent.length > initialSummary.length) {
+            newsItem.setAttribute('summary', fullContent);
+        }
+    });
+
     requestAnimationFrame(() => {
         newsItem.style.opacity = '1';
         newsItem.style.transform = 'translateY(0)';
@@ -352,13 +423,10 @@ function setupTabs() {
             const tabId = tab.getAttribute('data-tab');
             if (tabId === currentTab) return;
 
-            // Update UI
             tabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
 
-            // Update State
             currentTab = tabId;
-            // When switching tabs, we do a full refresh (not silent)
             fetchNews(currentTab, false);
         });
     });
@@ -369,5 +437,4 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchNews(currentTab, false);
 });
 
-// Real-time refresh every 1 minute
 setInterval(() => fetchNews(currentTab, true), 60 * 1000);

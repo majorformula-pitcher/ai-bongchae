@@ -24,29 +24,31 @@ To become the primary dashboard for real-time tech news, offering a seamless, fu
 
 ### 2. Functional Features
 - **Multi-Feed Integration**: AI Feed (ETNews) and Robot Feed (RobotNews).
-- **Core Insight Extraction (V4)**: 
-  - Automatically identifies and extracts the most relevant 2-3 sentences from long news summaries.
-  - Cleans news agency prefixes (e.g., [Seoul=...] ) for a cleaner reading experience.
+- **Core Insight Extraction (V6)**: 
+  - **Full Article Fetching**: Asynchronously retrieves the complete HTML of news articles via a CORS proxy (`allorigins.win`).
+  - **Content Parsing**: Utilizes DOM parsing and site-specific selectors to isolate the main article body.
+  - **Dynamic Updates**: Initially displays RSS snippets, then smoothly updates to the full content with a fade-in animation.
 - **Real-Time Updates**: Automatic background refresh every 1 minute with surgical UI updates.
 - **RSS-to-JSON Pipeline**: Utilizing the `rss2json` API for robust data retrieval and CORS handling.
 
-### 3. Implementation Details (V5 - Layout Optimization)
-- **Card Dimensions**: Fixed height of `500px` for consistent grid alignment.
-- **Text Visibility**: Increased summary visibility to 9 lines with reduced vertical margins to maximize reading space.
-- **Extraction Heuristic**: `extractCoreInsight` function using regex-based sentence splitting and pattern cleaning, now capturing up to 12 sentences to fill the expanded space.
+### 3. Implementation Details (V6 - Content & Layout Optimization)
+- **Card Dimensions**: Fixed height of `520px` for consistent grid alignment and optimal reading space.
+- **Text Visibility**: Increased font size to `1.05rem` and line-height to `1.8` to fill 8-9 lines of space.
 - **State Management**: `lastFetchedIds` Set to track unique article IDs.
 - **Responsive Grid**: Adaptive layout using CSS Grid with `minmax(420px, 1fr)`.
 
 ---
 
-## Current Plan: Card Layout Optimization
+## Current Plan: Full Article Content Extraction
 
-### Step 1: Component Styling (`main.js`)
-- Set `.card` height to `500px`.
-- Reduce padding to `1.5rem` and adjust margins for title and date.
-- Set `-webkit-line-clamp` to `9` for the summary paragraph.
+### Step 1: content extraction utility (`main.js`)
+- Create `fetchFullArticle` to retrieve and parse external HTML.
+- Implement site-specific selectors (e.g., `section.article-body` for ETNews).
 
-### Step 2: Verification
-- Verify that cards are uniformly 500px tall.
-- Ensure that the "Core Insight" section shows more content than before.
-- Confirm that the layout remains balanced on both desktop and mobile views.
+### Step 2: Update rendering logic (`main.js`)
+- Modify `renderItem` to trigger full content fetch after initial RSS render.
+- Ensure the card UI updates seamlessly via the `summary` attribute.
+
+### Step 3: Verification
+- Verify that cards now display significantly more content than the original RSS snippet.
+- Confirm proxy reliability and error handling.
