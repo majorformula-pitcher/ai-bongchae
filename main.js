@@ -101,19 +101,46 @@ class AINewsItem extends HTMLElement {
                     line-height: 1.4;
                     color: oklch(95% 0.01 240);
                 }
+                .summary-container {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.75rem;
+                    flex-grow: 1;
+                }
+                .insight-label {
+                    font-size: 0.7rem;
+                    font-weight: 800;
+                    color: var(--secondary-accent, oklch(85% 0.12 180));
+                    letter-spacing: 0.1em;
+                    text-transform: uppercase;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.4rem;
+                }
+                .insight-label::before {
+                    content: '';
+                    width: 6px;
+                    height: 6px;
+                    background: currentColor;
+                    border-radius: 50%;
+                    display: inline-block;
+                    box-shadow: 0 0 8px currentColor;
+                }
                 p {
                     font-size: 1rem;
                     line-height: 1.7;
                     color: oklch(85% 0.01 240);
                     margin: 0;
-                    flex-grow: 1;
                 }
             </style>
             <a href="${link}" target="_blank" class="card">
                 ${isNew ? '<div class="badge-new">NEW</div>' : ''}
                 <div class="date">${date}</div>
                 <h2>${title}</h2>
-                <p>${summary}</p>
+                <div class="summary-container">
+                    <div class="insight-label">Core Insight</div>
+                    <p>${summary}</p>
+                </div>
             </a>
         `;
     }
@@ -133,37 +160,57 @@ const lastFetchedIds = {
 };
 
 /**
- * Extracts the core insight (first 2-3 sentences) from a raw summary.
+ * Extracts the core insight (first 1-2 sentences) from a raw summary.
  */
 function extractCoreInsight(text) {
     if (!text) return 'No summary available.';
 
-    // 1. Remove common news prefix patterns (e.g., [Seoul=Newsis], (Daejeon=Yonhap))
-    let cleanText = text.replace(/^\[[^\]]+\]\s*/, '')
-                        .replace(/^\([^\)]+\)\s*/, '')
-                        .replace(/^【[^】]+】\s*/, '');
+    // 1. Initial Cleaning
+    let cleanText = text
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-    // 2. Split by sentence enders followed by space or newline
-    // We use a regex that matches common Korean sentence enders
+    // 2. Remove common news agency prefixes/suffixes and reporter info
+    cleanText = cleanText
+        .replace(/^\[[^\]]+\]\s*/, '')      // [서울=뉴시스]
+        .replace(/^\([^\)]+\)\s*/, '')      // (대전=연합뉴스)
+        .replace(/^【[^】]+】\s*/, '')      // 【세종=뉴시스】
+        .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '') // Email
+        .replace(/[가-힣]{2,4}\s*(기자|특파원).*/, '') // Reporter name (at the end)
+        .trim();
+
+    // 3. Split by sentence enders (. ! ?)
+    // We look for a sentence ender followed by a space and a capital letter or Korean char
     const sentences = cleanText.split(/(?<=[.!?])\s+/);
 
-    // 3. Take first 2-3 sentences (up to 200 chars total for a "core" feel)
+    // 4. Take first 1-2 sentences (Strict limit for a real "insight" feel)
     let core = [];
     let currentLength = 0;
     
     for (const sentence of sentences) {
-        if (core.length >= 3 || currentLength > 180) break;
+        if (core.length >= 2 || currentLength > 120) break;
         const trimmed = sentence.trim();
-        if (trimmed.length > 5) {
+        // Ignore very short fragments or common artifacts
+        if (trimmed.length > 10 && !trimmed.includes('제공=')) {
             core.push(trimmed);
             currentLength += trimmed.length;
         }
     }
 
-    const result = core.join(' ');
+    // 5. If we failed to get sentences, take a substring
+    if (core.length === 0) {
+        return cleanText.substring(0, 120) + '...';
+    }
+
+    let result = core.join(' ');
     
-    // 4. Final cleaning (remove incomplete sentences or artifacts)
-    return result.length > 10 ? result : (cleanText.substring(0, 150) + '...');
+    // Ensure it ends with a dot if it looks like a sentence
+    if (!result.endsWith('.') && !result.endsWith('!') && !result.endsWith('?')) {
+        result += '...';
+    }
+
+    return result;
 }
 
 async function fetchNews(tab, isSilent = false) {
