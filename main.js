@@ -46,7 +46,7 @@ class AINewsItem extends HTMLElement {
                     color: inherit;
                     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
                     position: relative;
-                    min-height: 420px;
+                    min-height: 500px;
                 }
                 .card:hover {
                     transform: translateY(-8px);
@@ -93,7 +93,7 @@ class AINewsItem extends HTMLElement {
                 }
                 h2 {
                     font-size: 1.35rem;
-                    margin: 0 0 1.25rem;
+                    margin: 0 0 1rem;
                     font-weight: 700;
                     line-height: 1.4;
                     color: oklch(95% 0.01 240);
@@ -103,7 +103,7 @@ class AINewsItem extends HTMLElement {
                     flex-direction: column;
                     gap: 0.75rem;
                     flex-grow: 1;
-                    margin-bottom: 1.75rem;
+                    margin-bottom: 1.5rem;
                 }
                 .insight-label {
                     font-size: 0.7rem;
@@ -130,7 +130,7 @@ class AINewsItem extends HTMLElement {
                     color: oklch(85% 0.01 240);
                     margin: 0;
                     display: -webkit-box;
-                    -webkit-line-clamp: 6;
+                    -webkit-line-clamp: 7;
                     -webkit-box-orient: vertical;
                     overflow: hidden;
                 }
