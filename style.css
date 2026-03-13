@@ -1,1 +1,59 @@
-/* Add styles here */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap');
+
+:root {
+    --primary-color: #3498db;
+    --background-color: #f4f7f6;
+    --text-color: #333;
+    --shadow-color: rgba(0, 0, 0, 0.1);
+}
+
+body {
+    font-family: 'Roboto', sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    margin: 0;
+    background-color: var(--background-color);
+    background-image: linear-gradient(45deg, #f9f9f9 25%, transparent 25%),
+                      linear-gradient(-45deg, #f9f9f9 25%, transparent 25%),
+                      linear-gradient(45deg, transparent 75%, #f9f9f9 75%),
+                      linear-gradient(-45deg, transparent 75%, #f9f9f9 75%);
+    background-size: 20px 20px;
+}
+
+.content-wrapper {
+    text-align: center;
+    padding: 40px;
+    background-color: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px var(--shadow-color);
+}
+
+h1 {
+    color: var(--text-color);
+    font-weight: 300;
+    font-size: 2.5rem;
+}
+
+button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 15px 30px;
+    font-size: 1rem;
+    border-radius: 50px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
+}
+
+button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(52, 152, 219, 0.6);
+}
+
+button:active {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 10px rgba(52, 152, 219, 0.5);
+}
