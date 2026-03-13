@@ -39,7 +39,7 @@ class AINewsItem extends HTMLElement {
                     -webkit-backdrop-filter: blur(10px);
                     border: 1px solid rgba(255, 255, 255, 0.1);
                     border-radius: 16px;
-                    padding: 1.5rem;
+                    padding: 2rem;
                     height: 100%;
                     display: flex;
                     flex-direction: column;
@@ -95,38 +95,18 @@ class AINewsItem extends HTMLElement {
                     letter-spacing: 0.05em;
                 }
                 h2 {
-                    font-size: 1.25rem;
-                    margin: 0 0 1rem;
+                    font-size: 1.35rem;
+                    margin: 0 0 1.25rem;
                     font-weight: 700;
                     line-height: 1.4;
                     color: oklch(95% 0.01 240);
                 }
                 p {
-                    font-size: 0.95rem;
-                    color: oklch(75% 0.02 240);
+                    font-size: 1rem;
+                    line-height: 1.7;
+                    color: oklch(85% 0.01 240);
                     margin: 0;
-                    display: -webkit-box;
-                    -webkit-line-clamp: 4;
-                    -webkit-box-orient: vertical;
-                    overflow: hidden;
                     flex-grow: 1;
-                }
-                .read-more {
-                    margin-top: 1.5rem;
-                    font-size: 0.85rem;
-                    font-weight: 600;
-                    color: oklch(65% 0.18 250);
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                }
-                .read-more svg {
-                    width: 16px;
-                    height: 16px;
-                    transition: transform 0.3s ease;
-                }
-                .card:hover .read-more svg {
-                    transform: translateX(4px);
                 }
             </style>
             <a href="${link}" target="_blank" class="card">
@@ -134,13 +114,6 @@ class AINewsItem extends HTMLElement {
                 <div class="date">${date}</div>
                 <h2>${title}</h2>
                 <p>${summary}</p>
-                <div class="read-more">
-                    Read Full Article
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="5" y1="12" x2="19" y2="12"></line>
-                        <polyline points="12 5 19 12 12 19"></polyline>
-                    </svg>
-                </div>
             </a>
         `;
     }
