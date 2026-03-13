@@ -201,7 +201,7 @@ const lastFetchedIds = {
 };
 
 /**
- * Extracts the core insight (up to 12 sentences) from a raw summary.
+ * Extracts the core insight from a raw summary.
  */
 function extractCoreInsight(text) {
     if (!text) return 'No summary available.';
@@ -212,41 +212,52 @@ function extractCoreInsight(text) {
         .replace(/\s+/g, ' ')
         .trim();
 
-    // 2. Remove common news agency prefixes/suffixes and reporter info
+    // 2. Remove common news agency prefixes (at the start only)
     cleanText = cleanText
         .replace(/^\[[^\]]+\]\s*/, '')      // [서울=뉴시스]
         .replace(/^\([^\)]+\)\s*/, '')      // (대전=연합뉴스)
         .replace(/^【[^】]+】\s*/, '')      // 【세종=뉴시스】
-        .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '') // Email
-        .replace(/[가-힣]{2,4}\s*(기자|특파원).*/, '') // Reporter name (at the end)
         .trim();
 
-    // 3. Split by sentence enders (. ! ?)
+    // 3. Remove email addresses
+    cleanText = cleanText.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '');
+
+    // 4. Remove reporter info ONLY if it's near the very end (last 100 chars)
+    // Avoids cutting off the middle of the text
+    const reporterIndex = cleanText.search(/[가-힣]{2,4}\s*(기자|특파원|기자단)/);
+    if (reporterIndex > cleanText.length - 150) {
+        cleanText = cleanText.substring(0, reporterIndex).trim();
+    }
+
+    // 5. Split by sentence enders (. ! ?)
+    // Improved regex to handle various sentence endings
     const sentences = cleanText.split(/(?<=[.!?])\s+/);
 
-    // 4. Take first 10-12 sentences (Massively increased to fill 7 lines)
+    // 6. Take up to 15 sentences OR ~1500 characters to ensure we fill the 9 lines
     let core = [];
     let currentLength = 0;
     
     for (const sentence of sentences) {
-        // Stop if we have 12 sentences OR exceeds ~1000 characters
-        if (core.length >= 12 || currentLength > 1000) break;
         const trimmed = sentence.trim();
-        if (trimmed.length > 10 && !trimmed.includes('제공=')) {
+        if (trimmed.length > 5 && !trimmed.includes('제공=')) {
             core.push(trimmed);
             currentLength += trimmed.length;
+            if (core.length >= 15 || currentLength > 1500) break;
         }
     }
 
-    // 5. If we failed to get sentences, take a substring
+    // 7. Fallback if no clear sentences were found
     if (core.length === 0) {
-        return cleanText.substring(0, 600) + '...';
+        return cleanText.length > 800 ? cleanText.substring(0, 800) + '...' : cleanText;
     }
 
     let result = core.join(' ');
     
-    if (!result.endsWith('.') && !result.endsWith('!') && !result.endsWith('?')) {
-        result += '...';
+    // Add ellipsis if we truncated the original text
+    if (result.length < cleanText.length && !result.endsWith('...') && !result.endsWith('…')) {
+        if (!/[.!?]$/.test(result)) {
+            result += '...';
+        }
     }
 
     return result;
