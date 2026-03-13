@@ -132,6 +132,40 @@ const lastFetchedIds = {
     robot: new Set()
 };
 
+/**
+ * Extracts the core insight (first 2-3 sentences) from a raw summary.
+ */
+function extractCoreInsight(text) {
+    if (!text) return 'No summary available.';
+
+    // 1. Remove common news prefix patterns (e.g., [Seoul=Newsis], (Daejeon=Yonhap))
+    let cleanText = text.replace(/^\[[^\]]+\]\s*/, '')
+                        .replace(/^\([^\)]+\)\s*/, '')
+                        .replace(/^【[^】]+】\s*/, '');
+
+    // 2. Split by sentence enders followed by space or newline
+    // We use a regex that matches common Korean sentence enders
+    const sentences = cleanText.split(/(?<=[.!?])\s+/);
+
+    // 3. Take first 2-3 sentences (up to 200 chars total for a "core" feel)
+    let core = [];
+    let currentLength = 0;
+    
+    for (const sentence of sentences) {
+        if (core.length >= 3 || currentLength > 180) break;
+        const trimmed = sentence.trim();
+        if (trimmed.length > 5) {
+            core.push(trimmed);
+            currentLength += trimmed.length;
+        }
+    }
+
+    const result = core.join(' ');
+    
+    // 4. Final cleaning (remove incomplete sentences or artifacts)
+    return result.length > 10 ? result : (cleanText.substring(0, 150) + '...');
+}
+
 async function fetchNews(tab, isSilent = false) {
     const grid = document.getElementById('news-grid');
     
@@ -211,10 +245,13 @@ function renderItem(item, container, index, isNewBadge) {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = description;
     const cleanDescription = tempDiv.textContent || tempDiv.innerText || '';
+    
+    // Extract core insight instead of showing everything
+    const coreSummary = extractCoreInsight(cleanDescription);
 
     const newsItem = document.createElement('ai-news-item');
     newsItem.setAttribute('title', title);
-    newsItem.setAttribute('summary', cleanDescription);
+    newsItem.setAttribute('summary', coreSummary);
     newsItem.setAttribute('link', link);
     newsItem.setAttribute('date', formattedDate);
     if (isNewBadge) {
