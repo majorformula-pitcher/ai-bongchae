@@ -30,23 +30,23 @@ To become the primary dashboard for real-time tech news, offering a seamless, fu
 - **Real-Time Updates**: Automatic background refresh every 1 minute with surgical UI updates.
 - **RSS-to-JSON Pipeline**: Utilizing the `rss2json` API for robust data retrieval and CORS handling.
 
-### 3. Implementation Details (V4 - Insights)
-- **Extraction Heuristic**: `extractCoreInsight` function using regex-based sentence splitting and pattern cleaning.
+### 3. Implementation Details (V5 - Layout Optimization)
+- **Card Dimensions**: Fixed height of `500px` for consistent grid alignment.
+- **Text Visibility**: Increased summary visibility to 9 lines with reduced vertical margins to maximize reading space.
+- **Extraction Heuristic**: `extractCoreInsight` function using regex-based sentence splitting and pattern cleaning, now capturing up to 12 sentences to fill the expanded space.
 - **State Management**: `lastFetchedIds` Set to track unique article IDs.
-- **Responsive Grid**: Adaptive layout using CSS Grid with `minmax(320px, 1fr)`.
+- **Responsive Grid**: Adaptive layout using CSS Grid with `minmax(420px, 1fr)`.
 
 ---
 
-## Current Plan: Core Insight Extraction
+## Current Plan: Card Layout Optimization
 
-### Step 1: Logic Implementation (`main.js`)
-- Implement `extractCoreInsight(text)` to handle:
-  - Removal of reporter/agency prefixes.
-  - Splitting by sentence boundaries.
-  - Joining the first 2-3 most relevant sentences.
-- Integrate this function into the `renderItem` flow.
+### Step 1: Component Styling (`main.js`)
+- Set `.card` height to `500px`.
+- Reduce padding to `1.5rem` and adjust margins for title and date.
+- Set `-webkit-line-clamp` to `9` for the summary paragraph.
 
 ### Step 2: Verification
-- Ensure summaries are now concise and start directly with the news content.
-- Verify that agencies like "[서울=뉴시스]" are correctly filtered out.
-- Confirm real-time updates still work with this extraction logic.
+- Verify that cards are uniformly 500px tall.
+- Ensure that the "Core Insight" section shows more content than before.
+- Confirm that the layout remains balanced on both desktop and mobile views.

@@ -39,14 +39,14 @@ class AINewsItem extends HTMLElement {
                     -webkit-backdrop-filter: blur(10px);
                     border: 1px solid rgba(255, 255, 255, 0.1);
                     border-radius: 16px;
-                    padding: 1.75rem;
+                    padding: 1.5rem;
                     display: flex;
                     flex-direction: column;
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     color: inherit;
                     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
                     position: relative;
-                    min-height: 550px;
+                    height: 500px;
                 }
                 .card:hover {
                     transform: translateY(-8px);
@@ -86,24 +86,25 @@ class AINewsItem extends HTMLElement {
                 .date {
                     font-size: 0.75rem;
                     color: oklch(75% 0.02 240);
-                    margin-bottom: 0.75rem;
+                    margin-bottom: 0.5rem;
                     font-weight: 500;
                     text-transform: uppercase;
                     letter-spacing: 0.05em;
                 }
                 h2 {
-                    font-size: 1.35rem;
-                    margin: 0 0 1rem;
+                    font-size: 1.25rem;
+                    margin: 0 0 0.75rem;
                     font-weight: 700;
-                    line-height: 1.4;
+                    line-height: 1.3;
                     color: oklch(95% 0.01 240);
                 }
                 .summary-container {
                     display: flex;
                     flex-direction: column;
-                    gap: 0.75rem;
+                    gap: 0.5rem;
                     flex-grow: 1;
-                    margin-bottom: 1.5rem;
+                    margin-bottom: 1rem;
+                    overflow: hidden;
                 }
                 .insight-label {
                     font-size: 0.7rem;
@@ -125,12 +126,12 @@ class AINewsItem extends HTMLElement {
                     box-shadow: 0 0 8px currentColor;
                 }
                 p {
-                    font-size: 1rem;
-                    line-height: 1.7;
+                    font-size: 0.95rem;
+                    line-height: 1.6;
                     color: oklch(85% 0.01 240);
                     margin: 0;
                     display: -webkit-box;
-                    -webkit-line-clamp: 7;
+                    -webkit-line-clamp: 9;
                     -webkit-box-orient: vertical;
                     overflow: hidden;
                 }
