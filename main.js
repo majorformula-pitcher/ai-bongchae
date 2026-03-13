@@ -243,6 +243,7 @@ function extractCoreInsight(text) {
 
 /**
  * Fetches the full content of an article via a CORS proxy and parses the HTML.
+ * Specifically extracts the 2nd and 3rd paragraphs.
  */
 async function fetchFullArticle(url) {
     try {
@@ -257,7 +258,7 @@ async function fetchFullArticle(url) {
         const doc = parser.parseFromString(html, 'text/html');
         
         // Remove common non-article elements
-        const elementsToRemove = doc.querySelectorAll('script, style, nav, footer, header, .ads, .sidebar, .related, .comment, .footer-content');
+        const elementsToRemove = doc.querySelectorAll('script, style, nav, footer, header, .ads, .sidebar, .related, .comment, .footer-content, .img-box, figcaption');
         elementsToRemove.forEach(el => el.remove());
 
         // Target site-specific article bodies or common selectors
@@ -268,40 +269,43 @@ async function fetchFullArticle(url) {
             '.article-content', 
             '.post-content', 
             '.entry-content',
-            'main p'
+            'main'
         ];
 
-        let articleContent = '';
+        let paragraphs = [];
         for (const selector of selectors) {
             const container = doc.querySelector(selector);
             if (container) {
-                // Get paragraphs from the container
-                const paragraphs = container.querySelectorAll('p');
-                if (paragraphs.length > 0) {
-                    articleContent = Array.from(paragraphs)
+                const pElements = container.querySelectorAll('p');
+                if (pElements.length > 0) {
+                    paragraphs = Array.from(pElements)
                         .map(p => p.textContent.trim())
-                        .filter(text => text.length > 40) // Filter out short fragments
-                        .join(' ');
-                    if (articleContent.length > 200) break;
-                } else {
-                    // Fallback to text content of the container
-                    articleContent = container.textContent.trim();
-                    if (articleContent.length > 200) break;
+                        .filter(text => text.length > 50); // Filter out short fragments/captions
+                    if (paragraphs.length >= 2) break;
                 }
             }
         }
 
-        if (!articleContent || articleContent.length < 100) {
-            // Last resort: extract all P tags from body
+        // If selectors failed, try all P tags in body as fallback
+        if (paragraphs.length < 2) {
             const allPs = doc.querySelectorAll('p');
-            articleContent = Array.from(allPs)
+            paragraphs = Array.from(allPs)
                 .map(p => p.textContent.trim())
-                .filter(text => text.length > 50)
-                .slice(0, 5) // Take first 5 relevant paragraphs
-                .join(' ');
+                .filter(text => text.length > 60);
         }
 
-        return extractCoreInsight(articleContent);
+        // Return the 2nd and 3rd paragraphs combined (if they exist)
+        // If only 1 or 2 paragraphs exist, take what's available
+        let selectedContent = '';
+        if (paragraphs.length >= 3) {
+            selectedContent = paragraphs[1] + ' ' + paragraphs[2];
+        } else if (paragraphs.length === 2) {
+            selectedContent = paragraphs[0] + ' ' + paragraphs[1];
+        } else if (paragraphs.length === 1) {
+            selectedContent = paragraphs[0];
+        }
+
+        return extractCoreInsight(selectedContent);
     } catch (e) {
         console.error('Failed to fetch full article:', e);
         return null;

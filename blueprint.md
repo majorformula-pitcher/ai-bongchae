@@ -26,8 +26,9 @@ To become the primary dashboard for real-time tech news, offering a seamless, fu
 - **Multi-Feed Integration**: AI Feed (ETNews) and Robot Feed (RobotNews).
 - **Core Insight Extraction (V6)**: 
   - **Full Article Fetching**: Asynchronously retrieves the complete HTML of news articles via a CORS proxy (`allorigins.win`).
-  - **Content Parsing**: Utilizes DOM parsing and site-specific selectors to isolate the main article body.
-  - **Dynamic Updates**: Initially displays RSS snippets, then smoothly updates to the full content with a fade-in animation.
+  - **Paragraph-Specific Extraction**: Specifically targets and combines the **2nd and 3rd valid paragraphs** of the article content to provide high-quality context and detail.
+  - **Content Parsing**: Utilizes DOM parsing and site-specific selectors to isolate the main article body and filter out noise (ads, captions).
+  - **Dynamic Updates**: Initially displays RSS snippets, then smoothly updates to the specific paragraphs with a fade-in animation.
 - **Real-Time Updates**: Automatic background refresh every 1 minute with surgical UI updates.
 - **RSS-to-JSON Pipeline**: Utilizing the `rss2json` API for robust data retrieval and CORS handling.
 
