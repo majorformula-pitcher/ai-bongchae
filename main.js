@@ -39,8 +39,7 @@ class AINewsItem extends HTMLElement {
                     -webkit-backdrop-filter: blur(10px);
                     border: 1px solid rgba(255, 255, 255, 0.1);
                     border-radius: 16px;
-                    padding: 1.5rem 1.5rem 1.25rem;
-                    height: 100%;
+                    padding: 1.5rem 1.5rem 0.75rem;
                     display: flex;
                     flex-direction: column;
                     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -49,7 +48,6 @@ class AINewsItem extends HTMLElement {
                     cursor: pointer;
                     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
                     position: relative;
-                    overflow: hidden;
                 }
                 .card:hover {
                     transform: translateY(-8px);
@@ -104,8 +102,7 @@ class AINewsItem extends HTMLElement {
                 .summary-container {
                     display: flex;
                     flex-direction: column;
-                    gap: 0.5rem;
-                    flex-grow: 1;
+                    gap: 0.4rem;
                 }
                 .insight-label {
                     font-size: 0.65rem;
@@ -160,7 +157,7 @@ const lastFetchedIds = {
 };
 
 /**
- * Extracts the core insight (first 5-6 sentences) from a raw summary.
+ * Extracts the core insight (first 7-8 sentences) from a raw summary.
  */
 function extractCoreInsight(text) {
     if (!text) return 'No summary available.';
@@ -183,13 +180,13 @@ function extractCoreInsight(text) {
     // 3. Split by sentence enders (. ! ?)
     const sentences = cleanText.split(/(?<=[.!?])\s+/);
 
-    // 4. Take first 5-6 sentences (Increased for more context)
+    // 4. Take first 7-8 sentences (Significantly increased for full visibility)
     let core = [];
     let currentLength = 0;
     
     for (const sentence of sentences) {
-        // Stop if we have 6 sentences OR exceeds ~450 characters
-        if (core.length >= 6 || currentLength > 450) break;
+        // Stop if we have 8 sentences OR exceeds ~600 characters
+        if (core.length >= 8 || currentLength > 600) break;
         const trimmed = sentence.trim();
         if (trimmed.length > 10 && !trimmed.includes('제공=')) {
             core.push(trimmed);
@@ -199,7 +196,7 @@ function extractCoreInsight(text) {
 
     // 5. If we failed to get sentences, take a substring
     if (core.length === 0) {
-        return cleanText.substring(0, 300) + '...';
+        return cleanText.substring(0, 450) + '...';
     }
 
     let result = core.join(' ');
