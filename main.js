@@ -133,8 +133,8 @@ class AINewsItem extends HTMLElement {
 
 customElements.define('ai-news-item', AINewsItem);
 
-const RSS_URL = 'http://rss.etnews.com/04046.xml';
-const PROXY_URL = 'https://api.allorigins.win/raw?url=';
+const RSS_URL = 'https://rss.etnews.com/04046.xml';
+const PROXY_URL = 'https://api.allorigins.win/get?url=';
 
 async function fetchNews() {
     const grid = document.getElementById('news-grid');
@@ -142,9 +142,10 @@ async function fetchNews() {
 
     try {
         const response = await fetch(PROXY_URL + encodeURIComponent(RSS_URL));
-        if (!response.ok) throw new Error('Failed to fetch news');
+        if (!response.ok) throw new Error('Failed to fetch news from proxy');
         
-        const xmlText = await response.text();
+        const data = await response.json();
+        const xmlText = data.contents;
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
         
