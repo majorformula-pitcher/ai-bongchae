@@ -39,7 +39,7 @@ class AINewsItem extends HTMLElement {
                     -webkit-backdrop-filter: blur(10px);
                     border: 1px solid rgba(255, 255, 255, 0.1);
                     border-radius: 16px;
-                    padding: 2rem;
+                    padding: 1.5rem 1.5rem 1.25rem;
                     height: 100%;
                     display: flex;
                     flex-direction: column;
@@ -74,29 +74,29 @@ class AINewsItem extends HTMLElement {
                 }
                 .badge-new {
                     position: absolute;
-                    top: 1.25rem;
-                    right: 1.25rem;
+                    top: 1rem;
+                    right: 1rem;
                     background: linear-gradient(135deg, #ff4d4d, #f9cb28);
                     color: white;
-                    font-size: 0.65rem;
+                    font-size: 0.6rem;
                     font-weight: 800;
-                    padding: 2px 8px;
+                    padding: 2px 6px;
                     border-radius: 20px;
                     text-transform: uppercase;
                     box-shadow: 0 4px 10px rgba(255, 77, 77, 0.4);
                     z-index: 2;
                 }
                 .date {
-                    font-size: 0.75rem;
+                    font-size: 0.7rem;
                     color: oklch(75% 0.02 240);
-                    margin-bottom: 0.75rem;
+                    margin-bottom: 0.5rem;
                     font-weight: 500;
                     text-transform: uppercase;
                     letter-spacing: 0.05em;
                 }
                 h2 {
-                    font-size: 1.35rem;
-                    margin: 0 0 1.25rem;
+                    font-size: 1.25rem;
+                    margin: 0 0 1rem;
                     font-weight: 700;
                     line-height: 1.4;
                     color: oklch(95% 0.01 240);
@@ -104,11 +104,11 @@ class AINewsItem extends HTMLElement {
                 .summary-container {
                     display: flex;
                     flex-direction: column;
-                    gap: 0.75rem;
+                    gap: 0.5rem;
                     flex-grow: 1;
                 }
                 .insight-label {
-                    font-size: 0.7rem;
+                    font-size: 0.65rem;
                     font-weight: 800;
                     color: var(--secondary-accent, oklch(85% 0.12 180));
                     letter-spacing: 0.1em;
@@ -119,16 +119,16 @@ class AINewsItem extends HTMLElement {
                 }
                 .insight-label::before {
                     content: '';
-                    width: 6px;
-                    height: 6px;
+                    width: 5px;
+                    height: 5px;
                     background: currentColor;
                     border-radius: 50%;
                     display: inline-block;
                     box-shadow: 0 0 8px currentColor;
                 }
                 p {
-                    font-size: 1rem;
-                    line-height: 1.7;
+                    font-size: 0.95rem;
+                    line-height: 1.6;
                     color: oklch(85% 0.01 240);
                     margin: 0;
                 }
@@ -160,7 +160,7 @@ const lastFetchedIds = {
 };
 
 /**
- * Extracts the core insight (first 1-2 sentences) from a raw summary.
+ * Extracts the core insight (first 2-3 sentences) from a raw summary.
  */
 function extractCoreInsight(text) {
     if (!text) return 'No summary available.';
@@ -181,17 +181,15 @@ function extractCoreInsight(text) {
         .trim();
 
     // 3. Split by sentence enders (. ! ?)
-    // We look for a sentence ender followed by a space and a capital letter or Korean char
     const sentences = cleanText.split(/(?<=[.!?])\s+/);
 
-    // 4. Take first 1-2 sentences (Strict limit for a real "insight" feel)
+    // 4. Take first 2-3 sentences (Relaxed limit for more info)
     let core = [];
     let currentLength = 0;
     
     for (const sentence of sentences) {
-        if (core.length >= 2 || currentLength > 120) break;
+        if (core.length >= 3 || currentLength > 220) break;
         const trimmed = sentence.trim();
-        // Ignore very short fragments or common artifacts
         if (trimmed.length > 10 && !trimmed.includes('제공=')) {
             core.push(trimmed);
             currentLength += trimmed.length;
@@ -200,12 +198,11 @@ function extractCoreInsight(text) {
 
     // 5. If we failed to get sentences, take a substring
     if (core.length === 0) {
-        return cleanText.substring(0, 120) + '...';
+        return cleanText.substring(0, 180) + '...';
     }
 
     let result = core.join(' ');
     
-    // Ensure it ends with a dot if it looks like a sentence
     if (!result.endsWith('.') && !result.endsWith('!') && !result.endsWith('?')) {
         result += '...';
     }
