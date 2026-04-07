@@ -69,6 +69,7 @@ body::before {
   font-size: 1.5rem;
   font-weight: 800;
   background: linear-gradient(to right, #a78bfa, #34d399);
+  background-clip: text; /* 표준 속성 추가 */
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -125,10 +126,12 @@ body::before {
 }
 
 .news-image-container {
-  width: 100%;
-  aspect-ratio: 4 / 5; /* Instagram vertical style */
+  width: 70%;
+  margin: 20px auto 0;
+  aspect-ratio: 16 / 7; /* 가로로 긴 형태로 변경하여 높이 축소 */
   position: relative;
   overflow: hidden;
+  border-radius: 12px;
 }
 
 .news-image {
