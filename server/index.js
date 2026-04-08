@@ -131,7 +131,7 @@ app.post('/api/extract', async (req, res) => {
       title: title || "테스트 뉴스 제목",
       category: "기타",
       summary: "테스트 중",
-      published_at: new Date().toISOString().split('T')[0]
+      published_at: new Date().toISOString()
     };
 
     res.json({ 

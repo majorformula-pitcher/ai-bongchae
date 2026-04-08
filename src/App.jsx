@@ -202,7 +202,16 @@ function App() {
                       원문 보기
                     </a>
                   </div>
-                  <div className="published-date">{news.published_at}</div>
+                  <div className="published-date">
+                    {news.published_at ? new Date(news.published_at).toLocaleString('ko-KR', {
+                      year: 'numeric',
+                      month: '2-digit',
+                      day: '2-digit',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      hour12: true
+                    }).replace(/(\d{4}). (\d{2}). (\d{2})./, '$1.$2.$3.') : ''}
+                  </div>
                 </div>
               </div>
             </div>
