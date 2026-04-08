@@ -84,6 +84,24 @@ app.post('/api/extract', async (req, res) => {
 
     let bodyText = bodyElement ? bodyElement.text().trim() : "";
 
+    // 실제 기사가 아닌 봇 감지 페이지인 경우 실패 처리
+    const botPatterns = ['Are you a robot', '봇 감지', 'Access Denied', 'Attention Required', 'Checking your browser'];
+    const isBotPage = botPatterns.some(p => title.toLowerCase().includes(p.toLowerCase()));
+
+    if (isBotPage) {
+      throw new Error('Bot detection page detected');
+    }
+
+    // 테스트 모드 (AI API 호출 생략 시)
+    if (process.env.TEST_MODE === 'true') {
+      const pTexts = [];
+      $('p').each((i, el) => {
+        const text = $(el).text().trim();
+        if (text.length > 40) pTexts.push(text);
+      });
+      bodyText = pTexts.join('\n');
+    }
+
     // 본문 추출 실패 시 p 태그 폴백
     if (bodyText.length < 100) {
       const pTexts = [];
