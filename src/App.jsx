@@ -39,6 +39,21 @@ function App() {
     setLoadingProgress(10);
 
     try {
+      // 0. 중복 체크 (URL 기준)
+      const { data: existingNews, error: checkError } = await supabase
+        .from('ai-bongchae')
+        .select('id')
+        .eq('url', urlInput)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+      if (existingNews) {
+        alert('이미 등록된 뉴스입니다!');
+        setIsProcessing(false);
+        setLoadingProgress(0);
+        return;
+      }
+
       // 1. 백엔드 AI 추출 요청 (강화된 로직 적용)
       const response = await fetch('/api/extract', {
         method: 'POST',
