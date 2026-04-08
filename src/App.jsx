@@ -27,11 +27,18 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   
-  // 전체 뉴스 데이터에서 유니크한 카테고리 목록 추출
+  // 전체 뉴스 데이터에서 유니크한 카테고리 목록 추출 및 커스텀 정렬
   const categories = ['All', ...new Set(newsList.map(news => news.category).filter(Boolean))].sort((a, b) => {
     if (a === 'All') return -1;
     if (b === 'All') return 1;
-    return a.localeCompare(b);
+    
+    const aIsEng = /^[a-zA-Z]/.test(a);
+    const bIsEng = /^[a-zA-Z]/.test(b);
+    
+    if (aIsEng && !bIsEng) return -1; // 영어가 앞으로
+    if (!aIsEng && bIsEng) return 1;  // 한글이 뒤로
+    
+    return a.localeCompare(b, 'ko'); // 같은 언어끼리는 가나다/ABC 순
   });
 
   const handleAddNews = async () => {
