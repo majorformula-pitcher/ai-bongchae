@@ -197,6 +197,7 @@ function App() {
         {filteredNews.length > 0 ? (
           filteredNews.map(news => (
             <div key={news.id} className="news-card">
+              <div className="news-category-badge">{news.category}</div>
               {/* 이미지가 있을 경우에만 렌더링 */}
               {news.image && (
                 <div className="news-image-container">
@@ -204,7 +205,6 @@ function App() {
                 </div>
               )}
               <div className="news-content">
-                <div className="news-category-badge">{news.category}</div>
                 <h2 className="news-title">
                   <a href={news.url} target="_blank" rel="noopener noreferrer" style={{color: 'inherit', textDecoration: 'none'}}>
                     {news.title}
