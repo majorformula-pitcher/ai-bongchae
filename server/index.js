@@ -56,7 +56,7 @@ app.post('/api/extract', async (req, res) => {
       다음 뉴스 본문을 분석해서 아래 형식의 JSON으로만 응답해줘. (다른 텍스트 없이 JSON만 반환)
       - title: 뉴스 제목 (본문에서 추출)
       - category: 뉴스 카테고리 (AI & Robot, 보안, 자율주행, 기타 중 하나 선택)
-      - summary: 뉴스 핵심 내용 4줄 요약 (배열 형식으로 반환)
+      - summary: 뉴스 핵심 내용 4줄의 문자열 (각 문장 사이에 줄바꿈 \\n 포함)
       - published_at: 뉴스 발행일 (YYYY-MM-DD 형식, 본문에서 추출하거나 모르면 오늘 날짜)
       
       뉴스 본문:
