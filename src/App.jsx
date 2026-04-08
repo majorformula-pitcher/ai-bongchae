@@ -39,7 +39,7 @@ function App() {
     setLoadingProgress(10);
 
     try {
-      // 1. 백엔드 AI 추출 요청
+      // 1. 백엔드 AI 추출 요청 (강화된 로직 적용)
       const response = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -50,7 +50,7 @@ function App() {
       if (!result.success) throw new Error(result.error);
       setLoadingProgress(80);
 
-      // 2. Supabase DB 저장 (사용자 DB 구조에 맞춤)
+      // 2. Supabase DB 저장 (이미지 필드 포함)
       const { data, error } = await supabase
         .from('ai-bongchae')
         .insert([
@@ -60,7 +60,8 @@ function App() {
             url: result.url,
             category: result.category,
             published_at: result.published_at,
-            likes: false // bool 형식
+            image: result.image, // 추출된 이미지 URL 저장
+            likes: false
           }
         ])
         .select();
@@ -138,7 +139,7 @@ function App() {
             <div className="loading-bar-container">
               <div className="loading-bar" style={{width: `${loadingProgress}%`}}></div>
             </div>
-            <div className="loading-text">AI가 뉴스를 분석하고 있습니다...</div>
+            <div className="loading-text">전문가급 AI 크롤러가 뉴스를 정밀 분석 중입니다...</div>
           </>
         )}
       </div>
@@ -169,6 +170,12 @@ function App() {
         {filteredNews.length > 0 ? (
           filteredNews.map(news => (
             <div key={news.id} className="news-card">
+              {/* 이미지가 있을 경우에만 렌더링 */}
+              {news.image && (
+                <div className="news-image-container">
+                  <img src={news.image} alt={news.title} className="news-image" />
+                </div>
+              )}
               <div className="news-content">
                 <div className="news-category-badge">{news.category}</div>
                 <h2 className="news-title">
@@ -177,7 +184,6 @@ function App() {
                   </a>
                 </h2>
                 <ul className="news-summary">
-                  {/* 줄바꿈을 기준으로 나눠서 리스트로 표시 */}
                   {(news.summary || '').split('\n').filter(line => line.trim()).map((line, idx) => (
                     <li key={idx}>{line}</li>
                   ))}
