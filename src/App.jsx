@@ -7,6 +7,7 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showOnlyLiked, setShowOnlyLiked] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(''); // 날짜 필터 추가 (YYYY-MM-DD 형식)
   
   // DB에서 뉴스 읽어오기
   const fetchNews = async () => {
@@ -197,7 +198,8 @@ function App() {
     const matchesSearch = news.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || news.category === selectedCategory;
     const matchesLike = !showOnlyLiked || news.likes;
-    return matchesSearch && matchesCategory && matchesLike;
+    const matchesDate = !selectedDate || (news.created_at && new Date(news.created_at).toISOString().split('T')[0] === selectedDate);
+    return matchesSearch && matchesCategory && matchesLike && matchesDate;
   });
 
   return (
@@ -207,12 +209,27 @@ function App() {
           <a href="/" className="logo-link">
             <div className="logo">AI Bongchae</div>
           </a>
-          <button 
-            className={`filter-btn ${showOnlyLiked ? 'active' : ''}`}
-            onClick={() => setShowOnlyLiked(!showOnlyLiked)}
-          >
-            {showOnlyLiked ? '전체 보기' : '좋아요 목록'}
-          </button>
+          <div className="header-actions">
+            <div className="date-filter-group">
+              <input 
+                type="date" 
+                className="date-input" 
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
+              {selectedDate && (
+                <button className="date-clear-btn" onClick={() => setSelectedDate('')} title="날짜 초기화">
+                  ×
+                </button>
+              )}
+            </div>
+            <button 
+              className={`filter-btn ${showOnlyLiked ? 'active' : ''}`}
+              onClick={() => setShowOnlyLiked(!showOnlyLiked)}
+            >
+              {showOnlyLiked ? '전체 보기' : '좋아요 목록'}
+            </button>
+          </div>
         </div>
       </header>
 
