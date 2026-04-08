@@ -102,7 +102,7 @@ app.post('/api/extract', async (req, res) => {
                        .replace(/[가-힣]{2,4}\s*기자(?!\w)/g, '') // 기자 이름
                        .slice(0, 5000);
 
-    // Gemini API 호출
+    /* Gemini API 호출 (테스트를 위해 잠시 비활성화)
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const prompt = `
       다음 뉴스 본문을 분석해서 아래 형식의 JSON으로만 응답해줘.
@@ -124,11 +124,19 @@ app.post('/api/extract', async (req, res) => {
     if (!jsonMatch) throw new Error('AI 응답 파싱 실패');
     
     const extractedData = JSON.parse(jsonMatch[0]);
+    */
+
+    // 테스트용 더미 데이터 반환
+    const extractedData = {
+      title: title || "테스트 뉴스 제목",
+      category: "기타",
+      summary: "테스트 중",
+      published_at: new Date().toISOString().split('T')[0]
+    };
 
     res.json({ 
       success: true, 
       ...extractedData,
-      title: title || extractedData.title, // 메타 태그 제목 우선
       image: imageUrl,
       url: url 
     });
