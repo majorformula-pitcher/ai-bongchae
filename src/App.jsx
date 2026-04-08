@@ -3,7 +3,7 @@ import { supabase } from './lib/supabaseClient';
 import './index.css';
 
 function App() {
-  const [newsList, setNewsList] = useState([]); // 초기값 비움
+  const [newsList, setNewsList] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showOnlyLiked, setShowOnlyLiked] = useState(false);
@@ -23,7 +23,6 @@ function App() {
     fetchNews();
   }, []);
   
-  // URL Input States
   const [urlInput, setUrlInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
@@ -51,7 +50,7 @@ function App() {
       if (!result.success) throw new Error(result.error);
       setLoadingProgress(80);
 
-      // 2. Supabase DB 저장
+      // 2. Supabase DB 저장 (사용자 DB 구조에 맞춤)
       const { data, error } = await supabase
         .from('news')
         .insert([
@@ -61,7 +60,7 @@ function App() {
             url: result.url,
             category: result.category,
             published_at: result.published_at,
-            likes: false
+            likes: false // bool 형식
           }
         ])
         .select();
@@ -89,7 +88,6 @@ function App() {
     if (error) {
       console.error('Like error:', error);
     } else {
-      // 로컬 상태 동기화
       setNewsList(newsList.map(news => 
         news.id === id ? { ...news, likes: !currentStatus } : news
       ));
@@ -117,13 +115,12 @@ function App() {
         </div>
       </header>
 
-      {/* URL Input Section */}
       <div className="url-input-container">
         <div className="url-input-group">
           <input 
             type="text" 
             className="url-field" 
-            placeholder="뉴스 URL을 입력하세요 (예: https://n.news.naver.com/...)"
+            placeholder="뉴스 URL을 입력하세요..."
             value={urlInput}
             onChange={(e) => setUrlInput(e.target.value)}
             disabled={isProcessing}
@@ -133,15 +130,15 @@ function App() {
             onClick={handleAddNews}
             disabled={isProcessing || !urlInput}
           >
-            {isProcessing ? '⚡ 처리 중' : '뉴스 추가'}
+            {isProcessing ? '⚡ 요약 중' : '뉴스 추가'}
           </button>
         </div>
         {isProcessing && (
           <>
-            <div className="loading-bar-container" style={{background: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden'}}>
+            <div className="loading-bar-container">
               <div className="loading-bar" style={{width: `${loadingProgress}%`}}></div>
             </div>
-            <div className="loading-text">AI가 뉴스를 분석하고 4줄 요약을 생성하고 있습니다...</div>
+            <div className="loading-text">AI가 뉴스를 분석하고 있습니다...</div>
           </>
         )}
       </div>
@@ -172,14 +169,16 @@ function App() {
         {filteredNews.length > 0 ? (
           filteredNews.map(news => (
             <div key={news.id} className="news-card">
-              <div className="news-image-container">
-                <img src={news.image} alt={news.title} className="news-image" />
-                <div className="news-category-badge">{news.category}</div>
-              </div>
               <div className="news-content">
-                <h2 className="news-title">{news.title}</h2>
+                <div className="news-category-badge">{news.category}</div>
+                <h2 className="news-title">
+                  <a href={news.url} target="_blank" rel="noopener noreferrer" style={{color: 'inherit', textDecoration: 'none'}}>
+                    {news.title}
+                  </a>
+                </h2>
                 <ul className="news-summary">
-                  {news.summary.map((line, idx) => (
+                  {/* 줄바꿈을 기준으로 나눠서 리스트로 표시 */}
+                  {(news.summary || '').split('\n').filter(line => line.trim()).map((line, idx) => (
                     <li key={idx}>{line}</li>
                   ))}
                 </ul>
@@ -198,9 +197,7 @@ function App() {
             </div>
           ))
         ) : (
-          <div style={{ textAlign: 'center', padding: '50px', color: 'var(--text-muted)' }}>
-            뉴스 결과가 없습니다.
-          </div>
+          <div className="no-result">결과가 없습니다.</div>
         )}
       </main>
     </div>
