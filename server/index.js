@@ -52,7 +52,7 @@ app.post('/api/extract', async (req, res) => {
     }
 
     // Gemini API 호출
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
     const prompt = `
       다음 뉴스 본문을 분석해서 아래 형식의 JSON으로만 응답해줘. (다른 텍스트 없이 JSON만 반환)
       - title: 뉴스 제목 (본문에서 추출)
