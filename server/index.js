@@ -15,16 +15,12 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Gemini AI 초기화 (목록에서 확인된 gemini-2.5-flash 모델 사용)
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.use(cors());
 app.use(express.json());
-
-// 1. 빌드된 정적 파일 서빙 (React)
 app.use(express.static(path.join(__dirname, '../dist')));
 
-// 2. 뉴스 추출 및 요약 API
 app.post('/api/extract', async (req, res) => {
   const { url } = req.body;
   
@@ -33,32 +29,89 @@ app.post('/api/extract', async (req, res) => {
   }
 
   try {
-    // 뉴스 본문 크롤링
     const { data: html } = await axios.get(url, {
       headers: { 
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7'
       },
-      timeout: 30000
+      timeout: 15000
     });
     
     const $ = cheerio.load(html);
     
-    // 주요 텍스트 추출 (다양한 한국 뉴스 사이트 구조 대응)
-    const bodyText = $('article, main, #article-view-content-div, #articleBodyContents, .article_body, #articleBody, .news_end, .at-content').text().slice(0, 10000);
+    // 1. 제목 추출 (메타 태그 우선)
+    let title = $('meta[property="og:title"]').attr('content') || 
+                $('meta[name="twitter:title"]').attr('content') || 
+                $('title').text().trim();
 
-    if (!bodyText || bodyText.length < 100) {
-      throw new Error('뉴스 본문을 충분히 추출할 수 없습니다. URL을 확인해 주세요.');
+    // 2. 이미지 추출
+    let imageUrl = $('meta[property="og:image"]').attr('content') || 
+                   $('meta[name="twitter:image"]').attr('content') || "";
+
+    // 3. 날짜 추출
+    let publishedAt = $('meta[property="article:published_time"]').attr('content') || 
+                      $('meta[name="datePublished"]').attr('content') || 
+                      $('time').attr('datetime') || "";
+
+    // 4. 본문 추출 (보내주신 로직 적용)
+    const bodySelectors = [
+      'div#article-view-content-div', '#articleBody', '.article_body', '.article_txt',
+      '#articleBodyContents', '.news_cnt_detail_wrap', '.at-content', 'article', 'main',
+      '.entry-content', '.post-content', '.article-body', '.story-body'
+    ];
+
+    let bodyElement = null;
+    for (const selector of bodySelectors) {
+      const el = $(selector);
+      if (el.length > 0 && el.text().trim().length > 100) {
+        bodyElement = el;
+        break;
+      }
     }
 
-    // Gemini API 호출 (연구용 gemini-2.5-flash 모델 사용)
+    // 불필요한 태그 제거 (스크립트, 스타일, 광고 등)
+    if (bodyElement) {
+      bodyElement.find('script, style, nav, footer, aside, iframe, header, ad').remove();
+    }
+
+    let bodyText = bodyElement ? bodyElement.text().trim() : "";
+
+    // 본문 추출 실패 시 p 태그 폴백
+    if (bodyText.length < 100) {
+      const pTexts = [];
+      $('p').each((i, el) => {
+        const text = $(el).text().trim();
+        if (text.length > 40) pTexts.push(text);
+      });
+      bodyText = pTexts.join('\n');
+    }
+
+    // 메타 설명 폴백
+    if (bodyText.length < 100) {
+      bodyText = $('meta[property="og:description"]').attr('content') || 
+                 $('meta[name="description"]').attr('content') || "";
+    }
+
+    if (!bodyText || bodyText.length < 50) {
+      throw new Error('본문을 추출할 수 없습니다. (페이월 또는 렌더링 제한)');
+    }
+
+    // 텍스트 정제 (기자명, 이메일 등 제거)
+    bodyText = bodyText.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '') // 이메일
+                       .replace(/[가-힣]{2,4}\s*기자(?!\w)/g, '') // 기자 이름
+                       .slice(0, 5000);
+
+    // Gemini API 호출
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
     const prompt = `
-      다음 뉴스 본문을 분석해서 아래 형식의 JSON으로만 응답해줘. (다른 텍스트 없이 JSON만 반환)
-      - title: 뉴스 제목 (본문에서 추출)
-      - category: 뉴스 카테고리 (AI & Robot, 보안, 자율주행, 기타 중 하나 선택)
-      - summary: 뉴스 핵심 내용 4줄의 문자열 (각 문장 사이에 줄바꿈 \\n 포함)
-      - published_at: 뉴스 발행일 (YYYY-MM-DD 형식, 본문에서 추출하거나 모르면 오늘 날짜)
-      
+      다음 뉴스 본문을 분석해서 아래 형식의 JSON으로만 응답해줘.
+      {
+        "title": "뉴스 제목",
+        "category": "AI & Robot, 보안, 자율주행, 기타 중 하나 선택",
+        "summary": "1. 첫 번째 요약\\n2. 두 번째 요약\\n3. 세 번째 요약\\n4. 네 번째 요약",
+        "published_at": "YYYY-MM-DD 형식"
+      }
       뉴스 본문:
       ${bodyText}
     `;
@@ -67,30 +120,28 @@ app.post('/api/extract', async (req, res) => {
     const response = await result.response;
     const responseText = response.text();
     
-    // JSON 추출 및 파싱
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      throw new Error('AI 응답을 JSON으로 파싱할 수 없습니다.');
-    }
+    if (!jsonMatch) throw new Error('AI 응답 파싱 실패');
     
     const extractedData = JSON.parse(jsonMatch[0]);
 
     res.json({ 
       success: true, 
       ...extractedData,
+      title: title || extractedData.title, // 메타 태그 제목 우선
+      image: imageUrl,
       url: url 
     });
   } catch (error) {
-    console.error('Gemini 2.5 Extraction error:', error);
+    console.error('Advanced Extraction error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
-// 모든 경로에 대해 index.html 반환 (SPA 지원)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
 app.listen(PORT, () => {
-  console.log(`Integrated server with Gemini 2.5 is running on http://localhost:${PORT}`);
+  console.log(`Advanced Scraper Server is running on port ${PORT}`);
 });
