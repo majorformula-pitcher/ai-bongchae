@@ -203,19 +203,28 @@ body::before {
   border-top: 1px solid var(--border);
 }
 
-.like-section {
+.action-left {
   display: flex;
   align-items: center;
-  gap: 8px;
-  cursor: pointer;
+  gap: 16px;
 }
 
-.like-icon {
-  font-size: 1.5rem;
+.source-link {
+  color: #a78bfa;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(139, 92, 246, 0.1);
   transition: all 0.2s;
 }
 
-.like-icon.active { color: #ef4444; }
+.source-link:hover {
+  background: rgba(139, 92, 246, 0.2);
+  color: #c4b5fd;
+  transform: translateY(-1px);
+}
 
 .published-date {
   font-size: 0.8rem;
