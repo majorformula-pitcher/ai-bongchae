@@ -67,7 +67,7 @@ app.post('/api/extract', async (req, res) => {
     `;
 
     const msg = await anthropic.messages.create({
-      model: "claude-3-haiku-20240307",
+      model: "claude-3-5-sonnet-20241022",
       max_tokens: 1000,
       messages: [{ role: "user", content: prompt }],
     });
