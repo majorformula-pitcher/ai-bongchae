@@ -71,13 +71,23 @@ body::before {
   align-items: center;
 }
 
+.logo-link {
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.logo-link:hover {
+  opacity: 0.8;
+}
+
 .logo {
   font-size: 1.5rem;
   font-weight: 800;
   background: linear-gradient(to right, #a78bfa, #34d399);
-  background-clip: text; /* 표준 속성 추가 */
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  cursor: pointer;
 }
 
 .filter-bar {
