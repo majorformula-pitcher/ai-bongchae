@@ -233,8 +233,7 @@ body::before {
 
 /* Modal/Filter Section */
 .search-container {
-  margin-bottom: 20px;
-  padding: 0 20px;
+  margin-bottom: 24px;
 }
 
 .search-input {
