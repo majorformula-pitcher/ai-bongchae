@@ -5,7 +5,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 
 dotenv.config();
 
@@ -15,8 +15,10 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Gemini AI 초기화
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// Claude AI 초기화
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
 app.use(cors());
 app.use(express.json());
@@ -29,7 +31,7 @@ app.post('/api/extract', async (req, res) => {
   const { url } = req.body;
   
   if (!url) {
-    return res.status(400).json({ success: false, error: 'URLis required' });
+    return res.status(400).json({ success: false, error: 'URL is required' });
   }
 
   try {
@@ -44,33 +46,38 @@ app.post('/api/extract', async (req, res) => {
     const $ = cheerio.load(html);
     
     // 주요 텍스트 추출 (제목 및 본문 영역 추출 시도)
-    const pageTitle = $('title').text();
-    const bodyText = $('article, main, .article_body, #articleBodyContents, .news_end').text().slice(0, 5000);
+    const bodyText = $('article, main, .article_body, #articleBodyContents, .news_end').text().slice(0, 10000);
 
     if (!bodyText || bodyText.length < 100) {
-      throw new Error('뉴스 본문을 추출할 수 없습니다. URL을 확인해 주세요.');
+      throw new Error('뉴스 본문을 충분히 추출할 수 없습니다. URL을 확인해 주세요.');
     }
 
-    // Gemini API 호출
-    const model = genAI.getGenerativeModel({ model: "gemini-pro-latest" });
+    // Claude API 호출 (Haiku 모델 사용)
     const prompt = `
-      다음 뉴스 본문을 분석해서 아래 형식의 JSON으로만 응답해줘. (다른 텍스트 없이 JSON만 반환)
-      - title: 뉴스 제목 (본문에서 추출)
-      - category: [AI & Robot, 보안, 자율주행, 기타] 중 하나로 분류
-      - summary: 뉴스 내용을 4줄의 문장 리스트로 작성
-      - published_at: 뉴스 발행일 (YYYY-MM-DD 형식, 본문에서 추출 불가 시 오늘 날짜)
+      다음 뉴스 본문을 분석해서 아래 형식의 JSON으로만 응답해줘. (다른 설명 없이 코드 블록 없이 순수 JSON만 반환)
+      {
+        "title": "뉴스 제목",
+        "category": "AI & Robot, 보안, 자율주행, 기타 중 하나",
+        "summary": ["첫 번째 요약 문장", "두 번째 요약 문장", "세 번째 요약 문장", "네 번째 요약 문장"],
+        "published_at": "YYYY-MM-DD 형식의 발행일 (추출 불가 시 오늘 날짜)"
+      }
       
       뉴스 본문:
       ${bodyText}
     `;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
+    const msg = await anthropic.messages.create({
+      model: "claude-3-haiku-20240307",
+      max_tokens: 1000,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const responseText = msg.content[0].text;
     
-    // JSON 추출
+    // JSON 추출 및 파싱
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      throw new Error('AI 응답을 파싱할 수 없습니다.');
+      throw new Error('AI 응답을 JSON으로 파싱할 수 없습니다.');
     }
     
     const extractedData = JSON.parse(jsonMatch[0]);
@@ -81,7 +88,7 @@ app.post('/api/extract', async (req, res) => {
       url: url 
     });
   } catch (error) {
-    console.error('Extraction error:', error);
+    console.error('Claude Extraction error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -92,5 +99,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Integrated server is running on http://localhost:${PORT}`);
+  console.log(`Integrated server with Claude is running on http://localhost:${PORT}`);
 });
