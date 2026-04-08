@@ -189,13 +189,18 @@ function App() {
                   ))}
                 </ul>
                 <div className="action-bar">
-                  <div className="like-section" onClick={() => toggleLike(news.id, news.likes)}>
-                    <span className={`like-icon ${news.likes ? 'active' : ''}`}>
-                      {news.likes ? '❤️' : '🤍'}
-                    </span>
-                    <span className="like-count">
-                      {news.likes ? 1 : 0}
-                    </span>
+                  <div className="action-left">
+                    <div className="like-section" onClick={() => toggleLike(news.id, news.likes)}>
+                      <span className={`like-icon ${news.likes ? 'active' : ''}`}>
+                        {news.likes ? '❤️' : '🤍'}
+                      </span>
+                      <span className="like-count">
+                        {news.likes ? 1 : 0}
+                      </span>
+                    </div>
+                    <a href={news.url} target="_blank" rel="noopener noreferrer" className="source-link">
+                      원문 보기
+                    </a>
                   </div>
                   <div className="published-date">{news.published_at}</div>
                 </div>
