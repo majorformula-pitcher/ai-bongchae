@@ -43,8 +43,8 @@ app.post('/api/extract', async (req, res) => {
     
     const $ = cheerio.load(html);
     
-    // 주요 텍스트 추출 (제목 및 본문 영역 추출 시도)
-    const bodyText = $('article, main, .article_body, #articleBodyContents, .news_end').text().slice(0, 10000);
+    // 주요 텍스트 추출 (다양한 한국 뉴스 사이트 구조 대응)
+    const bodyText = $('article, main, #article-view-content-div, #articleBodyContents, .article_body, #articleBody, .news_end, .at-content').text().slice(0, 10000);
 
     if (!bodyText || bodyText.length < 100) {
       throw new Error('뉴스 본문을 충분히 추출할 수 없습니다. URL을 확인해 주세요.');
