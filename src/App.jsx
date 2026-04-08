@@ -157,6 +157,27 @@ function App() {
     }
   };
 
+  const handleDelete = async (e, id) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (window.confirm('정말 삭제하시겠습니까?')) {
+      try {
+        const { error } = await supabase
+          .from('ai-bongchae')
+          .delete()
+          .eq('id', id);
+
+        if (error) throw error;
+
+        setNewsList(newsList.filter(news => news.id !== id));
+        alert('삭제되었습니다.');
+      } catch (error) {
+        alert('삭제 중 오류 발생: ' + error.message);
+      }
+    }
+  };
+
   const toggleLike = async (id, currentStatus) => {
     const { error } = await supabase
       .from('ai-bongchae')
@@ -280,6 +301,7 @@ function App() {
           filteredNews.map(news => (
             <div key={news.id} className="news-card">
               <div className="news-category-badge">{news.category}</div>
+              <button className="delete-btn" title="뉴스 삭제" onClick={(e) => handleDelete(e, news.id)}>×</button>
               <a href={news.url} target="_blank" rel="noopener noreferrer" className="news-image-container">
                 {news.image ? (
                   <img src={news.image} alt={news.title} className="news-image" />
