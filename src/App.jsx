@@ -26,8 +26,13 @@ function App() {
   const [urlInput, setUrlInput] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
-
-  const categories = ['All', 'AI & Robot', '보안', '자율주행'];
+  
+  // 전체 뉴스 데이터에서 유니크한 카테고리 목록 추출
+  const categories = ['All', ...new Set(newsList.map(news => news.category).filter(Boolean))].sort((a, b) => {
+    if (a === 'All') return -1;
+    if (b === 'All') return 1;
+    return a.localeCompare(b);
+  });
 
   const handleAddNews = async () => {
     if (!urlInput.startsWith('http')) {
