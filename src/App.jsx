@@ -106,7 +106,7 @@ function App() {
     <div className="app-container">
       <header className="header">
         <div className="header-content">
-          <div className="logo">News Curator</div>
+          <div className="logo">AI Bongchae</div>
           <button 
             className={`filter-btn ${showOnlyLiked ? 'active' : ''}`}
             onClick={() => setShowOnlyLiked(!showOnlyLiked)}
