@@ -30,26 +30,19 @@ app.post('/api/extract', async (req, res) => {
 
   try {
     const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+      'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
       'Accept-Encoding': 'gzip, deflate, br',
       'Referer': 'https://www.google.com/',
-      'sec-ch-ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-      'sec-ch-ua-mobile': '?0',
-      'sec-ch-ua-platform': '"Windows"',
-      'sec-fetch-dest': 'document',
-      'sec-fetch-mode': 'navigate',
-      'sec-fetch-site': 'cross-site',
-      'sec-fetch-user': '?1',
-      'Upgrade-Insecure-Requests': '1',
-      'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
+      'Upgrade-Insecure-Requests': '1'
     };
 
     const { data: html } = await axios.get(url, {
       headers,
-      timeout: 15000
+      timeout: 15000,
+      validateStatus: (status) => status < 500 // 403 등도 일단 받아서 처리를 시도함
     });
     
     const $ = cheerio.load(html);

@@ -41,6 +41,10 @@ function App() {
     return a.localeCompare(b, 'ko'); // 같은 언어끼리는 가나다/ABC 순
   });
 
+  const [manualMode, setManualMode] = useState(false);
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualCategory, setManualCategory] = useState('기타');
+
   const handleAddNews = async () => {
     if (!urlInput.startsWith('http')) {
       alert('올바른 URL을 입력해주세요.');
@@ -49,6 +53,7 @@ function App() {
 
     setIsProcessing(true);
     setLoadingProgress(10);
+    setManualMode(false); // 초기화
 
     try {
       // 0. 중복 체크 (URL 기준)
@@ -66,7 +71,7 @@ function App() {
         return;
       }
 
-      // 1. 백엔드 AI 추출 요청 (강화된 로직 적용)
+      // 1. 백엔드 AI 추출 요청
       const response = await fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -74,10 +79,17 @@ function App() {
       });
       const result = await response.json();
 
-      if (!result.success) throw new Error(result.error);
+      // 추출 실패 시 (403 차단 등) 수동 입력 모드로 전환
+      if (!result.success) {
+        setManualMode(true);
+        setIsProcessing(false);
+        setLoadingProgress(0);
+        return;
+      }
+
       setLoadingProgress(80);
 
-      // 2. Supabase DB 저장 (이미지 필드 포함)
+      // 2. Supabase DB 저장
       const { data, error } = await supabase
         .from('ai-bongchae')
         .insert([
@@ -87,7 +99,7 @@ function App() {
             url: result.url,
             category: result.category,
             published_at: result.published_at,
-            image: result.image, // 추출된 이미지 URL 저장
+            image: result.image,
             likes: false
           }
         ])
@@ -98,12 +110,50 @@ function App() {
       // 3. 상태 업데이트
       setNewsList([data[0], ...newsList]);
       setUrlInput('');
+      alert('뉴스가 자동으로 등록되었습니다! ✨');
     } catch (error) {
       console.error('Add news error:', error);
-      alert('뉴스를 추가하는 중 오류가 발생했습니다: ' + error.message);
+      setManualMode(true); // 에러 발생 시 수동 모드 권장
     } finally {
       setIsProcessing(false);
       setLoadingProgress(0);
+    }
+  };
+
+  const handleManualAdd = async () => {
+    if (!manualTitle) {
+      alert('제목을 입력해주세요.');
+      return;
+    }
+    
+    setIsProcessing(true);
+    try {
+      const { data, error } = await supabase
+        .from('ai-bongchae')
+        .insert([
+          {
+            title: manualTitle,
+            summary: '사용자가 직접 등록한 뉴스입니다.',
+            url: urlInput,
+            category: manualCategory,
+            published_at: new Date().toISOString(),
+            image: null, // 플레이스홀더 생성됨
+            likes: false
+          }
+        ])
+        .select();
+
+      if (error) throw error;
+
+      setNewsList([data[0], ...newsList]);
+      setUrlInput('');
+      setManualMode(false);
+      setManualTitle('');
+      alert('뉴스가 수동으로 등록되었습니다! ✅');
+    } catch (error) {
+      alert('수동 등록 중 오류 발생: ' + error.message);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -158,7 +208,7 @@ function App() {
             onClick={handleAddNews}
             disabled={isProcessing || !urlInput}
           >
-            {isProcessing ? '⚡ 요약 중' : '뉴스 추가'}
+            {isProcessing ? '⚡ 분석 중' : '뉴스 추가'}
           </button>
         </div>
         {isProcessing && (
@@ -166,8 +216,40 @@ function App() {
             <div className="loading-bar-container">
               <div className="loading-bar" style={{width: `${loadingProgress}%`}}></div>
             </div>
-            <div className="loading-text">전문가급 AI 크롤러가 뉴스를 정밀 분석 중입니다...</div>
+            <div className="loading-text">보안 사이트 여부를 확인하며 분석 중입니다...</div>
           </>
+        )}
+
+        {manualMode && (
+          <div className="manual-input-area">
+            <p className="manual-desc">⚠️ 보안상 자동 추출이 차단된 사이트입니다. 제목을 직접 입력해 주세요.</p>
+            <input 
+              type="text" 
+              className="manual-field" 
+              placeholder="뉴스 제목을 입력하세요..." 
+              value={manualTitle}
+              onChange={(e) => setManualTitle(e.target.value)}
+            />
+            <div className="manual-row">
+              <select 
+                className="manual-field manual-select"
+                value={manualCategory}
+                onChange={(e) => setManualCategory(e.target.value)}
+              >
+                <option value="IT">IT</option>
+                <option value="AI">AI</option>
+                <option value="보안">보안</option>
+                <option value="기타">기타</option>
+              </select>
+              <button 
+                className="add-btn manual-btn" 
+                onClick={handleManualAdd}
+                disabled={isProcessing}
+              >
+                수동 등록 완료
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
