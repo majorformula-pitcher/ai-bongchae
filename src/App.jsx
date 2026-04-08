@@ -11,7 +11,7 @@ function App() {
   // DB에서 뉴스 읽어오기
   const fetchNews = async () => {
     const { data, error } = await supabase
-      .from('news')
+      .from('ai-bongchae')
       .select('*')
       .order('created_at', { ascending: false });
     
@@ -52,7 +52,7 @@ function App() {
 
       // 2. Supabase DB 저장 (사용자 DB 구조에 맞춤)
       const { data, error } = await supabase
-        .from('news')
+        .from('ai-bongchae')
         .insert([
           {
             title: result.title,
@@ -81,7 +81,7 @@ function App() {
 
   const toggleLike = async (id, currentStatus) => {
     const { error } = await supabase
-      .from('news')
+      .from('ai-bongchae')
       .update({ likes: !currentStatus })
       .eq('id', id);
 
