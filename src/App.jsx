@@ -198,12 +198,15 @@ function App() {
           filteredNews.map(news => (
             <div key={news.id} className="news-card">
               <div className="news-category-badge">{news.category}</div>
-              {/* 이미지가 있을 경우에만 렌더링 */}
-              {news.image && (
-                <div className="news-image-container">
+              <div className="news-image-container">
+                {news.image ? (
                   <img src={news.image} alt={news.title} className="news-image" />
-                </div>
-              )}
+                ) : (
+                  <div className="news-image-placeholder">
+                    <span>이미지가 없는 뉴스입니다</span>
+                  </div>
+                )}
+              </div>
               <div className="news-content">
                 <h2 className="news-title">
                   <a href={news.url} target="_blank" rel="noopener noreferrer" style={{color: 'inherit', textDecoration: 'none'}}>
