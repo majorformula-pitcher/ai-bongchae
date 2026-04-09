@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from './lib/supabaseClient';
+import * as XLSX from 'xlsx';
 import './index.css';
 
 const API_URL = ''; // 백엔드 통신 주소 복구
@@ -229,6 +230,40 @@ function App() {
       ));
     }
   };
+  
+  const handleExportExcel = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('ai-bongchae')
+        .select('title, summary, category, url, created_at, engine')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const excelData = data.map(item => ({
+        '제목': item.title,
+        '카테고리': item.category || '기타',
+        '핵심 요약': item.summary,
+        '출처 URL': item.url,
+        '작성 엔진': item.engine || 'Unknown',
+        '등록 시간': new Date(item.created_at).toLocaleString('ko-KR')
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(excelData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'News_List');
+
+      const wscols = [
+        { wch: 45 }, { wch: 15 }, { wch: 75 }, { wch: 35 }, { wch: 15 }, { wch: 25 }
+      ];
+      worksheet['!cols'] = wscols;
+
+      const fileName = `AI_Bongchae_News_${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(workbook, fileName);
+    } catch (error) {
+      alert('엑셀 내보내기 오류: ' + error.message);
+    }
+  };
 
   const filteredNews = newsList.filter(news => {
     const matchesSearch = news.title.toLowerCase().includes(searchTerm.toLowerCase());
@@ -259,6 +294,13 @@ function App() {
                 </button>
               )}
             </div>
+            <button 
+              className="export-btn"
+              onClick={handleExportExcel}
+              title="전체 뉴스 엑셀로 내보내기"
+            >
+              📊 엑셀 Export
+            </button>
             <button 
               className={`filter-btn ${showOnlyLiked ? 'active' : ''}`}
               onClick={() => setShowOnlyLiked(!showOnlyLiked)}
