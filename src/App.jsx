@@ -209,7 +209,6 @@ function App() {
         if (error) throw error;
 
         setNewsList(newsList.filter(news => news.id !== id));
-        alert('삭제되었습니다.');
       } catch (error) {
         alert('삭제 중 오류 발생: ' + error.message);
       }
