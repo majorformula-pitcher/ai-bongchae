@@ -43,7 +43,7 @@ async function summarizeWithGemini(bodyText, title) {
   `;
 
   const API_KEY = process.env.GEMINI_API_KEY;
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
   const payload = {
     contents: [
@@ -63,40 +63,49 @@ async function summarizeWithGemini(bodyText, title) {
     }
   };
 
-  const response = await axios.post(url, payload, {
-    headers: { 'Content-Type': 'application/json' }
-  });
+  try {
+    const response = await axios.post(url, payload, {
+      headers: { 'Content-Type': 'application/json' }
+    });
 
-  if (!response.data.candidates || response.data.candidates.length === 0) {
-    throw new Error("Gemini 응답 후보가 없습니다.");
-  }
-
-  const responseText = response.data.candidates[0].content.parts[0].text.trim();
-  
-  const startIdx = responseText.indexOf('{');
-  const endIdx = responseText.lastIndexOf('}');
-  
-  if (startIdx !== -1 && endIdx !== -1) {
-    let jsonStr = responseText.substring(startIdx, endIdx + 1);
-    let aiData = JSON.parse(jsonStr);
-    
-    const validCategories = ['AI', 'Robot', '보안', 'IT', '기타'];
-    let finalCategory = aiData.category || '기타';
-    if (!validCategories.includes(finalCategory)) {
-      finalCategory = validCategories.find(c => finalCategory.toUpperCase().includes(c.toUpperCase())) || '기타';
+    if (!response.data.candidates || response.data.candidates.length === 0) {
+      throw new Error("Gemini 응답 후보가 없습니다.");
     }
 
-    // 숫자가 포함되어 올 경우를 대비한 정제
-    let cleanSummary = (aiData.summary || '').split('\n').map(line => line.replace(/^\d+[\.\s-]*\s*/, '').trim()).filter(l => l).join('\n');
+    const responseText = response.data.candidates[0].content.parts[0].text.trim();
+    
+    const startIdx = responseText.indexOf('{');
+    const endIdx = responseText.lastIndexOf('}');
+    
+    if (startIdx !== -1 && endIdx !== -1) {
+      let jsonStr = responseText.substring(startIdx, endIdx + 1);
+      let aiData = JSON.parse(jsonStr);
+      
+      const validCategories = ['AI', 'Robot', '보안', 'IT', '기타'];
+      let finalCategory = aiData.category || '기타';
+      if (!validCategories.includes(finalCategory)) {
+        finalCategory = validCategories.find(c => finalCategory.toUpperCase().includes(c.toUpperCase())) || '기타';
+      }
 
-    return {
-      title: aiData.title || title,
-      category: finalCategory,
-      summary: cleanSummary,
-      published_at: aiData.published_at || new Date().toISOString().split('T')[0]
-    };
+      // 숫자가 포함되어 올 경우를 대비한 정제
+      let cleanSummary = (aiData.summary || '').split('\n').map(line => line.replace(/^\d+[\.\s-]*\s*/, '').trim()).filter(l => l).join('\n');
+
+      return {
+        title: aiData.title || title,
+        category: finalCategory,
+        summary: cleanSummary,
+        published_at: aiData.published_at || new Date().toISOString().split('T')[0]
+      };
+    }
+    throw new Error("JSON 형식을 찾을 수 없습니다.");
+  } catch (err) {
+    if (err.response) {
+      console.error('[Gemini API Error] Status:', err.response.status);
+      console.error('[Gemini API Error] Data:', JSON.stringify(err.response.data, null, 2));
+      throw new Error(`Gemini API Error (${err.response.status}): ${err.response.data.error?.message || 'Unknown error'}`);
+    }
+    throw err;
   }
-  throw new Error("JSON 형식을 찾을 수 없습니다.");
 }
 
 // AI 요약 함수 - Claude 로직
