@@ -22,7 +22,7 @@ const anthropic = new Anthropic({
 });
 
 // AI 요약 함수 - Gemini 로직 (REST API 직통 호출 방식)
-async function summarizeWithGemini(bodyText, title) {
+async function summarizeWithGemini(bodyText, title, publishedAt) {
   const isEnglish = /[a-zA-Z]{5,}/.test(title);
   const prompt = `
     다음 뉴스 본문을 분석해서 '반드시' 아래 형식의 순수 JSON으로만 응답해줘. 
@@ -32,8 +32,10 @@ async function summarizeWithGemini(bodyText, title) {
       "title": "${isEnglish ? "기사 제목의 한국어 번역" : "기사 제목 (이미 추출된 제목을 참고하되 더 명확하게 보강)"}",
       "category": "AI, Robot, 보안, IT, 기타 중 하나를 가장 적절한 것으로 선택",
       "summary": "첫 번째 핵심 요약\\n두 번째 핵심 요약\\n세 번째 핵심 요약\\n네 번째 핵심 요약",
-      "published_at": "현재 날짜(예: ${new Date().toISOString().split('T')[0]})"
+      "published_at": "${publishedAt || new Date().toISOString().split('T')[0]}"
     }
+    
+    주의: 기사 발행일 힌트가 "${publishedAt || '날짜 정보 없음'}" 이므로, 이를 우선적으로 참고하세요.
     
     뉴스 본문:
     ${bodyText}
@@ -116,7 +118,7 @@ async function summarizeWithGemini(bodyText, title) {
 }
 
 // AI 요약 함수 - Claude 로직
-async function summarizeWithClaude(bodyText, title) {
+async function summarizeWithClaude(bodyText, title, publishedAt) {
   const isEnglish = /[a-zA-Z]{5,}/.test(title);
   const prompt = isEnglish 
     ? `다음 영문 뉴스 기사를 읽고 아래 형식에 정확히 맞춰 한국어로 요약해 주세요.
@@ -132,8 +134,9 @@ async function summarizeWithClaude(bodyText, title) {
 - 반드시 '제목:'으로 시작하는 한국어 번역 제목 1줄과 숫자가 없는 4개의 핵심 문장으로 작성하세요.
 - 마크다운 문법을 절대 사용하지 마세요. 1., 2. 같은 숫자를 붙이지 마세요.
 
-기사 제목: ${title}
-기사 본문: ${bodyText}`
+  기사 제목: ${title}
+  기사 발행일 힌트: ${publishedAt || '발행일 정보 없음'}
+  기사 본문: ${bodyText}`
     : `다음 뉴스 기사를 읽고 아래 형식에 정확히 맞춰 4줄의 핵심 요약으로 한국어로 요약해 주세요.
  
  형식:
@@ -148,6 +151,7 @@ async function summarizeWithClaude(bodyText, title) {
  - 서론과 결론 없이 오직 4줄의 요약 내용만 출력하세요.
  
  기사 제목: ${title}
+ 기사 발행일 힌트: ${publishedAt || '발행일 정보 없음'}
  기사 본문: ${bodyText}`;
 
   const msg = await anthropic.messages.create({
@@ -186,7 +190,7 @@ async function summarizeWithClaude(bodyText, title) {
       title: finalTitle,
       category: "AI",
       summary: summaryLines.slice(0, 4).join('\n'),
-      published_at: new Date().toISOString().split('T')[0]
+      published_at: publishedAt || new Date().toISOString().split('T')[0]
     };
   }
   throw new Error("요약 형식을 찾을 수 없습니다.");
@@ -238,7 +242,20 @@ app.post('/api/extract', async (req, res) => {
 
     let title = $('meta[property="og:title"]').attr('content') || $('title').text().trim() || "제목 없음";
     let imageUrl = $('meta[property="og:image"]').attr('content') || "";
-    let publishedAt = $('meta[property="article:published_time"]').attr('content') || $('time').attr('datetime') || "";
+    
+    // [날짜 추출 고도화] 여러 메타 태그와 네이버 전용 선택자 뒤지기
+    let publishedAt = $('meta[property="article:published_time"]').attr('content') || 
+                      $('meta[name="pubdate"]').attr('content') ||
+                      $('meta[name="publish-date"]').attr('content') ||
+                      $('.media_end_head_info_dateline_ts').attr('data-last-updated') || // Naver 특수 태그 등
+                      $('.media_end_head_info_dateline_ts').text().replace(/입력|수정/g, '').trim() ||
+                      $('time').attr('datetime') || "";
+    
+    // ISO 형식으로 정규화 시도
+    if (publishedAt && publishedAt.includes('.')) {
+      const parts = publishedAt.match(/\d{4}\.\d{2}\.\d{2}/);
+      if (parts) publishedAt = parts[0].replace(/\./g, '-');
+    }
 
     // 진일보한 본문 셀렉터 (해외 매체 대응 포함)
     const bodySelectors = [
@@ -319,18 +336,18 @@ app.post('/api/extract', async (req, res) => {
     let geminiErrorMsg = "";
     let engine = "";
 
-    // [Step 1] Gemini 시도 (선발 투수 - 무료 티어 최적화)
+    // [Step 1] Gemini 시도
     try {
-      const geminiResult = await summarizeWithGemini(bodyText, title);
+      const geminiResult = await summarizeWithGemini(bodyText, title, publishedAt);
       extractedData = { ...extractedData, ...geminiResult };
       engine = "Gemini";
     } catch (geminiError) {
       console.error('Gemini Failed, switching to Claude fallback:', geminiError.message);
       geminiErrorMsg = geminiError.message;
       
-      // [Step 2] Claude 시도 (구원 투수 - 비상용 백업)
+      // [Step 2] Claude 시도
       try {
-        const claudeResult = await summarizeWithClaude(bodyText, title);
+        const claudeResult = await summarizeWithClaude(bodyText, title, publishedAt);
         extractedData = { ...extractedData, ...claudeResult };
         engine = "Claude";
         // Gemini 실패 사유를 본문 하단에 작게 기록 (진단용)
