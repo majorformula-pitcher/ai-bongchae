@@ -15,7 +15,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
 app.use(cors());
 app.use(express.json());
@@ -47,7 +49,6 @@ app.post('/api/extract', async (req, res) => {
     const status = response.status;
     const $ = cheerio.load(html);
 
-    // 403/401 등 차단 시 메타 정보만이라도 추출 시도
     if (status >= 400) {
       const ogTitle = $('meta[property="og:title"]').attr('content') || $('title').text().trim();
       const ogDesc = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || "";
@@ -72,21 +73,17 @@ app.post('/api/extract', async (req, res) => {
       throw new Error(errorMsg);
     }
 
-    // 1. 제목 추출 (meta 태그 우선)
     let title = $('meta[property="og:title"]').attr('content') || 
                 $('meta[name="twitter:title"]').attr('content') || 
                 $('title').text().trim() || "제목을 찾을 수 없음";
 
-    // 2. 이미지 추출
     let imageUrl = $('meta[property="og:image"]').attr('content') || 
                    $('meta[name="twitter:image"]').attr('content') || "";
 
-    // 3. 날짜 추출
     let publishedAt = $('meta[property="article:published_time"]').attr('content') || 
                       $('meta[name="datePublished"]').attr('content') || 
                       $('time').attr('datetime') || "";
 
-    // 4. 본문 추출 (파이썬 로직의 body_selectors 이식)
     const bodySelectors = [
       'div.article_txt', 'div.article_body', 'div#articleBody',
       'div#article-view-content-div', 'div.news_cnt_detail_wrap',
@@ -100,7 +97,6 @@ app.post('/api/extract', async (req, res) => {
     for (const selector of bodySelectors) {
       const el = $(selector);
       if (el.length > 0 && el.text().trim().length > 100) {
-        // 불필요한 태그 제거
         el.find('script, style, nav, footer, aside, iframe, header, div.not-prose, div.mb-4').remove();
         bodyElement = el;
         break;
@@ -109,7 +105,6 @@ app.post('/api/extract', async (req, res) => {
 
     let bodyText = bodyElement ? bodyElement.text().trim() : "";
 
-    // [Fallback 1] p 태그 수집
     if (bodyText.length < 100) {
       const pTexts = [];
       $('p').each((i, el) => {
@@ -119,14 +114,12 @@ app.post('/api/extract', async (req, res) => {
       if (pTexts.length > 0) bodyText = pTexts.join('\n');
     }
 
-    // [Fallback 2] 메타 설명 수집
     if (bodyText.length < 100) {
       const metaDesc = $('meta[property="og:description"]').attr('content') || 
                        $('meta[name="description"]').attr('content') || "";
       if (metaDesc) bodyText = metaDesc + (bodyText ? "\n\n" + bodyText : "");
     }
 
-    // 실제 기사가 아닌 봇 감지 페이지인 경우 실패 처리
     const botPatterns = ['Are you a robot', '봇 감지', 'Access Denied', 'Attention Required', 'Checking your browser'];
     const isBotPage = botPatterns.some(p => title.toLowerCase().includes(p.toLowerCase()));
 
@@ -138,73 +131,87 @@ app.post('/api/extract', async (req, res) => {
       throw new Error('본문을 추출할 수 없습니다. 페이월이 있거나 JavaScript 렌더링 페이지일 수 있습니다.');
     }
 
-    // 텍스트 정제 (파이썬 정규표현식 이식)
     bodyText = bodyText.replace(/Back to Articles\s*/g, '')
                        .replace(/(?:이메일|email|e-mail)\s*[:\s]*\s*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi, '')
                        .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '')
                        .replace(/[가-힣]{2,4}\s*기자(?!\w)/g, '')
                        .replace(/\[\s*\]|\(\s*\)/g, '')
                        .split('\n').map(line => line.trim()).filter(line => line).join('\n')
-                       .slice(0, 5000);
+                       .slice(0, 8000);
 
-    // [Step 5] AI 요약 시도 (실패하더라도 추출된 정보는 반환)
     let extractedData = {
       title: title && title !== "제목을 찾을 수 없음" ? title : "제목 없음",
       category: "기타",
-      summary: "뉴스 본문 추출 성공. (AI 요약 생성 중 오류 발생)",
+      summary: "뉴스 본문 추출 성공. (AI 요약 생성 중)",
       published_at: publishedAt || new Date().toISOString().split('T')[0]
     };
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const prompt = `
-        다음 뉴스 본문을 분석해서 '반드시' 아래 형식의 순수 JSON으로만 응답해줘. 
-        설명이나 마크다운 코드 블록(예: \`\`\`json)은 절대 포함하지 마.
-        
-        {
-          "title": "뉴스 제목 (이미 추출된 제목을 참고하되 더 명확하게 보강)",
-          "category": "AI, Robot, 보안, IT, 기타 중 하나를 가장 적절한 것으로 선택",
-          "summary": "1. 첫 번째 핵심 요약\\n2. 두 번째 핵심 요약\\n3. 세 번째 핵심 요약\\n4. 네 번째 핵심 요약",
-          "published_at": "YYYY-MM-DD"
-        }
-        
-        뉴스 본문:
-        ${bodyText}
-      `;
-
-      const result = await model.generateContent(prompt);
-      const responseAi = await result.response;
-      let responseText = responseAi.text().trim();
+      const isEnglish = /[a-zA-Z]{5,}/.test(title); // 간단한 영문 판별
       
-      // [무적 파싱 로직] 가장 바깥쪽의 { } 구간만 강제 추출
-      const startIdx = responseText.indexOf('{');
-      const endIdx = responseText.lastIndexOf('}');
-      
-      if (startIdx !== -1 && endIdx !== -1) {
-        let jsonStr = responseText.substring(startIdx, endIdx + 1);
-        try {
-          const aiData = JSON.parse(jsonStr);
-          
-          // 카테고리 강제 매핑 (AI, Robot, 보안, IT, 기타)
-          const validCategories = ['AI', 'Robot', '보안', 'IT', '기타'];
-          let finalCategory = aiData.category || '기타';
-          if (!validCategories.includes(finalCategory)) {
-            finalCategory = validCategories.find(c => finalCategory.toUpperCase().includes(c.toUpperCase())) || '기타';
-          }
+      const prompt = isEnglish 
+        ? `다음 영문 뉴스 기사를 읽고 아래 형식에 정확히 맞춰 한국어로 요약해 주세요.
 
-          extractedData = {
-            ...extractedData,
-            title: title && title !== "제목을 찾을 수 없음" ? title : (aiData.title || extractedData.title),
-            category: finalCategory,
-            summary: aiData.summary || extractedData.summary,
-            published_at: aiData.published_at || extractedData.published_at
-          };
-        } catch (parseError) {
-          console.error('JSON Parse Error in AI step:', parseError, 'Raw JSON:', jsonStr);
+형식:
+제목: <기사 제목을 한국어로 번역한 한 줄>
+1. <핵심 요약 첫 번째 줄 (한국어)>
+2. <핵심 요약 두 번째 줄 (한국어)>
+3. <핵심 요약 세 번째 줄 (한국어)>
+4. <핵심 요약 네 번째 줄 (한국어)>
+
+주의사항:
+- 반드시 '제목:'으로 시작하는 한국어 번역 제목 1줄과 '1.' ~ '4.'으로 시작하는 4개의 한국어 요약 문장을 작성하세요.
+- 마크다운 문법을 절대 사용하지 마세요. 순수 텍스트로만 작성하세요.
+
+기사 제목: ${title}
+기사 본문: ${bodyText}`
+        : `다음 뉴스 기사를 읽고 아래 형식에 정확히 맞춰 4줄로 요약해 주세요.
+
+형식:
+1. <핵심 요약 첫 번째 줄>
+2. <핵심 요약 두 번째 줄>
+3. <핵심 요약 세 번째 줄>
+4. <핵심 요약 네 번째 줄>
+
+주의사항:
+- 반드시 '1.' ~ '4.'으로 시작하는 4개의 문장으로 구성하세요.
+- 불필요한 설명 없이 핵심만 전달하세요.
+- 마크다운 문법을 절대 사용하지 마세요. 순수 텍스트로만 작성세요.
+
+기사 제목: ${title}
+기사 본문: ${bodyText}`;
+
+      const msg = await anthropic.messages.create({
+        model: "claude-3-haiku-20240307",
+        max_tokens: 1024,
+        system: "당신은 뉴스 요약 전문가입니다. 반드시 지정된 형식만 출력하세요.",
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      let text = msg.content[0].text.trim();
+      
+      // 텍스트 정제 (사용자 제공 파이썬 로직 이식)
+      text = text.replace(/[\*#`]/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
+
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+      let summaryLines = [];
+      let finalTitle = title;
+
+      for (const line of lines) {
+        if (line.startsWith('제목:')) {
+          finalTitle = line.replace('제목:', '').trim();
+        } else if (/^\d\./.test(line)) {
+          summaryLines.push(line);
         }
       }
+
+      if (summaryLines.length > 0) {
+        extractedData.title = finalTitle;
+        extractedData.summary = summaryLines.slice(0, 4).join('\n');
+        extractedData.category = "AI"; // 기본값
+      }
     } catch (aiError) {
-      console.error('AI Summary Error (Partial Success):', aiError);
+      console.error('Claude API Error:', aiError);
       if (bodyText) {
         extractedData.summary = "AI 요약 생성에 실패했습니다. (원본 본문 보존됨)\n\n" + bodyText.slice(0, 200) + "...";
       }
