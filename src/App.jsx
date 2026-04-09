@@ -47,7 +47,6 @@ function App() {
   const [manualTitle, setManualTitle] = useState('');
   const [manualSummary, setManualSummary] = useState(''); // 수동 요약문 상태 추가
   const [manualCategory, setManualCategory] = useState(''); // 초기값 비움
-  const [isManualSummarizing, setIsManualSummarizing] = useState(false); // 수동 요약 로딩 상태
 
   const handleAddNews = async () => {
     if (!urlInput.startsWith('http')) {
@@ -131,18 +130,44 @@ function App() {
     if (!manualTitle) return;
     
     setIsProcessing(true);
+    let finalTitle = manualTitle;
+    let finalSummary = manualSummary || '사용자가 직접 등록한 뉴스입니다.';
+    let finalCategory = manualCategory;
+
     try {
+      // 본문이 20자 이상이면 자동으로 AI 요약 수행
+      if (manualSummary && manualSummary.length >= 20) {
+        try {
+          const aiResponse = await fetch(`${API_URL}/api/summarize-text`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              text: manualSummary,
+              title: manualTitle 
+            })
+          });
+          const aiData = await aiResponse.json();
+          if (aiData.success) {
+            finalTitle = aiData.title || finalTitle;
+            finalSummary = aiData.summary || finalSummary;
+            finalCategory = aiData.category || (finalCategory === '' ? '기타' : finalCategory);
+          }
+        } catch (aiErr) {
+          console.warn('[ManualAdd] Auto AI summarization failed, saving as-is:', aiErr.message);
+        }
+      }
+
       const { data, error } = await supabase
         .from('ai-bongchae')
         .insert([
           {
-            title: manualTitle,
-            summary: manualSummary || '사용자가 직접 등록한 뉴스입니다.',
+            title: finalTitle,
+            summary: finalSummary,
             url: urlInput,
-            category: manualCategory,
+            category: finalCategory || '기타',
             engine: 'User', // 수동 등록 표시
             published_at: new Date().toISOString(),
-            image: null, // 플레이스홀더 생성됨
+            image: null, 
             likes: false
           }
         ])
@@ -156,44 +181,11 @@ function App() {
       setManualTitle('');
       setManualSummary('');
       setManualCategory('');
-      alert('뉴스가 수동으로 등록되었습니다! ✅');
+      alert('뉴스가 성공적으로 등록되었습니다! ✅');
     } catch (error) {
-      alert('수동 등록 중 오류 발생: ' + error.message);
+      alert('등록 중 오류 발생: ' + error.message);
     } finally {
       setIsProcessing(false);
-    }
-  };
-
-  const handleAISummarize = async () => {
-    if (!manualSummary || manualSummary.length < 20) {
-      alert('요약할 본문 내용을 최소 20자 이상 입력해주세요.');
-      return;
-    }
-
-    setIsManualSummarizing(true);
-    try {
-      const response = await fetch(`${API_URL}/api/summarize-text`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          text: manualSummary,
-          title: manualTitle 
-        })
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        setManualSummary(data.summary);
-        if (data.title && !manualTitle) setManualTitle(data.title);
-        if (data.category && !manualCategory) setManualCategory(data.category);
-        alert(`AI(${data.engine})가 본문을 요약했습니다! ✨`);
-      } else {
-        throw new Error(data.error);
-      }
-    } catch (error) {
-      alert('AI 요약 중 오류 발생: ' + error.message);
-    } finally {
-      setIsManualSummarizing(false);
     }
   };
 
@@ -317,21 +309,12 @@ function App() {
               value={manualTitle}
               onChange={(e) => setManualTitle(e.target.value)}
             />
-            <div className="manual-textarea-wrapper">
-              <textarea 
-                className="manual-field manual-textarea" 
-                placeholder="뉴스 요약 또는 본문을 입력하세요 (선택)" 
-                value={manualSummary}
-                onChange={(e) => setManualSummary(e.target.value)}
-              />
-              <button 
-                className="ai-summarize-btn"
-                onClick={handleAISummarize}
-                disabled={isManualSummarizing || !manualSummary || manualSummary.length < 20}
-              >
-                {isManualSummarizing ? ' 요약 중...' : '🧙‍♂️ AI 요약하기'}
-              </button>
-            </div>
+            <textarea 
+              className="manual-field manual-textarea" 
+              placeholder="뉴스 요약 또는 본문을 입력하세요 (선택)" 
+              value={manualSummary}
+              onChange={(e) => setManualSummary(e.target.value)}
+            />
             <div className="manual-row">
               <input 
                 type="text"
@@ -345,7 +328,7 @@ function App() {
                 onClick={handleManualAdd}
                 disabled={isProcessing || !manualTitle}
               >
-                수동 등록 완료
+                {isProcessing ? 'AI 요약 및 등록 중...' : '수동 등록 완료'}
               </button>
             </div>
           </div>
