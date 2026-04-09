@@ -496,6 +496,13 @@ body::before {
   background: rgba(15, 23, 42, 0.8);
 }
 
+.manual-textarea {
+  min-height: 100px;
+  resize: vertical;
+  line-height: 1.5;
+  font-family: inherit;
+}
+
 .manual-row {
   display: flex;
   gap: 10px;
@@ -519,6 +526,12 @@ body::before {
 
 .manual-btn:hover:not(:disabled) {
   background: #059669;
+}
+
+.manual-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
 }
 
 
