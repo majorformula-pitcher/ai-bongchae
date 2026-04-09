@@ -31,12 +31,15 @@ async function summarizeWithGemini(bodyText, title) {
     {
       "title": "${isEnglish ? "기사 제목의 한국어 번역" : "기사 제목 (이미 추출된 제목을 참고하되 더 명확하게 보강)"}",
       "category": "AI, Robot, 보안, IT, 기타 중 하나를 가장 적절한 것으로 선택",
-      "summary": "1. 첫 번째 핵심 요약\\n2. 두 번째 핵심 요약\\n3. 세 번째 핵심 요약\\n4. 네 번째 핵심 요약",
+      "summary": "첫 번째 핵심 요약\\n두 번째 핵심 요약\\n세 번째 핵심 요약\\n네 번째 핵심 요약",
       "published_at": "YYYY-MM-DD"
     }
     
     뉴스 본문:
     ${bodyText}
+    
+    주의사항:
+    - 요약(summary)은 반드시 숫자를 붙이지 말고 4개의 핵심 문장으로만 작성하세요. (각 문장은 줄바꿈으로 구분)
   `;
 
   const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
@@ -49,7 +52,7 @@ async function summarizeWithGemini(bodyText, title) {
   
   if (startIdx !== -1 && endIdx !== -1) {
     let jsonStr = responseText.substring(startIdx, endIdx + 1);
-    const aiData = JSON.parse(jsonStr);
+    let aiData = JSON.parse(jsonStr);
     
     const validCategories = ['AI', 'Robot', '보안', 'IT', '기타'];
     let finalCategory = aiData.category || '기타';
@@ -57,10 +60,13 @@ async function summarizeWithGemini(bodyText, title) {
       finalCategory = validCategories.find(c => finalCategory.toUpperCase().includes(c.toUpperCase())) || '기타';
     }
 
+    // 숫자가 포함되어 올 경우를 대비한 정제
+    let cleanSummary = aiData.summary.split('\n').map(line => line.replace(/^\d+[\.\s-]*\s*/, '').trim()).filter(l => l).join('\n');
+
     return {
       title: aiData.title || title,
       category: finalCategory,
-      summary: aiData.summary,
+      summary: cleanSummary,
       published_at: aiData.published_at || new Date().toISOString().split('T')[0]
     };
   }
@@ -75,29 +81,29 @@ async function summarizeWithClaude(bodyText, title) {
 
 형식:
 제목: <기사 제목을 한국어로 번역한 한 줄>
-1. <핵심 요약 첫 번째 줄 (한국어)>
-2. <핵심 요약 두 번째 줄 (한국어)>
-3. <핵심 요약 세 번째 줄 (한국어)>
-4. <핵심 요약 네 번째 줄 (한국어)>
+<핵심 요약 첫 번째 문장 (한국어)>
+<핵심 요약 두 번째 문장 (한국어)>
+<핵심 요약 세 번째 문장 (한국어)>
+<핵심 요약 네 번째 문장 (한국어)>
 
 주의사항:
-- 반드시 '제목:'으로 시작하는 한국어 번역 제목 1줄과 '1.' ~ '4.'으로 시작하는 4개의 한국어 요약 문장을 작성하세요.
-- 마크다운 문법을 절대 사용하지 마세요. 순수 텍스트로만 작성하세요.
+- 반드시 '제목:'으로 시작하는 한국어 번역 제목 1줄과 숫자가 없는 4개의 핵심 문장으로 작성하세요.
+- 마크다운 문법을 절대 사용하지 마세요. 1., 2. 같은 숫자를 붙이지 마세요.
 
 기사 제목: ${title}
 기사 본문: ${bodyText}`
     : `다음 뉴스 기사를 읽고 아래 형식에 정확히 맞춰 4줄로 요약해 주세요.
 
 형식:
-1. <핵심 요약 첫 번째 줄>
-2. <핵심 요약 두 번째 줄>
-3. <핵심 요약 세 번째 줄>
-4. <핵심 요약 네 번째 줄>
+<핵심 요약 첫 번째 문장>
+<핵심 요약 두 번째 문장>
+<핵심 요약 세 번째 문장>
+<핵심 요약 네 번째 문장>
 
 주의사항:
-- 반드시 '1.' ~ '4.'으로 시작하는 4개의 문장으로 구성하세요.
+- 반드시 숫자가 없는 4개의 문장으로 구성하세요.
+- 1., 2. 같은 숫자를 절대 붙이지 마세요.
 - 불필요한 설명 없이 핵심만 전달하세요.
-- 마크다운 문법을 절대 사용하지 마세요. 순수 텍스트로만 작성하세요.
 
 기사 제목: ${title}
 기사 본문: ${bodyText}`;
@@ -105,7 +111,7 @@ async function summarizeWithClaude(bodyText, title) {
   const msg = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 1024,
-    system: "당신은 뉴스 요약 전문가입니다. 반드시 지정된 형식만 출력하세요.",
+    system: "당신은 뉴스 요약 전문가입니다. 숫자를 사용하지 말고 문장 위주로만 출력하세요.",
     messages: [{ role: "user", content: prompt }],
   });
 
@@ -119,8 +125,10 @@ async function summarizeWithClaude(bodyText, title) {
   for (const line of lines) {
     if (line.startsWith('제목:')) {
       finalTitle = line.replace('제목:', '').trim();
-    } else if (/^\d\./.test(line)) {
-      summaryLines.push(line);
+    } else {
+      // 숫자 및 대시 제거 정규식 적용
+      const cleanLine = line.replace(/^[\d\.\s\-\*]+/, '').trim();
+      if (cleanLine) summaryLines.push(cleanLine);
     }
   }
 
@@ -132,7 +140,7 @@ async function summarizeWithClaude(bodyText, title) {
       published_at: new Date().toISOString().split('T')[0]
     };
   }
-  throw new Error("4줄 요약 형식을 찾을 수 없습니다.");
+  throw new Error("요약 형식을 찾을 수 없습니다.");
 }
 
 app.use(cors());
