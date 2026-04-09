@@ -21,7 +21,7 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-// AI 요약 함수 - Gemini 로직
+// AI 요약 함수 - Gemini 로직 (REST API 직통 호출 방식)
 async function summarizeWithGemini(bodyText, title) {
   const isEnglish = /[a-zA-Z]{5,}/.test(title);
   const prompt = `
@@ -42,10 +42,36 @@ async function summarizeWithGemini(bodyText, title) {
     - 요약(summary)은 반드시 숫자를 붙이지 말고 4개의 핵심 문장으로만 작성하세요. (각 문장은 줄바꿈으로 구분)
   `;
 
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-  const result = await model.generateContent(prompt);
-  const responseAi = await result.response;
-  let responseText = responseAi.text().trim();
+  const API_KEY = process.env.GEMINI_API_KEY;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+
+  const payload = {
+    contents: [
+      {
+        parts: [{ text: prompt }]
+      }
+    ],
+    safetySettings: [
+      { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_NONE" },
+      { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" }
+    ],
+    generationConfig: {
+      temperature: 0.1,
+      maxOutputTokens: 2048,
+    }
+  };
+
+  const response = await axios.post(url, payload, {
+    headers: { 'Content-Type': 'application/json' }
+  });
+
+  if (!response.data.candidates || response.data.candidates.length === 0) {
+    throw new Error("Gemini 응답 후보가 없습니다.");
+  }
+
+  const responseText = response.data.candidates[0].content.parts[0].text.trim();
   
   const startIdx = responseText.indexOf('{');
   const endIdx = responseText.lastIndexOf('}');
@@ -61,7 +87,7 @@ async function summarizeWithGemini(bodyText, title) {
     }
 
     // 숫자가 포함되어 올 경우를 대비한 정제
-    let cleanSummary = aiData.summary.split('\n').map(line => line.replace(/^\d+[\.\s-]*\s*/, '').trim()).filter(l => l).join('\n');
+    let cleanSummary = (aiData.summary || '').split('\n').map(line => line.replace(/^\d+[\.\s-]*\s*/, '').trim()).filter(l => l).join('\n');
 
     return {
       title: aiData.title || title,
