@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import Anthropic from '@anthropic-ai/sdk';
 
 dotenv.config();
 
