@@ -190,11 +190,13 @@ app.post('/api/extract', async (req, res) => {
 
     let extractedData = { title, category: "기타", summary: "분석 중...", published_at: publishedAt || new Date().toISOString().split('T')[0] };
     let geminiErrorMsg = "";
+    let engine = "";
 
     // [Step 1] Gemini 시도 (선발 투수 - 무료 티어 최적화)
     try {
       const geminiResult = await summarizeWithGemini(bodyText, title);
       extractedData = { ...extractedData, ...geminiResult };
+      engine = "Gemini";
     } catch (geminiError) {
       console.error('Gemini Failed, switching to Claude fallback:', geminiError.message);
       geminiErrorMsg = geminiError.message;
@@ -203,17 +205,20 @@ app.post('/api/extract', async (req, res) => {
       try {
         const claudeResult = await summarizeWithClaude(bodyText, title);
         extractedData = { ...extractedData, ...claudeResult };
+        engine = "Claude";
         // Gemini 실패 사유를 본문 하단에 작게 기록 (진단용)
         extractedData.summary += `\n\n[Gemini 진단: ${geminiErrorMsg.slice(0, 100)}]`;
       } catch (claudeError) {
         console.error('All AI engines failed:', claudeError.message);
         extractedData.summary = `⚠️ AI 요약 시스템 긴급 점검 중\n- Gemini: ${geminiErrorMsg}\n- Claude: ${claudeError.message}`;
+        engine = "Error";
       }
     }
 
     res.json({ 
       success: true, 
       ...extractedData,
+      engine,
       image: imageUrl,
       url: url 
     });
