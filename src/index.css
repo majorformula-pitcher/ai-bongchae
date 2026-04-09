@@ -470,13 +470,44 @@ body::before {
   animation: fadeIn 0.4s ease-out;
 }
 
+.manual-header {
+  display: flex !important;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  width: 100%;
+}
+
 .manual-desc {
   font-size: 0.85rem;
   color: #fbbf24; /* Amber color for warning/info */
-  margin: 0 0 4px 0;
+  margin: 0 !important;
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 1;
+}
+
+.manual-cancel-btn {
+  background: transparent;
+  border: 1.5px solid rgba(168, 85, 247, 0.5); /* Primary purple outline */
+  color: #c084fc; /* Lighter purple for visibility */
+  padding: 4px 14px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-left: 12px;
+}
+
+.manual-cancel-btn:hover {
+  background: rgba(168, 85, 247, 0.1);
+  border-color: #a855f7;
+  color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 0 12px rgba(168, 85, 247, 0.3);
 }
 
 .manual-field {
