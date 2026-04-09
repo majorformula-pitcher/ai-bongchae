@@ -152,10 +152,14 @@ function App() {
             finalTitle = aiData.title || finalTitle;
             finalSummary = aiData.summary || finalSummary;
             finalCategory = aiData.category || (finalCategory === '' ? '기타' : finalCategory);
-            finalEngine = aiData.engine || 'Gemini'; // AI 엔진 정보 업데이트
+            finalEngine = aiData.engine || 'Gemini'; 
+            console.log(`[ManualAdd] AI Summarization success: ${finalEngine}`);
+          } else {
+            alert('AI 요약에 실패했습니다. 원문 그대로 저장합니다. (사유: ' + (aiData.error || '알 수 없음') + ')');
           }
         } catch (aiErr) {
-          console.warn('[ManualAdd] Auto AI summarization failed, saving as-is:', aiErr.message);
+          console.warn('[ManualAdd] Auto AI summarization error:', aiErr.message);
+          alert('AI 연결 오류로 요약을 수행할 수 없습니다. 원문 그대로 저장합니다.');
         }
       }
 
