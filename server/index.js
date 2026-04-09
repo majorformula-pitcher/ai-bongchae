@@ -127,21 +127,21 @@ async function summarizeWithClaude(bodyText, title) {
 
 기사 제목: ${title}
 기사 본문: ${bodyText}`
-    : `다음 뉴스 기사를 읽고 아래 형식에 정확히 맞춰 4줄로 요약해 주세요.
-
-형식:
-<핵심 요약 첫 번째 문장>
-<핵심 요약 두 번째 문장>
-<핵심 요약 세 번째 문장>
-<핵심 요약 네 번째 문장>
-
-주의사항:
-- 반드시 숫자가 없는 4개의 문장으로 구성하세요.
-- 1., 2. 같은 숫자를 절대 붙이지 마세요.
-- 불필요한 설명 없이 핵심만 전달하세요.
-
-기사 제목: ${title}
-기사 본문: ${bodyText}`;
+    : `다음 뉴스 기사를 읽고 아래 형식에 정확히 맞춰 4줄의 핵심 요약으로 한국어로 요약해 주세요.
+ 
+ 형식:
+ <요약 문장 1>
+ <요약 문장 2>
+ <요약 문장 3>
+ <요약 문장 4>
+ 
+ 주의사항:
+ - 반드시 각 문장 뒤에 줄바꿈(\n)을 넣어 4개의 별도 문장으로 구성하세요.
+ - 1., 2. 같은 숫자나 불렛 기호(-, *)를 절대 붙이지 마세요.
+ - 서론과 결론 없이 오직 4줄의 요약 내용만 출력하세요.
+ 
+ 기사 제목: ${title}
+ 기사 본문: ${bodyText}`;
 
   const msg = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
@@ -157,15 +157,23 @@ async function summarizeWithClaude(bodyText, title) {
   let summaryLines = [];
   let finalTitle = title;
 
+  // 만약 줄바꿈이 제대로 안 되어 한 문단으로 왔을 경우를 대비한 문장 분리 로직
+  let finalLines = [];
   for (const line of lines) {
     if (line.startsWith('제목:')) {
       finalTitle = line.replace('제목:', '').trim();
     } else {
-      // 숫자 및 대시 제거 정규식 적용
-      const cleanLine = line.replace(/^[\d\.\s\-\*]+/, '').trim();
-      if (cleanLine) summaryLines.push(cleanLine);
+      // 마침표(.)를 기준으로 문장이 뭉쳐있을 경우 쪼갬
+      const sentences = line.split(/(?<=\.)\s+/);
+      for (const sent of sentences) {
+        const cleanSent = sent.replace(/^[\d\.\s\-\*•]+/, '').trim();
+        if (cleanSent) finalLines.push(cleanSent);
+      }
     }
   }
+
+  // 최종 요약문 구성 (최대 4줄 보장)
+  const summaryLines = finalLines.slice(0, 4);
 
   if (summaryLines.length > 0) {
     return {
