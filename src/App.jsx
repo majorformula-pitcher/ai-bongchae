@@ -43,6 +43,7 @@ function App() {
   });
 
   const [manualMode, setManualMode] = useState(false);
+  const [manualErrorMessage, setManualErrorMessage] = useState(''); // 에러 메시지 상태 추가
   const [manualTitle, setManualTitle] = useState('');
   const [manualCategory, setManualCategory] = useState('기타');
 
@@ -80,8 +81,9 @@ function App() {
       });
       const result = await response.json();
 
-      // 추출 실패 시 (403 차단 등) 수동 입력 모드로 전환
+      // 추출 실패 시 (실제 추출 불가 상황) 수동 입력 모드로 전환
       if (!result.success) {
+        setManualErrorMessage(result.error || '자동 추출에 실패했습니다.');
         setManualMode(true);
         setIsProcessing(false);
         setLoadingProgress(0);
@@ -114,6 +116,7 @@ function App() {
       alert('뉴스가 자동으로 등록되었습니다! ✨');
     } catch (error) {
       console.error('Add news error:', error);
+      setManualErrorMessage('네트워크 오류가 발생했습니다: ' + error.message);
       setManualMode(true); // 에러 발생 시 수동 모드 권장
     } finally {
       setIsProcessing(false);
@@ -262,7 +265,7 @@ function App() {
 
         {manualMode && (
           <div className="manual-input-area">
-            <p className="manual-desc">⚠️ 보안상 자동 추출이 차단된 사이트입니다. 제목을 직접 입력해 주세요.</p>
+            <p className="manual-desc">⚠️ {manualErrorMessage}</p>
             <input 
               type="text" 
               className="manual-field" 

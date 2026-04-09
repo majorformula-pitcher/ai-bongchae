@@ -147,37 +147,61 @@ app.post('/api/extract', async (req, res) => {
                        .split('\n').map(line => line.trim()).filter(line => line).join('\n')
                        .slice(0, 5000);
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-    const prompt = `
-      다음 뉴스 본문을 분석해서 아래 형식의 JSON으로만 응답해줘. (반드시 순수 JSON만 출력)
-      {
-        "title": "뉴스 제목 (추출된 제목이 있으면 사용, 본문 기반으로 보강 가능)",
-        "category": "AI, Robot, 보안, IT, 기타 중 하나 선택",
-        "summary": "1. 첫 번째 요약\\n2. 두 번째 요약\\n3. 세 번째 요약\\n4. 네 번째 요약 (최대한 구체적이고 전문적으로)",
-        "published_at": "YYYY-MM-DD 형식 (추출된 날짜가 있으면 사용, 없으면 오늘 날짜)"
-      }
-      뉴스 본문:
-      ${bodyText}
-    `;
+    // [Step 5] AI 요약 시도 (실패하더라도 추출된 정보는 반환)
+    let extractedData = {
+      title: title && title !== "제목을 찾을 수 없음" ? title : "제목 없음",
+      category: "기타",
+      summary: "뉴스 본문 추출 성공. (AI 요약 생성 중 오류 발생)",
+      published_at: publishedAt || new Date().toISOString().split('T')[0]
+    };
 
-    const result = await model.generateContent(prompt);
-    const responseAi = await result.response;
-    const responseText = responseAi.text();
-    
-    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error('AI 응답 파싱 실패');
-    
-    const extractedData = JSON.parse(jsonMatch[0]);
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const prompt = `
+        다음 뉴스 본문을 분석해서 아래 형식의 JSON으로만 응답해줘. (반드시 순수 JSON만 출력)
+        {
+          "title": "뉴스 제목 (추출된 제목이 있으면 사용, 본문 기반으로 보강 가능)",
+          "category": "AI, Robot, 보안, IT, 기타 중 하나 선택",
+          "summary": "1. 첫 번째 요약\\n2. 두 번째 요약\\n3. 세 번째 요약\\n4. 네 번째 요약",
+          "published_at": "YYYY-MM-DD 형식"
+        }
+        뉴스 본문:
+        ${bodyText}
+      `;
+
+      const result = await model.generateContent(prompt);
+      const responseAi = await result.response;
+      let responseText = responseAi.text();
+      
+      // JSON 전처리: 마크다운 코드 블록 제거 및 순수 JSON 추출
+      responseText = responseText.replace(/```json|```/g, "").trim();
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      
+      if (jsonMatch) {
+        const aiData = JSON.parse(jsonMatch[0]);
+        extractedData = {
+          ...extractedData,
+          ...aiData,
+          // 제목이 이미 잘 추출되었다면 AI 결과보다 우선시함 (선택사항)
+          title: title && title !== "제목을 찾을 수 없음" ? title : (aiData.title || extractedData.title)
+        };
+      }
+    } catch (aiError) {
+      console.error('AI Summary Error (Partial Success):', aiError);
+      // AI 에러 시에도 추출된 본문의 앞부분을 요약 대신 보여줄 수 있음
+      if (bodyText) {
+        extractedData.summary = "AI 요약 생성에 실패했습니다. (원본 본문 보존됨)\n\n" + bodyText.slice(0, 200) + "...";
+      }
+    }
 
     res.json({ 
       success: true, 
       ...extractedData,
-      title: title && title !== "제목을 찾을 수 없음" ? title : (extractedData.title || title),
       image: imageUrl,
       url: url 
     });
   } catch (error) {
-    console.error('Advanced Extraction error:', error);
+    console.error('Extraction engine error:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
