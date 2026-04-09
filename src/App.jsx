@@ -267,7 +267,15 @@ function App() {
 
         {manualMode && (
           <div className="manual-input-area">
-            <p className="manual-desc">⚠️ {manualErrorMessage}</p>
+            <div className="manual-header">
+              <p className="manual-desc">⚠️ {manualErrorMessage}</p>
+              <button 
+                className="manual-cancel-btn"
+                onClick={() => setManualMode(false)}
+              >
+                입력 취소
+              </button>
+            </div>
             <input 
               type="text" 
               className="manual-field" 
@@ -282,16 +290,13 @@ function App() {
               onChange={(e) => setManualSummary(e.target.value)}
             />
             <div className="manual-row">
-              <select 
-                className="manual-field manual-select"
+              <input 
+                type="text"
+                className="manual-field manual-category-input"
+                placeholder="카테고리 입력..."
                 value={manualCategory}
                 onChange={(e) => setManualCategory(e.target.value)}
-              >
-                <option value="IT">IT</option>
-                <option value="AI">AI</option>
-                <option value="보안">보안</option>
-                <option value="기타">기타</option>
-              </select>
+              />
               <button 
                 className="add-btn manual-btn" 
                 onClick={handleManualAdd}
