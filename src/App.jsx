@@ -46,7 +46,7 @@ function App() {
   const [manualErrorMessage, setManualErrorMessage] = useState(''); // 에러 메시지 상태 추가
   const [manualTitle, setManualTitle] = useState('');
   const [manualSummary, setManualSummary] = useState(''); // 수동 요약문 상태 추가
-  const [manualCategory, setManualCategory] = useState('기타');
+  const [manualCategory, setManualCategory] = useState(''); // 초기값 비움
 
   const handleAddNews = async () => {
     if (!urlInput.startsWith('http')) {
@@ -293,7 +293,7 @@ function App() {
               <input 
                 type="text"
                 className="manual-field manual-category-input"
-                placeholder="카테고리 입력..."
+                placeholder="Category 입력하세요 (AI, Robot 등)"
                 value={manualCategory}
                 onChange={(e) => setManualCategory(e.target.value)}
               />
