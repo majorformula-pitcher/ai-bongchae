@@ -158,37 +158,53 @@ app.post('/api/extract', async (req, res) => {
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       const prompt = `
-        다음 뉴스 본문을 분석해서 아래 형식의 JSON으로만 응답해줘. (반드시 순수 JSON만 출력)
+        다음 뉴스 본문을 분석해서 '반드시' 아래 형식의 순수 JSON으로만 응답해줘. 
+        설명이나 마크다운 코드 블록(예: \`\`\`json)은 절대 포함하지 마.
+        
         {
-          "title": "뉴스 제목 (추출된 제목이 있으면 사용, 본문 기반으로 보강 가능)",
-          "category": "AI, Robot, 보안, IT, 기타 중 하나 선택",
-          "summary": "1. 첫 번째 요약\\n2. 두 번째 요약\\n3. 세 번째 요약\\n4. 네 번째 요약",
-          "published_at": "YYYY-MM-DD 형식"
+          "title": "뉴스 제목 (이미 추출된 제목을 참고하되 더 명확하게 보강)",
+          "category": "AI, Robot, 보안, IT, 기타 중 하나를 가장 적절한 것으로 선택",
+          "summary": "1. 첫 번째 핵심 요약\\n2. 두 번째 핵심 요약\\n3. 세 번째 핵심 요약\\n4. 네 번째 핵심 요약",
+          "published_at": "YYYY-MM-DD"
         }
+        
         뉴스 본문:
         ${bodyText}
       `;
 
       const result = await model.generateContent(prompt);
       const responseAi = await result.response;
-      let responseText = responseAi.text();
+      let responseText = responseAi.text().trim();
       
-      // JSON 전처리: 마크다운 코드 블록 제거 및 순수 JSON 추출
-      responseText = responseText.replace(/```json|```/g, "").trim();
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      // [무적 파싱 로직] 가장 바깥쪽의 { } 구간만 강제 추출
+      const startIdx = responseText.indexOf('{');
+      const endIdx = responseText.lastIndexOf('}');
       
-      if (jsonMatch) {
-        const aiData = JSON.parse(jsonMatch[0]);
-        extractedData = {
-          ...extractedData,
-          ...aiData,
-          // 제목이 이미 잘 추출되었다면 AI 결과보다 우선시함 (선택사항)
-          title: title && title !== "제목을 찾을 수 없음" ? title : (aiData.title || extractedData.title)
-        };
+      if (startIdx !== -1 && endIdx !== -1) {
+        let jsonStr = responseText.substring(startIdx, endIdx + 1);
+        try {
+          const aiData = JSON.parse(jsonStr);
+          
+          // 카테고리 강제 매핑 (AI, Robot, 보안, IT, 기타)
+          const validCategories = ['AI', 'Robot', '보안', 'IT', '기타'];
+          let finalCategory = aiData.category || '기타';
+          if (!validCategories.includes(finalCategory)) {
+            finalCategory = validCategories.find(c => finalCategory.toUpperCase().includes(c.toUpperCase())) || '기타';
+          }
+
+          extractedData = {
+            ...extractedData,
+            title: title && title !== "제목을 찾을 수 없음" ? title : (aiData.title || extractedData.title),
+            category: finalCategory,
+            summary: aiData.summary || extractedData.summary,
+            published_at: aiData.published_at || extractedData.published_at
+          };
+        } catch (parseError) {
+          console.error('JSON Parse Error in AI step:', parseError, 'Raw JSON:', jsonStr);
+        }
       }
     } catch (aiError) {
       console.error('AI Summary Error (Partial Success):', aiError);
-      // AI 에러 시에도 추출된 본문의 앞부분을 요약 대신 보여줄 수 있음
       if (bodyText) {
         extractedData.summary = "AI 요약 생성에 실패했습니다. (원본 본문 보존됨)\n\n" + bodyText.slice(0, 200) + "...";
       }
