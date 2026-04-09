@@ -442,7 +442,7 @@ function App() {
                     </div>
                     <span className="ai-source-info">
                       {news.engine && news.engine.includes('(수동)') ? 
-                        `${news.engine.replace('(수동)', '').trim()}가 요약했습니다. (사용자가 뉴스 직접 등록)` : 
+                        `${news.engine.replace('(수동)', '').trim()}가 요약했습니다. (사용자가 직접 등록)` : 
                         news.engine && news.engine !== 'User' ? `${news.engine}가 요약했습니다.` : 
                         news.engine === 'User' ? '사용자가 직접 등록했습니다.' : ''}
                     </span>

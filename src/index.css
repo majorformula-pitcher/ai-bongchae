@@ -55,7 +55,7 @@ body::before {
 
 @media (min-width: 1200px) {
   .app-container {
-    max-width: 1440px; /* PC Wide Desktop */
+    max-width: 1800px; /* Ultra-Wide Desktop */
   }
 }
 
@@ -91,7 +91,7 @@ body::before {
 }
 
 @media (min-width: 1200px) {
-  .header-content { max-width: 1440px; }
+  .header-content { max-width: 1800px; }
 }
 
 .logo-link {
@@ -421,6 +421,9 @@ body::before {
 .ai-source-info {
   font-size: 0.8rem;
   color: var(--text-muted);
+  white-space: nowrap; /* Prevent line breaks */
+  overflow: hidden;
+  text-overflow: ellipsis; /* Add ... if text is somehow still too long */
 }
 
 .like-section {
