@@ -39,7 +39,7 @@ async function summarizeWithGemini(bodyText, title) {
     ${bodyText}
   `;
 
-  const model = genAI.getGenerativeModel({ model: "gemini-3.1-flash-lite" });
+  const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
   const result = await model.generateContent(prompt);
   const responseAi = await result.response;
   let responseText = responseAi.text().trim();
