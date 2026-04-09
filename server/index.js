@@ -154,7 +154,6 @@ async function summarizeWithClaude(bodyText, title) {
   text = text.replace(/[\*#`]/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
 
   const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-  let summaryLines = [];
   let finalTitle = title;
 
   // 만약 줄바꿈이 제대로 안 되어 한 문단으로 왔을 경우를 대비한 문장 분리 로직
