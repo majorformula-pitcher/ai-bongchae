@@ -346,21 +346,9 @@ body::before {
   gap: 16px;
 }
 
-.source-link {
-  color: #a78bfa;
-  text-decoration: none;
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 4px 10px;
-  border-radius: 8px;
-  background: rgba(139, 92, 246, 0.1);
-  transition: all 0.2s;
-}
-
-.source-link:hover {
-  background: rgba(139, 92, 246, 0.2);
-  color: #c4b5fd;
-  transform: translateY(-1px);
+.ai-source-info {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 .like-section {

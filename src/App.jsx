@@ -357,7 +357,7 @@ function App() {
                       </span>
                     </div>
                     <span className="ai-source-info">
-                      {news.engine && news.engine !== 'User' ? `${news.engine} 가 요약했습니다.` : 
+                      {news.engine && news.engine !== 'User' ? `${news.engine}가 요약했습니다.` : 
                        news.engine === 'User' ? '사용자가 직접 등록했습니다.' : ''}
                     </span>
                   </div>
