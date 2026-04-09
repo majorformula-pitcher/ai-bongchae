@@ -192,32 +192,76 @@ app.post('/api/extract', async (req, res) => {
     const bodySelectors = [
       'div.article-content', 'div.post-content', 'div.content-lock-content', 
       'div.article_txt', 'div.article_body', 'div#articleBody', 
-      'article', 'main', '.entry-content', '.story-content'
+      'article', 'main', '.entry-content', '.story-content', 'div.article-body-content'
     ];
     let bodyText = "";
-    for (const s of bodySelectors) {
-      const el = $(s);
-      if (el.length > 0) {
-        // 불필요 요소 제거
-        el.find('script, style, nav, footer, aside, iframe, header, button, .ad-unit, .promo-box').remove();
-        const text = el.text().trim();
-        if (text.length > 200) {
-          bodyText = text;
-          console.log(`[Crawler] Content extracted via selector: ${s} (${bodyText.length} chars)`);
-          break;
+
+    // [Method 1] JSON-LD ArticleBody 추출 (가장 강력한 차단 우회법)
+    try {
+      $('script[type="application/ld+json"]').each((i, el) => {
+        try {
+          const jsonText = $(el).text();
+          const jsonData = JSON.parse(jsonText);
+          
+          const findArticleBody = (obj) => {
+            if (!obj || typeof obj !== 'object') return null;
+            if (Array.isArray(obj)) {
+              for (const item of obj) {
+                const result = findArticleBody(item);
+                if (result) return result;
+              }
+            }
+            if (obj.articleBody && obj.articleBody.length > 200) return obj.articleBody;
+            for (const key in obj) {
+              const result = findArticleBody(obj[key]);
+              if (result) return result;
+            }
+            return null;
+          };
+
+          const foundText = findArticleBody(jsonData);
+          if (foundText) {
+            bodyText = foundText;
+            console.log(`[Crawler] Success! Article content extracted via JSON-LD (${bodyText.length} chars)`);
+            return false; // break each
+          }
+        } catch (e) { /* ignore parse errors */ }
+      });
+    } catch (ldError) {
+      console.error('[Crawler] JSON-LD extraction failed:', ldError.message);
+    }
+
+    // [Method 2] DOM Selector 추출 (JSON-LD 실패 시)
+    if (!bodyText || bodyText.length < 200) {
+      for (const s of bodySelectors) {
+        const el = $(s);
+        if (el.length > 0) {
+          el.find('script, style, nav, footer, aside, iframe, header, button, .ad-unit, .promo-box, .newsletter-signup').remove();
+          const text = el.text().trim();
+          if (text.length > 200) {
+            bodyText = text;
+            console.log(`[Crawler] Content extracted via selector: ${s} (${bodyText.length} chars)`);
+            break;
+          }
         }
       }
     }
     
-    // 만약 여전히 부족하면 OG Description이라도 활용
+    // [Method 3] OG Description Fallback
     if (bodyText.length < 100) {
-      console.log(`[Crawler] Selectors failed or short. Using OG Description as secondary source.`);
-      bodyText = $('meta[property="og:description"]').attr('content') || "";
+      console.log(`[Crawler] Selectors failed or short. Using OG Description.`);
+      bodyText = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || "";
     }
 
-    if (!bodyText || bodyText.length < 50) throw new Error('본문을 추출할 수 없습니다.');
+    if (!bodyText || bodyText.length < 50) throw new Error('본문을 추출할 수 없습니다. (사이트 차단 또는 구조 변경)');
 
-    bodyText = bodyText.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '').replace(/[가-힣]{2,4}\s*기자(?!\w)/g, '').slice(0, 8000);
+    // 텍스트 정제 (불필요한 공백 및 로고 문구 제거)
+    bodyText = bodyText
+      .replace(/\s+/g, ' ')
+      .replace(/[a-zA-Z0-9._%+-]+@ businessinsider\.com/g, '') // 특정 매체 이메일 제거
+      .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '')
+      .replace(/[가-힣]{2,4}\s*기자(?!\w)/g, '')
+      .slice(0, 8000);
 
     let extractedData = { title, category: "기타", summary: "분석 중...", published_at: publishedAt || new Date().toISOString().split('T')[0] };
     let geminiErrorMsg = "";
