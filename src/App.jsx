@@ -133,6 +133,7 @@ function App() {
     let finalTitle = manualTitle;
     let finalSummary = manualSummary || '사용자가 직접 등록한 뉴스입니다.';
     let finalCategory = manualCategory;
+    let finalEngine = 'User'; // 기본 출처는 사용자
 
     try {
       // 본문이 20자 이상이면 자동으로 AI 요약 수행
@@ -151,6 +152,7 @@ function App() {
             finalTitle = aiData.title || finalTitle;
             finalSummary = aiData.summary || finalSummary;
             finalCategory = aiData.category || (finalCategory === '' ? '기타' : finalCategory);
+            finalEngine = aiData.engine || 'Gemini'; // AI 엔진 정보 업데이트
           }
         } catch (aiErr) {
           console.warn('[ManualAdd] Auto AI summarization failed, saving as-is:', aiErr.message);
@@ -165,7 +167,7 @@ function App() {
             summary: finalSummary,
             url: urlInput,
             category: finalCategory || '기타',
-            engine: 'User', // 수동 등록 표시
+            engine: finalEngine, // 동적으로 결정된 엔진 정보 저장
             published_at: new Date().toISOString(),
             image: null, 
             likes: false
