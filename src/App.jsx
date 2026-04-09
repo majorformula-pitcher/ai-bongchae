@@ -154,6 +154,7 @@ function App() {
             finalTitle = aiData.title || finalTitle;
             finalSummary = aiData.summary || finalSummary;
             finalCategory = aiData.category || (finalCategory === '' ? '기타' : finalCategory);
+            finalEngine = (aiData.engine || 'Gemini') + ' (수동)'; // 엔진명에 수동 마커 추가
             console.log(`[ManualAdd] AI Summarization success: ${finalEngine}`);
           } else {
             alert(`AI 요약 서비스 응답 오류: ${aiData.error || '알 수 없는 에러'}`);
@@ -401,8 +402,10 @@ function App() {
                       </span>
                     </div>
                     <span className="ai-source-info">
-                      {news.engine && news.engine !== 'User' ? `${news.engine}가 요약했습니다.` : 
-                       news.engine === 'User' ? '사용자가 직접 등록했습니다.' : ''}
+                      {news.engine && news.engine.includes('(수동)') ? 
+                        `${news.engine.replace('(수동)', '').trim()}가 요약했습니다. (사용자가 뉴스 직접 등록)` : 
+                        news.engine && news.engine !== 'User' ? `${news.engine}가 요약했습니다.` : 
+                        news.engine === 'User' ? '사용자가 직접 등록했습니다.' : ''}
                     </span>
                   </div>
                   <div className="published-date">
