@@ -36,13 +36,27 @@ body::before {
 }
 
 .app-container {
-  max-width: 600px; /* Instagram-like feed width */
+  width: 100%;
+  max-width: 600px; /* Mobile Default */
   margin: 0 auto;
   min-height: 100vh;
-  padding-top: 80px; /* Space for fixed header */
+  padding-top: 80px; 
   padding-bottom: 40px;
   padding-left: 20px;
   padding-right: 20px;
+  transition: max-width 0.3s ease;
+}
+
+@media (min-width: 768px) {
+  .app-container {
+    max-width: 900px; /* Tablet */
+  }
+}
+
+@media (min-width: 1200px) {
+  .app-container {
+    max-width: 1200px; /* PC Desktop */
+  }
 }
 
 /* Header & Filter Bar */
@@ -64,11 +78,20 @@ body::before {
 
 .header-content {
   width: 100%;
-  max-width: 600px;
+  max-width: 600px; /* Mobile Default */
   padding: 0 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  transition: max-width 0.3s ease;
+}
+
+@media (min-width: 768px) {
+  .header-content { max-width: 900px; }
+}
+
+@media (min-width: 1200px) {
+  .header-content { max-width: 1200px; }
 }
 
 .logo-link {
@@ -95,7 +118,8 @@ body::before {
   gap: 10px;
   padding: 15px 16px;
   background: rgba(17, 24, 39, 0.5);
-  margin-bottom: 24px;
+  margin: 0 auto 24px;
+  max-width: 800px;
   border-radius: 16px;
   border: 1px solid var(--border);
   overflow-x: auto;
@@ -215,6 +239,21 @@ body::before {
   gap: 32px;
 }
 
+@media (min-width: 768px) {
+  .news-feed {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+  }
+}
+
+@media (min-width: 1200px) {
+  .news-feed {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+}
+
 .news-card {
   position: relative;
   background: var(--card-bg);
@@ -234,10 +273,20 @@ body::before {
   cursor: pointer;
   width: 70%;
   margin: 20px auto 0;
-  aspect-ratio: 16 / 7;
+  aspect-ratio: 16 / 9;
   position: relative;
   overflow: hidden;
   border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+@media (min-width: 768px) {
+  .news-image-container {
+    width: 100%;
+    margin: 0;
+    border-radius: 24px 24px 0 0; /* Card top rounding */
+    aspect-ratio: 16 / 10;
+  }
 }
 
 .news-image {
@@ -395,7 +444,8 @@ body::before {
 
 /* Modal/Filter Section */
 .search-container {
-  margin-bottom: 24px;
+  margin: 0 auto 24px;
+  max-width: 800px;
 }
 
 .search-input {
@@ -423,7 +473,8 @@ body::before {
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 20px;
-  margin-bottom: 32px;
+  margin: 0 auto 32px;
+  max-width: 800px;
   animation: fadeIn 0.5s ease-out;
 }
 
