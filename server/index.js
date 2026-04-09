@@ -183,28 +183,24 @@ app.post('/api/extract', async (req, res) => {
     let extractedData = { title, category: "기타", summary: "분석 중...", published_at: publishedAt || new Date().toISOString().split('T')[0] };
     let geminiErrorMsg = "";
 
-    // [Step 1] Gemini 시도 (선발 투수 - 현재 단독 테스트 모드)
+    // [Step 1] Gemini 시도 (선발 투수 - 무료 티어 최적화)
     try {
       const geminiResult = await summarizeWithGemini(bodyText, title);
       extractedData = { ...extractedData, ...geminiResult };
     } catch (geminiError) {
-      console.error('Gemini Failed:', geminiError.message);
+      console.error('Gemini Failed, switching to Claude fallback:', geminiError.message);
       geminiErrorMsg = geminiError.message;
       
-      // [임시 중단] Claude 폴백 로직 - Gemini 단독 테스트를 위해 주석 처리
-      /*
+      // [Step 2] Claude 시도 (구원 투수 - 비상용 백업)
       try {
         const claudeResult = await summarizeWithClaude(bodyText, title);
         extractedData = { ...extractedData, ...claudeResult };
+        // Gemini 실패 사유를 본문 하단에 작게 기록 (진단용)
         extractedData.summary += `\n\n[Gemini 진단: ${geminiErrorMsg.slice(0, 100)}]`;
       } catch (claudeError) {
         console.error('All AI engines failed:', claudeError.message);
-        extractedData.summary = `⚠️ AI 요약 최종 실패\n- Gemini: ${geminiErrorMsg}\n- Claude: ${claudeError.message}`;
+        extractedData.summary = `⚠️ AI 요약 시스템 긴급 점검 중\n- Gemini: ${geminiErrorMsg}\n- Claude: ${claudeError.message}`;
       }
-      */
-      
-      // Gemini 단독 실패 시 보고
-      extractedData.summary = `⚠️ Gemini 요약 실패 (단독 테스트 중)\n- 사유: ${geminiErrorMsg}`;
     }
 
     res.json({ 
