@@ -359,7 +359,7 @@ function App() {
                     </a>
                   </div>
                   <div className="published-date">
-                    {news.published_at ? new Date(news.published_at).toLocaleString('ko-KR', {
+                    {news.created_at ? new Date(news.created_at).toLocaleString('ko-KR', {
                       year: 'numeric',
                       month: '2-digit',
                       day: '2-digit',
