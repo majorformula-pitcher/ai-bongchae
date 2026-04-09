@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './lib/supabaseClient';
 import './index.css';
 
+const API_URL = ''; // 백엔드 통신 주소 복구
+
 function App() {
   const [newsList, setNewsList] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
