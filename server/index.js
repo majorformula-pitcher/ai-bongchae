@@ -152,37 +152,68 @@ app.post('/api/extract', async (req, res) => {
   if (!url) return res.status(400).json({ success: false, error: 'URL is required' });
 
   try {
-    const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" };
+    const headers = { 
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+      "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+      "Accept-Encoding": "gzip, deflate, br",
+      "Referer": "https://www.google.com/",
+      "DNT": "1",
+      "Connection": "keep-alive",
+      "Upgrade-Insecure-Requests": "1",
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "cross-site",
+      "Sec-Fetch-User": "?1"
+    };
+    
+    console.log(`[Crawler] Attempting to fetch: ${url}`);
     const response = await axios.get(url, { headers, timeout: 15000, validateStatus: (status) => status < 500 });
     const html = response.data;
     const status = response.status;
     const $ = cheerio.load(html);
 
     if (status >= 400) {
+      console.warn(`[Crawler] Low-level block detected (HTTP ${status}). Trying OG fallback.`);
       const ogTitle = $('meta[property="og:title"]').attr('content') || $('title').text().trim();
       const ogDesc = $('meta[property="og:description"]').attr('content') || "";
       const ogImage = $('meta[property="og:image"]').attr('content') || "";
       if (ogTitle && ogDesc) {
-        return res.json({ success: true, title: ogTitle, summary: ogDesc, category: "기타", published_at: new Date().toISOString(), image: ogImage, url });
+        return res.json({ success: true, title: ogTitle, summary: ogDesc, category: "기타", published_at: new Date().toISOString(), image: ogImage, url, engine: "Fallback" });
       }
-      throw new Error(`HTTP ${status} — 접근 제한`);
+      throw new Error(`HTTP ${status} — 접근 제한 (사이트에서 직접 차단함)`);
     }
 
     let title = $('meta[property="og:title"]').attr('content') || $('title').text().trim() || "제목 없음";
     let imageUrl = $('meta[property="og:image"]').attr('content') || "";
     let publishedAt = $('meta[property="article:published_time"]').attr('content') || $('time').attr('datetime') || "";
 
-    const bodySelectors = ['div.article_txt', 'div.article_body', 'div#articleBody', 'article', 'main'];
+    // 진일보한 본문 셀렉터 (해외 매체 대응 포함)
+    const bodySelectors = [
+      'div.article-content', 'div.post-content', 'div.content-lock-content', 
+      'div.article_txt', 'div.article_body', 'div#articleBody', 
+      'article', 'main', '.entry-content', '.story-content'
+    ];
     let bodyText = "";
     for (const s of bodySelectors) {
       const el = $(s);
-      if (el.length > 0 && el.text().trim().length > 100) {
-        el.find('script, style, nav, footer, aside, iframe, header').remove();
-        bodyText = el.text().trim();
-        break;
+      if (el.length > 0) {
+        // 불필요 요소 제거
+        el.find('script, style, nav, footer, aside, iframe, header, button, .ad-unit, .promo-box').remove();
+        const text = el.text().trim();
+        if (text.length > 200) {
+          bodyText = text;
+          console.log(`[Crawler] Content extracted via selector: ${s} (${bodyText.length} chars)`);
+          break;
+        }
       }
     }
-    if (bodyText.length < 100) bodyText = $('meta[property="og:description"]').attr('content') || "";
+    
+    // 만약 여전히 부족하면 OG Description이라도 활용
+    if (bodyText.length < 100) {
+      console.log(`[Crawler] Selectors failed or short. Using OG Description as secondary source.`);
+      bodyText = $('meta[property="og:description"]').attr('content') || "";
+    }
 
     if (!bodyText || bodyText.length < 50) throw new Error('본문을 추출할 수 없습니다.');
 
