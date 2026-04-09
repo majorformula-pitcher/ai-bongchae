@@ -269,7 +269,13 @@ function App() {
     const matchesSearch = news.title.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesCategory = selectedCategory === 'All' || news.category === selectedCategory;
     const matchesLike = !showOnlyLiked || news.likes;
-    const matchesDate = !selectedDate || (news.created_at && new Date(news.created_at).toISOString().split('T')[0] === selectedDate);
+    const matchesDate = !selectedDate || (news.created_at && (() => {
+      const d = new Date(news.created_at);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}` === selectedDate;
+    })());
     return matchesSearch && matchesCategory && matchesLike && matchesDate;
   });
 
