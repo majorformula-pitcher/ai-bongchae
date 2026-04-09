@@ -271,9 +271,15 @@ function App() {
             <input 
               type="text" 
               className="manual-field" 
-              placeholder="뉴스 제목을 입력하세요..." 
+              placeholder="뉴스 제목을 입력하세요 (필수)" 
               value={manualTitle}
               onChange={(e) => setManualTitle(e.target.value)}
+            />
+            <textarea 
+              className="manual-field manual-textarea" 
+              placeholder="뉴스 요약 또는 본문을 입력하세요 (선택)" 
+              value={manualSummary}
+              onChange={(e) => setManualSummary(e.target.value)}
             />
             <div className="manual-row">
               <select 
@@ -289,7 +295,7 @@ function App() {
               <button 
                 className="add-btn manual-btn" 
                 onClick={handleManualAdd}
-                disabled={isProcessing}
+                disabled={isProcessing || !manualTitle}
               >
                 수동 등록 완료
               </button>
