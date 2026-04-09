@@ -117,7 +117,6 @@ function App() {
       // 3. 상태 업데이트
       setNewsList([data[0], ...newsList]);
       setUrlInput('');
-      alert('뉴스가 자동으로 등록되었습니다! ✨');
     } catch (error) {
       console.error('Add news error:', error);
       setManualErrorMessage('네트워크 오류가 발생했습니다: ' + error.message);
@@ -189,7 +188,6 @@ function App() {
       setManualTitle('');
       setManualSummary('');
       setManualCategory('');
-      alert('뉴스가 성공적으로 등록되었습니다! ✅');
     } catch (error) {
       alert('등록 중 오류 발생: ' + error.message);
     } finally {
