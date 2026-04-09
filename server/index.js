@@ -61,11 +61,11 @@ app.post('/api/extract', async (req, res) => {
                       $('meta[name="datePublished"]').attr('content') || 
                       $('time').attr('datetime') || "";
 
-    // 4. 본문 추출 (보내주신 로직 적용)
+    // 4. 본문 추출 (보내주신 로직 및 NDSoft 대응 추가)
     const bodySelectors = [
-      'div#article-view-content-div', '#articleBody', '.article_body', '.article_txt',
-      '#articleBodyContents', '.news_cnt_detail_wrap', '.at-content', 'article', 'main',
-      '.entry-content', '.post-content', '.article-body', '.story-body'
+      '#article-view-content-div', '#articleBodyContents', '.news_cnt_detail_wrap', 
+      '#articleBody', '.article_body', '.article_txt', '.at-content',
+      'article', 'main', '.entry-content', '.post-content', '.article-body', '.story-body'
     ];
 
     let bodyElement = null;
@@ -84,12 +84,32 @@ app.post('/api/extract', async (req, res) => {
 
     let bodyText = bodyElement ? bodyElement.text().trim() : "";
 
+    // [Fallback 1] 본문 추출 실패 시 p 태그 전체 수집
+    if (bodyText.length < 100) {
+      const pTexts = [];
+      $('p').each((i, el) => {
+        const text = $(el).text().trim();
+        if (text.length > 40) pTexts.push(text);
+      });
+      if (pTexts.length > 0) bodyText = pTexts.join('\n');
+    }
+
+    // [Fallback 2] 여전히 부족할 경우 메타 설명 수집
+    if (bodyText.length < 100) {
+      bodyText = $('meta[property="og:description"]').attr('content') || 
+                 $('meta[name="description"]').attr('content') || "";
+    }
+
     // 실제 기사가 아닌 봇 감지 페이지인 경우 실패 처리
     const botPatterns = ['Are you a robot', '봇 감지', 'Access Denied', 'Attention Required', 'Checking your browser'];
     const isBotPage = botPatterns.some(p => title.toLowerCase().includes(p.toLowerCase()));
 
     if (isBotPage) {
       throw new Error('Bot detection page detected');
+    }
+
+    if (!bodyText || bodyText.length < 50) {
+      throw new Error('본문을 추출할 수 없습니다. (페이월 또는 렌더링 제한)');
     }
 
     // 텍스트 정제 (기자명, 이메일 등 제거)
