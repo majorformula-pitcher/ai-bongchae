@@ -303,6 +303,32 @@ app.post('/api/extract', async (req, res) => {
   }
 });
 
+app.post('/api/summarize-text', express.json(), async (req, res) => {
+  const { text, title } = req.body;
+  if (!text || text.length < 20) {
+    return res.status(400).json({ success: false, error: '요약할 본문 내용이 너무 짧습니다. (최소 20자 이상)' });
+  }
+
+  try {
+    let result;
+    let engine = "Gemini";
+    const targetTitle = title || '직접 입력한 뉴스';
+    
+    try {
+      result = await summarizeWithGemini(text, targetTitle);
+    } catch (geminiError) {
+      console.warn('[API] Gemini text summarize failed, trying Claude:', geminiError.message);
+      result = await summarizeWithClaude(text, targetTitle);
+      engine = "Claude";
+    }
+    
+    res.json({ success: true, ...result, engine });
+  } catch (error) {
+    console.error('[API] Text summarization error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
