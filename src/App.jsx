@@ -103,6 +103,7 @@ function App() {
             category: result.category,
             published_at: result.published_at,
             image: result.image,
+            engine: result.engine, // AI 엔진 정보 추가
             likes: false
           }
         ])
@@ -140,6 +141,7 @@ function App() {
             summary: '사용자가 직접 등록한 뉴스입니다.',
             url: urlInput,
             category: manualCategory,
+            engine: 'User', // 수동 등록 표시
             published_at: new Date().toISOString(),
             image: null, // 플레이스홀더 생성됨
             likes: false
@@ -354,9 +356,10 @@ function App() {
                         {news.likes ? 1 : 0}
                       </span>
                     </div>
-                    <a href={news.url} target="_blank" rel="noopener noreferrer" className="source-link">
-                      원문 보기
-                    </a>
+                    <span className="ai-source-info">
+                      {news.engine && news.engine !== 'User' ? `${news.engine} 가 요약했습니다.` : 
+                       news.engine === 'User' ? '사용자가 직접 등록했습니다.' : ''}
+                    </span>
                   </div>
                   <div className="published-date">
                     {news.created_at ? new Date(news.created_at).toLocaleString('ko-KR', {
