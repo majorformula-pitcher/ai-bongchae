@@ -92,48 +92,17 @@ app.post('/api/extract', async (req, res) => {
       throw new Error('Bot detection page detected');
     }
 
-    // 테스트 모드 (AI API 호출 생략 시)
-    if (process.env.TEST_MODE === 'true') {
-      const pTexts = [];
-      $('p').each((i, el) => {
-        const text = $(el).text().trim();
-        if (text.length > 40) pTexts.push(text);
-      });
-      bodyText = pTexts.join('\n');
-    }
-
-    // 본문 추출 실패 시 p 태그 폴백
-    if (bodyText.length < 100) {
-      const pTexts = [];
-      $('p').each((i, el) => {
-        const text = $(el).text().trim();
-        if (text.length > 40) pTexts.push(text);
-      });
-      bodyText = pTexts.join('\n');
-    }
-
-    // 메타 설명 폴백
-    if (bodyText.length < 100) {
-      bodyText = $('meta[property="og:description"]').attr('content') || 
-                 $('meta[name="description"]').attr('content') || "";
-    }
-
-    if (!bodyText || bodyText.length < 50) {
-      throw new Error('본문을 추출할 수 없습니다. (페이월 또는 렌더링 제한)');
-    }
-
     // 텍스트 정제 (기자명, 이메일 등 제거)
     bodyText = bodyText.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '') // 이메일
                        .replace(/[가-힣]{2,4}\s*기자(?!\w)/g, '') // 기자 이름
                        .slice(0, 5000);
 
-    /* Gemini API 호출 (테스트를 위해 잠시 비활성화)
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const prompt = `
       다음 뉴스 본문을 분석해서 아래 형식의 JSON으로만 응답해줘.
       {
         "title": "뉴스 제목",
-        "category": "AI & Robot, 보안, 자율주행, 기타 중 하나 선택",
+        "category": "AI, Robot, 보안, IT, 기타 중 하나 선택",
         "summary": "1. 첫 번째 요약\\n2. 두 번째 요약\\n3. 세 번째 요약\\n4. 네 번째 요약",
         "published_at": "YYYY-MM-DD 형식"
       }
@@ -149,15 +118,6 @@ app.post('/api/extract', async (req, res) => {
     if (!jsonMatch) throw new Error('AI 응답 파싱 실패');
     
     const extractedData = JSON.parse(jsonMatch[0]);
-    */
-
-    // 테스트용 더미 데이터 반환
-    const extractedData = {
-      title: title || "테스트 뉴스 제목",
-      category: "기타",
-      summary: "테스트 중",
-      published_at: new Date().toISOString()
-    };
 
     res.json({ 
       success: true, 
