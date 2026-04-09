@@ -32,7 +32,7 @@ async function summarizeWithGemini(bodyText, title) {
       "title": "${isEnglish ? "기사 제목의 한국어 번역" : "기사 제목 (이미 추출된 제목을 참고하되 더 명확하게 보강)"}",
       "category": "AI, Robot, 보안, IT, 기타 중 하나를 가장 적절한 것으로 선택",
       "summary": "첫 번째 핵심 요약\\n두 번째 핵심 요약\\n세 번째 핵심 요약\\n네 번째 핵심 요약",
-      "published_at": "YYYY-MM-DD"
+      "published_at": "현재 날짜(예: ${new Date().toISOString().split('T')[0]})"
     }
     
     뉴스 본문:
@@ -90,11 +90,18 @@ async function summarizeWithGemini(bodyText, title) {
       // 숫자가 포함되어 올 경우를 대비한 정제
       let cleanSummary = (aiData.summary || '').split('\n').map(line => line.replace(/^\d+[\.\s-]*\s*/, '').trim()).filter(l => l).join('\n');
 
+      // 날짜 유효성 검사 (YYYY-MM-DD 형식이 아니면 오늘 날짜 사용)
+      let finalDate = aiData.published_at;
+      const dateRegex = /^\d{4}-\d{2}-\d{2}/;
+      if (!finalDate || !dateRegex.test(finalDate) || finalDate.includes('YYYY')) {
+        finalDate = new Date().toISOString().split('T')[0];
+      }
+
       return {
         title: aiData.title || title,
         category: finalCategory,
         summary: cleanSummary,
-        published_at: aiData.published_at || new Date().toISOString().split('T')[0]
+        published_at: finalDate
       };
     }
     throw new Error("JSON 형식을 찾을 수 없습니다.");
