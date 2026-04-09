@@ -212,10 +212,15 @@ app.post('/api/extract', async (req, res) => {
         extractedData.category = "AI"; // 기본값
       }
     } catch (aiError) {
-      console.error('Claude API Error:', aiError);
-      if (bodyText) {
-        extractedData.summary = "AI 요약 생성에 실패했습니다. (원본 본문 보존됨)\n\n" + bodyText.slice(0, 200) + "...";
-      }
+      console.error('Claude API Error Details:', aiError);
+      
+      let errorDetail = aiError.message;
+      if (aiError.status === 401) errorDetail = "Anthropic API 키가 올바르지 않거나 권한이 없습니다. (401)";
+      else if (aiError.status === 403) errorDetail = "Anthropic API 접근이 거부되었습니다. (403)";
+      else if (aiError.status === 429) errorDetail = "API 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. (429)";
+      else if (aiError.status === 500) errorDetail = "Anthropic 서버 오류가 발생했습니다. (500)";
+
+      extractedData.summary = `⚠️ AI 요약 오류: ${errorDetail}\n\n(본문 미리보기)\n${bodyText ? bodyText.slice(0, 300) : "본문 없음"}...`;
     }
 
     res.json({ 
