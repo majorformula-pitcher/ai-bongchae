@@ -16,142 +16,62 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-app.use(cors());
-app.use(express.json());
-app.use(express.static(path.join(__dirname, '../dist')));
-
-app.post('/api/extract', async (req, res) => {
-  const { url } = req.body;
-  
-  if (!url) {
-    return res.status(400).json({ success: false, error: 'URL is required' });
-  }
-
-  try {
-    const headers = {
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.9,ko-KR;q=0.8,ko;q=0.7",
-      "Accept-Encoding": "gzip, deflate",
-      "Cache-Control": "no-cache",
-    };
-
-    const response = await axios.get(url, {
-      headers,
-      timeout: 15000,
-      validateStatus: (status) => status < 500
-    });
+// AI 요약 함수 - Gemini 로직
+async function summarizeWithGemini(bodyText, title) {
+  const isEnglish = /[a-zA-Z]{5,}/.test(title);
+  const prompt = `
+    다음 뉴스 본문을 분석해서 '반드시' 아래 형식의 순수 JSON으로만 응답해줘. 
+    설명이나 마크다운 코드 블록(예: \`\`\`json)은 절대 포함하지 마.
     
-    const html = response.data;
-    const status = response.status;
-    const $ = cheerio.load(html);
+    {
+      "title": "${isEnglish ? "기사 제목의 한국어 번역" : "기사 제목 (이미 추출된 제목을 참고하되 더 명확하게 보강)"}",
+      "category": "AI, Robot, 보안, IT, 기타 중 하나를 가장 적절한 것으로 선택",
+      "summary": "1. 첫 번째 핵심 요약\\n2. 두 번째 핵심 요약\\n3. 세 번째 핵심 요약\\n4. 네 번째 핵심 요약",
+      "published_at": "YYYY-MM-DD"
+    }
+    
+    뉴스 본문:
+    ${bodyText}
+  `;
 
-    if (status >= 400) {
-      const ogTitle = $('meta[property="og:title"]').attr('content') || $('title').text().trim();
-      const ogDesc = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || "";
-      const ogImage = $('meta[property="og:image"]').attr('content') || "";
-
-      if (ogTitle && ogDesc) {
-        const reason = "[페이월/접근 제한] 전체 본문을 가져올 수 없어 요약 정보만 표시합니다.";
-        return res.json({
-          success: true,
-          title: ogTitle,
-          summary: reason + "\n\n" + ogDesc,
-          category: "기타",
-          published_at: new Date().toISOString(),
-          image: ogImage,
-          url: url
-        });
-      }
-      
-      let errorMsg = `HTTP ${status} — 서버에서 요청을 거부했습니다.`;
-      if (status === 403) errorMsg = "HTTP 403 Forbidden — 이 사이트는 봇 접근을 차단하고 있습니다.";
-      if (status === 401) errorMsg = "HTTP 401 Unauthorized — 로그인이 필요한 페이지입니다.";
-      throw new Error(errorMsg);
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const result = await model.generateContent(prompt);
+  const responseAi = await result.response;
+  let responseText = responseAi.text().trim();
+  
+  const startIdx = responseText.indexOf('{');
+  const endIdx = responseText.lastIndexOf('}');
+  
+  if (startIdx !== -1 && endIdx !== -1) {
+    let jsonStr = responseText.substring(startIdx, endIdx + 1);
+    const aiData = JSON.parse(jsonStr);
+    
+    const validCategories = ['AI', 'Robot', '보안', 'IT', '기타'];
+    let finalCategory = aiData.category || '기타';
+    if (!validCategories.includes(finalCategory)) {
+      finalCategory = validCategories.find(c => finalCategory.toUpperCase().includes(c.toUpperCase())) || '기타';
     }
 
-    let title = $('meta[property="og:title"]').attr('content') || 
-                $('meta[name="twitter:title"]').attr('content') || 
-                $('title').text().trim() || "제목을 찾을 수 없음";
-
-    let imageUrl = $('meta[property="og:image"]').attr('content') || 
-                   $('meta[name="twitter:image"]').attr('content') || "";
-
-    let publishedAt = $('meta[property="article:published_time"]').attr('content') || 
-                      $('meta[name="datePublished"]').attr('content') || 
-                      $('time').attr('datetime') || "";
-
-    const bodySelectors = [
-      'div.article_txt', 'div.article_body', 'div#articleBody',
-      'div#article-view-content-div', 'div.news_cnt_detail_wrap',
-      'div.wp-block-post-content', '[itemprop="articleBody"]', 'div.article-body', 'div.article__body',
-      'div.story-body', 'div.article-content', 'div.post-content', 'div.body-content', 'section.article-body',
-      'div[data-component="text-block"]', '#center', 'div.field-item', 'div.node-content',
-      'div.entry-content', 'div.blog-content', 'main article', 'article', 'div.content', 'main'
-    ];
-
-    let bodyElement = null;
-    for (const selector of bodySelectors) {
-      const el = $(selector);
-      if (el.length > 0 && el.text().trim().length > 100) {
-        el.find('script, style, nav, footer, aside, iframe, header, div.not-prose, div.mb-4').remove();
-        bodyElement = el;
-        break;
-      }
-    }
-
-    let bodyText = bodyElement ? bodyElement.text().trim() : "";
-
-    if (bodyText.length < 100) {
-      const pTexts = [];
-      $('p').each((i, el) => {
-        const text = $(el).text().trim();
-        if (text.length > 40) pTexts.push(text);
-      });
-      if (pTexts.length > 0) bodyText = pTexts.join('\n');
-    }
-
-    if (bodyText.length < 100) {
-      const metaDesc = $('meta[property="og:description"]').attr('content') || 
-                       $('meta[name="description"]').attr('content') || "";
-      if (metaDesc) bodyText = metaDesc + (bodyText ? "\n\n" + bodyText : "");
-    }
-
-    const botPatterns = ['Are you a robot', '봇 감지', 'Access Denied', 'Attention Required', 'Checking your browser'];
-    const isBotPage = botPatterns.some(p => title.toLowerCase().includes(p.toLowerCase()));
-
-    if (isBotPage) {
-      throw new Error('Bot detection page detected');
-    }
-
-    if (!bodyText || bodyText.length < 50) {
-      throw new Error('본문을 추출할 수 없습니다. 페이월이 있거나 JavaScript 렌더링 페이지일 수 있습니다.');
-    }
-
-    bodyText = bodyText.replace(/Back to Articles\s*/g, '')
-                       .replace(/(?:이메일|email|e-mail)\s*[:\s]*\s*[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi, '')
-                       .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '')
-                       .replace(/[가-힣]{2,4}\s*기자(?!\w)/g, '')
-                       .replace(/\[\s*\]|\(\s*\)/g, '')
-                       .split('\n').map(line => line.trim()).filter(line => line).join('\n')
-                       .slice(0, 8000);
-
-    let extractedData = {
-      title: title && title !== "제목을 찾을 수 없음" ? title : "제목 없음",
-      category: "기타",
-      summary: "뉴스 본문 추출 성공. (AI 요약 생성 중)",
-      published_at: publishedAt || new Date().toISOString().split('T')[0]
+    return {
+      title: aiData.title || title,
+      category: finalCategory,
+      summary: aiData.summary,
+      published_at: aiData.published_at || new Date().toISOString().split('T')[0]
     };
+  }
+  throw new Error("JSON 형식을 찾을 수 없습니다.");
+}
 
-    try {
-      const isEnglish = /[a-zA-Z]{5,}/.test(title); // 간단한 영문 판별
-      
-      const prompt = isEnglish 
-        ? `다음 영문 뉴스 기사를 읽고 아래 형식에 정확히 맞춰 한국어로 요약해 주세요.
+// AI 요약 함수 - Claude 로직
+async function summarizeWithClaude(bodyText, title) {
+  const isEnglish = /[a-zA-Z]{5,}/.test(title);
+  const prompt = isEnglish 
+    ? `다음 영문 뉴스 기사를 읽고 아래 형식에 정확히 맞춰 한국어로 요약해 주세요.
 
 형식:
 제목: <기사 제목을 한국어로 번역한 한 줄>
@@ -166,7 +86,7 @@ app.post('/api/extract', async (req, res) => {
 
 기사 제목: ${title}
 기사 본문: ${bodyText}`
-        : `다음 뉴스 기사를 읽고 아래 형식에 정확히 맞춰 4줄로 요약해 주세요.
+    : `다음 뉴스 기사를 읽고 아래 형식에 정확히 맞춰 4줄로 요약해 주세요.
 
 형식:
 1. <핵심 요약 첫 번째 줄>
@@ -177,50 +97,110 @@ app.post('/api/extract', async (req, res) => {
 주의사항:
 - 반드시 '1.' ~ '4.'으로 시작하는 4개의 문장으로 구성하세요.
 - 불필요한 설명 없이 핵심만 전달하세요.
-- 마크다운 문법을 절대 사용하지 마세요. 순수 텍스트로만 작성세요.
+- 마크다운 문법을 절대 사용하지 마세요. 순수 텍스트로만 작성하세요.
 
 기사 제목: ${title}
 기사 본문: ${bodyText}`;
 
-      const msg = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
-        system: "당신은 뉴스 요약 전문가입니다. 반드시 지정된 형식만 출력하세요.",
-        messages: [{ role: "user", content: prompt }],
-      });
+  const msg = await anthropic.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 1024,
+    system: "당신은 뉴스 요약 전문가입니다. 반드시 지정된 형식만 출력하세요.",
+    messages: [{ role: "user", content: prompt }],
+  });
 
-      let text = msg.content[0].text.trim();
-      
-      // 텍스트 정제 (사용자 제공 파이썬 로직 이식)
-      text = text.replace(/[\*#`]/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
+  let text = msg.content[0].text.trim();
+  text = text.replace(/[\*#`]/g, '').replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
 
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-      let summaryLines = [];
-      let finalTitle = title;
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+  let summaryLines = [];
+  let finalTitle = title;
 
-      for (const line of lines) {
-        if (line.startsWith('제목:')) {
-          finalTitle = line.replace('제목:', '').trim();
-        } else if (/^\d\./.test(line)) {
-          summaryLines.push(line);
-        }
+  for (const line of lines) {
+    if (line.startsWith('제목:')) {
+      finalTitle = line.replace('제목:', '').trim();
+    } else if (/^\d\./.test(line)) {
+      summaryLines.push(line);
+    }
+  }
+
+  if (summaryLines.length > 0) {
+    return {
+      title: finalTitle,
+      category: "AI",
+      summary: summaryLines.slice(0, 4).join('\n'),
+      published_at: new Date().toISOString().split('T')[0]
+    };
+  }
+  throw new Error("4줄 요약 형식을 찾을 수 없습니다.");
+}
+
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, '../dist')));
+
+app.post('/api/extract', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ success: false, error: 'URL is required' });
+
+  try {
+    const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" };
+    const response = await axios.get(url, { headers, timeout: 15000, validateStatus: (status) => status < 500 });
+    const html = response.data;
+    const status = response.status;
+    const $ = cheerio.load(html);
+
+    if (status >= 400) {
+      const ogTitle = $('meta[property="og:title"]').attr('content') || $('title').text().trim();
+      const ogDesc = $('meta[property="og:description"]').attr('content') || "";
+      const ogImage = $('meta[property="og:image"]').attr('content') || "";
+      if (ogTitle && ogDesc) {
+        return res.json({ success: true, title: ogTitle, summary: ogDesc, category: "기타", published_at: new Date().toISOString(), image: ogImage, url });
       }
+      throw new Error(`HTTP ${status} — 접근 제한`);
+    }
 
-      if (summaryLines.length > 0) {
-        extractedData.title = finalTitle;
-        extractedData.summary = summaryLines.slice(0, 4).join('\n');
-        extractedData.category = "AI"; // 기본값
+    let title = $('meta[property="og:title"]').attr('content') || $('title').text().trim() || "제목 없음";
+    let imageUrl = $('meta[property="og:image"]').attr('content') || "";
+    let publishedAt = $('meta[property="article:published_time"]').attr('content') || $('time').attr('datetime') || "";
+
+    const bodySelectors = ['div.article_txt', 'div.article_body', 'div#articleBody', 'article', 'main'];
+    let bodyText = "";
+    for (const s of bodySelectors) {
+      const el = $(s);
+      if (el.length > 0 && el.text().trim().length > 100) {
+        el.find('script, style, nav, footer, aside, iframe, header').remove();
+        bodyText = el.text().trim();
+        break;
       }
-    } catch (aiError) {
-      console.error('Claude API Error Details:', aiError);
-      
-      let errorDetail = aiError.message;
-      if (aiError.status === 401) errorDetail = "Anthropic API 키가 올바르지 않거나 권한이 없습니다. (401)";
-      else if (aiError.status === 403) errorDetail = "Anthropic API 접근이 거부되었습니다. (403)";
-      else if (aiError.status === 429) errorDetail = "API 요청 한도를 초과했습니다. 잠시 후 다시 시도해 주세요. (429)";
-      else if (aiError.status === 500) errorDetail = "Anthropic 서버 오류가 발생했습니다. (500)";
+    }
+    if (bodyText.length < 100) bodyText = $('meta[property="og:description"]').attr('content') || "";
 
-      extractedData.summary = `⚠️ AI 요약 오류: ${errorDetail}\n\n(본문 미리보기)\n${bodyText ? bodyText.slice(0, 300) : "본문 없음"}...`;
+    if (!bodyText || bodyText.length < 50) throw new Error('본문을 추출할 수 없습니다.');
+
+    bodyText = bodyText.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '').replace(/[가-힣]{2,4}\s*기자(?!\w)/g, '').slice(0, 8000);
+
+    let extractedData = { title, category: "기타", summary: "분석 중...", published_at: publishedAt || new Date().toISOString().split('T')[0] };
+    let geminiErrorMsg = "";
+
+    // [Step 1] Gemini 시도 (선발 투수)
+    try {
+      const geminiResult = await summarizeWithGemini(bodyText, title);
+      extractedData = { ...extractedData, ...geminiResult };
+    } catch (geminiError) {
+      console.error('Gemini Failed, switching to Claude:', geminiError.message);
+      geminiErrorMsg = geminiError.message;
+      
+      // [Step 2] Claude 시도 (마무리 투수)
+      try {
+        const claudeResult = await summarizeWithClaude(bodyText, title);
+        extractedData = { ...extractedData, ...claudeResult };
+        // Gemini 실패 사유를 본문 하단에 작게 기록 (디버깅용)
+        extractedData.summary += `\n\n[Gemini 진단: ${geminiErrorMsg.slice(0, 100)}]`;
+      } catch (claudeError) {
+        console.error('All AI engines failed:', claudeError.message);
+        extractedData.summary = `⚠️ AI 요약 최종 실패\n- Gemini: ${geminiErrorMsg}\n- Claude: ${claudeError.message}`;
+      }
     }
 
     res.json({ 
