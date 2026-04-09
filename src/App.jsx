@@ -45,6 +45,7 @@ function App() {
   const [manualMode, setManualMode] = useState(false);
   const [manualErrorMessage, setManualErrorMessage] = useState(''); // 에러 메시지 상태 추가
   const [manualTitle, setManualTitle] = useState('');
+  const [manualSummary, setManualSummary] = useState(''); // 수동 요약문 상태 추가
   const [manualCategory, setManualCategory] = useState('기타');
 
   const handleAddNews = async () => {
@@ -126,10 +127,7 @@ function App() {
   };
 
   const handleManualAdd = async () => {
-    if (!manualTitle) {
-      alert('제목을 입력해주세요.');
-      return;
-    }
+    if (!manualTitle) return;
     
     setIsProcessing(true);
     try {
@@ -138,7 +136,7 @@ function App() {
         .insert([
           {
             title: manualTitle,
-            summary: '사용자가 직접 등록한 뉴스입니다.',
+            summary: manualSummary || '사용자가 직접 등록한 뉴스입니다.',
             url: urlInput,
             category: manualCategory,
             engine: 'User', // 수동 등록 표시
@@ -155,6 +153,8 @@ function App() {
       setUrlInput('');
       setManualMode(false);
       setManualTitle('');
+      setManualSummary('');
+      setManualCategory('기타');
       alert('뉴스가 수동으로 등록되었습니다! ✅');
     } catch (error) {
       alert('수동 등록 중 오류 발생: ' + error.message);
