@@ -303,7 +303,7 @@ app.post('/api/extract', async (req, res) => {
   }
 });
 
-app.post('/api/summarize-text', express.json(), async (req, res) => {
+app.post('/api/summarize-text', express.json({ limit: '10mb' }), async (req, res) => {
   const { text, title } = req.body;
   if (!text || text.length < 20) {
     return res.status(400).json({ success: false, error: '요약할 본문 내용이 너무 짧습니다. (최소 20자 이상)' });
