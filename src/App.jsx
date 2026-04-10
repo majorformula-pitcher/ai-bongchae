@@ -216,18 +216,26 @@ function App() {
     }
   };
 
-  const toggleLike = async (id, currentStatus) => {
-    const { error } = await supabase
-      .from('ai-bongchae')
-      .update({ likes: !currentStatus })
-      .eq('id', id);
+  const toggleLike = async (e, id, currentStatus) => {
+    e.preventDefault();
+    e.stopPropagation(); // Stop event from bubbling up to parents
+    
+    try {
+      const { error } = await supabase
+        .from('ai-bongchae')
+        .update({ likes: !currentStatus })
+        .eq('id', id);
 
-    if (error) {
-      console.error('Like error:', error);
-    } else {
-      setNewsList(newsList.map(news => 
-        news.id === id ? { ...news, likes: !currentStatus } : news
-      ));
+      if (error) {
+        console.error('Like error:', error);
+        alert('좋아요 처리 중 오류가 발생했습니다. (네트워크 상태를 확인해주세요)');
+      } else {
+        setNewsList(prevList => prevList.map(news => 
+          news.id === id ? { ...news, likes: !currentStatus } : news
+        ));
+      }
+    } catch (err) {
+      console.error('Like exception:', err);
     }
   };
   
@@ -438,14 +446,19 @@ function App() {
                 </ul>
                 <div className="action-bar">
                   <div className="action-left">
-                    <div className="like-section" onClick={() => toggleLike(news.id, news.likes)}>
+                    <button 
+                      className={`like-btn ${news.likes ? 'active' : ''}`} 
+                      onClick={(e) => toggleLike(e, news.id, news.likes)}
+                      title={news.likes ? '좋아요 취소' : '좋아요'}
+                      type="button"
+                    >
                       <span className={`like-icon ${news.likes ? 'active' : ''}`}>
                         {news.likes ? '❤️' : '🤍'}
                       </span>
                       <span className="like-count">
                         {news.likes ? 1 : 0}
                       </span>
-                    </div>
+                    </button>
                     <span className="ai-source-info">
                       {news.engine && news.engine.includes('(수동)') ? 
                         `${news.engine.replace('(수동)', '').trim()}가 요약했습니다. (사용자가 직접 등록)` : 
