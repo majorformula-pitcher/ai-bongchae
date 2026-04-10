@@ -228,7 +228,7 @@ function App() {
 
       if (error) {
         console.error('Like error:', error);
-        alert('좋아요 처리 중 오류가 발생했습니다. (네트워크 상태를 확인해주세요)');
+        alert(`좋아요 처리 중 오류가 발생했습니다.\n\n[상세 사유]: ${error.message}\n[에러 코드]: ${error.code}\n\n※ 사내 보안망이나 광고 차단 프로그램(uBlock, AdBlock 등)에 의해 차단될 수 있습니다.`);
       } else {
         setNewsList(prevList => prevList.map(news => 
           news.id === id ? { ...news, likes: !currentStatus } : news
@@ -236,6 +236,7 @@ function App() {
       }
     } catch (err) {
       console.error('Like exception:', err);
+      alert(`시스템 예외가 발생했습니다.\n\n[상세]: ${err.message}\n\n※ 브라우저 보안 설정이나 확장 프로그램에 의해 차단되었을 가능성이 큽니다.`);
     }
   };
   
