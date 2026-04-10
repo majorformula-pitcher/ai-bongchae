@@ -29,7 +29,7 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
     설명이나 마크다운 코드 블록(예: \`\`\`json)은 절대 포함하지 마.
     
     {
-      "title": "${isEnglish ? "기사 제목의 한국어 번역" : "기사 제목 (이미 추출된 제목을 참고하되 더 명확하게 보강)"}",
+      "title": "${isEnglish ? "기사 제목의 한국어 번역" : "기사 제목 (매체명이나 사이트 이름은 반드시 제거하고 핵심 헤드라인만 명확하게 보강)"}",
       "category": "AI, Robot, 보안, IT, 기타 중 하나를 가장 적절한 것으로 선택",
       "summary": "첫 번째 핵심 요약\\n두 번째 핵심 요약\\n세 번째 핵심 요약\\n네 번째 핵심 요약",
       "published_at": "${publishedAt || new Date().toISOString().split('T')[0]}"
@@ -124,7 +124,7 @@ async function summarizeWithClaude(bodyText, title, publishedAt) {
     ? `다음 영문 뉴스 기사를 읽고 아래 형식에 정확히 맞춰 한국어로 요약해 주세요.
 
 형식:
-제목: <기사 제목을 한국어로 번역한 한 줄>
+제목: <기사 제목을 한국어로 번역한 한 줄 (신문사 이름 등 접미사 절대 금지)>
 카테고리: <AI, Robot, 보안, IT, 기타 중 가장 적절한 하나 선택>
 <핵심 요약 첫 번째 문장 (한국어)>
 <핵심 요약 두 번째 문장 (한국어)>
@@ -248,6 +248,14 @@ app.post('/api/extract', async (req, res) => {
     }
 
     let title = $('meta[property="og:title"]').attr('content') || $('title').text().trim() || "제목 없음";
+    
+    // [제목 세척 고도화] 매체명 접미사 제거 ( - , | , : , / 등)
+    if (title.includes(' - ')) title = title.split(' - ').slice(0, -1).join(' - ');
+    else if (title.includes(' | ')) title = title.split(' | ').slice(0, -1).join(' | ');
+    else if (title.includes(' : ')) title = title.split(' : ').slice(0, -1).join(' : ');
+    
+    title = title.trim();
+    
     let imageUrl = $('meta[property="og:image"]').attr('content') || "";
     
     // [날짜 추출 고도화] 여러 메타 태그와 네이버 전용 선택자 뒤지기
