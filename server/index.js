@@ -125,6 +125,7 @@ async function summarizeWithClaude(bodyText, title, publishedAt) {
 
 형식:
 제목: <기사 제목을 한국어로 번역한 한 줄>
+카테고리: <AI, Robot, 보안, IT, 기타 중 가장 적절한 하나 선택>
 <핵심 요약 첫 번째 문장 (한국어)>
 <핵심 요약 두 번째 문장 (한국어)>
 <핵심 요약 세 번째 문장 (한국어)>
@@ -144,6 +145,7 @@ async function summarizeWithClaude(bodyText, title, publishedAt) {
  <요약 문장 2>
  <요약 문장 3>
  <요약 문장 4>
+ 카테고리: <AI, Robot, 보안, IT, 기타 중 하나 선택>
  
  주의사항:
  - 반드시 각 문장 뒤에 줄바꿈(\n)을 넣어 4개의 별도 문장으로 구성하세요.
@@ -166,12 +168,17 @@ async function summarizeWithClaude(bodyText, title, publishedAt) {
 
   const lines = text.split('\n').map(l => l.trim()).filter(l => l);
   let finalTitle = title;
+  let finalCategory = "기타";
 
   // 만약 줄바꿈이 제대로 안 되어 한 문단으로 왔을 경우를 대비한 문장 분리 로직
   let finalLines = [];
   for (const line of lines) {
     if (line.startsWith('제목:')) {
       finalTitle = line.replace('제목:', '').trim();
+    } else if (line.startsWith('카테고리:')) {
+      const cat = line.replace('카테고리:', '').trim();
+      const validCategories = ['AI', 'Robot', '보안', 'IT', '기타'];
+      finalCategory = validCategories.find(v => cat.toUpperCase().includes(v.toUpperCase())) || "기타";
     } else {
       // 마침표(.)를 기준으로 문장이 뭉쳐있을 경우 쪼갬
       const sentences = line.split(/(?<=\.)\s+/);
@@ -188,7 +195,7 @@ async function summarizeWithClaude(bodyText, title, publishedAt) {
   if (summaryLines.length > 0) {
     return {
       title: finalTitle,
-      category: "AI",
+      category: finalCategory,
       summary: summaryLines.slice(0, 4).join('\n'),
       published_at: publishedAt || new Date().toISOString().split('T')[0]
     };
