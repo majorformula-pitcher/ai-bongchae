@@ -251,17 +251,57 @@ app.post('/api/extract', async (req, res) => {
     let imageUrl = $('meta[property="og:image"]').attr('content') || "";
     
     // [날짜 추출 고도화] 여러 메타 태그와 네이버 전용 선택자 뒤지기
-    let publishedAt = $('meta[property="article:published_time"]').attr('content') || 
-                      $('meta[name="pubdate"]').attr('content') ||
-                      $('meta[name="publish-date"]').attr('content') ||
-                      $('.media_end_head_info_dateline_ts').attr('data-last-updated') || // Naver 특수 태그 등
-                      $('.media_end_head_info_dateline_ts').text().replace(/입력|수정/g, '').trim() ||
-                      $('time').attr('datetime') || "";
+    let rawDate = $('meta[name="news-article-recently-created"]').attr('content') || 
+                  $('meta[property="article:published_time"]').attr('content') || 
+                  $('meta[name="pubdate"]').attr('content') ||
+                  $('meta[name="publish-date"]').attr('content') ||
+                  $('[data-date-time]').first().attr('data-date-time') || // Naver 신규 태그
+                  $('.media_end_head_info_dateline_ts').attr('data-last-updated') ||
+                  $('.media_end_head_info_dateline_ts').text().replace(/입력|수정/g, '').trim() ||
+                  $('time').attr('datetime') || "";
     
-    // ISO 형식으로 정규화 시도
-    if (publishedAt && publishedAt.includes('.')) {
-      const parts = publishedAt.match(/\d{4}\.\d{2}\.\d{2}/);
-      if (parts) publishedAt = parts[0].replace(/\./g, '-');
+    let publishedAt = "";
+
+    // [Step 1] YYYYMMDDHHmmss 형식 처리 (네이버 전용)
+    if (rawDate && /^\d{14}$/.test(rawDate)) {
+      publishedAt = `${rawDate.slice(0,4)}-${rawDate.slice(4,6)}-${rawDate.slice(6,8)}T${rawDate.slice(8,10)}:${rawDate.slice(10,12)}:${rawDate.slice(12,14)}+09:00`;
+    } 
+    // [Step 2] YYYY-MM-DD HH:mm:ss 형식 처리
+    else if (rawDate && /^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/.test(rawDate)) {
+      publishedAt = rawDate.replace(' ', 'T') + "+09:00";
+    }
+    // [Step 3] YYYY.MM.DD. 오전/오후 HH:mm 형식 처리
+    else if (rawDate && rawDate.includes('.')) {
+      const dateMatch = rawDate.match(/(\d{4})\.(\d{2})\.(\d{2})/);
+      const timeMatch = rawDate.match(/(오전|오후)\s*(\d{1,2}):(\d{1,2})/);
+      
+      if (dateMatch) {
+        let year = dateMatch[1];
+        let month = dateMatch[2];
+        let day = dateMatch[3];
+        let hour = "00";
+        let min = "00";
+        
+        if (timeMatch) {
+          let h = parseInt(timeMatch[2]);
+          let isPM = timeMatch[1] === '오후';
+          if (isPM && h < 12) h += 12;
+          if (!isPM && h === 12) h = 0;
+          hour = h.toString().padStart(2, '0');
+          min = timeMatch[3].padStart(2, '0');
+        }
+        publishedAt = `${year}-${month}-${day}T${hour}:${min}:00+09:00`;
+      }
+    }
+
+    // [Fallback] 정제가 실패했으나 rawDate가 ISO와 유사한 경우
+    if (!publishedAt && rawDate && rawDate.length > 10) {
+      publishedAt = rawDate;
+    }
+    
+    // 최종 검증: 여전히 비어있으면 오늘 날짜
+    if (!publishedAt) {
+      publishedAt = new Date().toISOString();
     }
 
     // 진일보한 본문 셀렉터 (해외 매체 대응 포함)
