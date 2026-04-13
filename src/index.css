@@ -237,12 +237,12 @@ body::before {
 @media (min-width: 768px) {
   .news-feed {
     display: grid;
-    /* 카드 가로 폭을 1.1배(약 420px)로 정밀 조정하여 밸런스 최적화 */
-    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    /* 대형 화면(32인치 등)에서 여백을 줄이기 위해 카드 너비를 더 키움 (기존 420px -> 460px) */
+    grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
     gap: 24px;
     justify-content: center;
     width: 100%;
-    max-width: 1760px; /* 4열 배치가 가장 아름답게 보이는 너비 */
+    max-width: 2100px; /* 대형 화면에서 더 넓게 확장되도록 상향 */
     margin: 0 auto;
     box-sizing: border-box;
   }
