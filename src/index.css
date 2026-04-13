@@ -79,7 +79,7 @@ body::before {
 .header-content {
   width: 100%;
   max-width: 100%;
-  padding: 0 12px; /* 로고를 왼쪽으로 더 밀기 위해 패딩 축소 */
+  padding: 0 24px; /* 사이드바 내부 패딩(24px)과 로고/discovery 텍스트 위치를 완벽하게 일치시킴 */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -103,13 +103,16 @@ body::before {
 }
 
 .logo {
-  font-size: 1.5rem;
+  font-size: 2.2rem; /* 대형 모니터 가독성을 위해 크기 대폭 확대 */
   font-weight: 800;
   background: linear-gradient(to right, #a78bfa, #34d399);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
+  color: transparent; /* Fallback */
+  letter-spacing: -0.04em;
   cursor: pointer;
+  user-select: none;
 }
 
 .filter-bar {
