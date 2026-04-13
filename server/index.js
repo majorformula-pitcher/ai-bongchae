@@ -19,7 +19,7 @@ const supabase = createClient(
 
 const rssParser = new Parser({
   customFields: {
-    item: ['pubDate', 'description'],
+    item: ['pubDate', 'description', ['dc:date', 'pubDate']],
   }
 });
 
@@ -614,7 +614,7 @@ app.get('/api/rss/:id', async (req, res) => {
       return {
         title: item.title,
         link: link,
-        pubDate: item.pubDate,
+        pubDate: item.pubDate || item['dc:date'] || item.isoDate || feed.lastBuildDate || new Date().toISOString(),
         summary: item.contentSnippet || item.description || "",
         originalUrl
       };
