@@ -61,6 +61,55 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+// ----------------------------------------------------
+// AI 요약 엔진 섹션 (하이브리드: Ollama + Gemini)
+// ----------------------------------------------------
+
+async function summarizeWithOllama(bodyText, title, publishedAt) {
+  const isEnglish = /[a-zA-Z]{5,}/.test(title);
+  const prompt = `
+    다음 뉴스 본문을 분석해서 '반드시' 아래 형식의 순수 JSON으로만 응답해줘. 
+    설명이나 마크다운 코드 블록(예: \`\`\`json)은 절대 포함하지 마.
+    
+    {
+      "title": "${isEnglish ? "기사 제목의 한국어 번역" : "기사 제목 (매체명이나 사이트 이름은 반드시 제거하고 핵심 헤드라인만 명확하게 보강)"}",
+      "category": "AI, Robot, 보안, IT, 기타 중 하나를 가장 적절한 것으로 선택",
+      "summary": "첫 번째 핵심 요약\\n두 번째 핵심 요약\\n세 번째 핵심 요약\\n네 번째 핵심 요약",
+      "published_at": "${publishedAt || new Date().toISOString().split('T')[0]}"
+    }
+    
+    뉴스 본문:
+    ${bodyText}
+    
+    주의사항:
+    - 요약(summary)은 반드시 숫자를 붙이지 말고 4개의 핵심 문장으로만 작성하세요. (각 문장은 줄바꿈으로 구분)
+  `;
+
+  try {
+    const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+    const MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:14b';
+    
+    const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
+      model: MODEL,
+      prompt: prompt,
+      stream: false,
+      format: "json", // Ollama에서 JSON 출력을 강제함
+      options: {
+        temperature: 0.1
+      }
+    });
+
+    const aiData = JSON.parse(response.data.response);
+    return {
+      ...aiData,
+      engine: `Local Qwen 2.5 (14B)`
+    };
+  } catch (err) {
+    console.error('[Ollama] Error:', err.message);
+    throw err; // 상위에서 Gemini로 폴백하도록 예외 던짐
+  }
+}
+
 // AI 요약 함수 - Gemini 로직 (REST API 직통 호출 방식)
 async function summarizeWithGemini(bodyText, title, publishedAt) {
   const isEnglish = /[a-zA-Z]{5,}/.test(title);
@@ -429,28 +478,40 @@ app.post('/api/extract', async (req, res) => {
 
     let extractedData = { title, category: "기타", summary: "분석 중...", published_at: publishedAt || new Date().toISOString().split('T')[0] };
     let geminiErrorMsg = "";
+    let ollamaErrorMsg = "";
     let engine = "";
 
-    // [Step 1] Gemini 시도
+    // [Step 1] Ollama (Local AI) 시도
     try {
-      const geminiResult = await summarizeWithGemini(bodyText, title, publishedAt);
-      extractedData = { ...extractedData, ...geminiResult };
-      engine = "Gemini";
-    } catch (geminiError) {
-      console.error('Gemini Failed, switching to Claude fallback:', geminiError.message);
-      geminiErrorMsg = geminiError.message;
-      
-      // [Step 2] Claude 시도
+      console.log('[AI] Attempting Local Ollama (Qwen 2.5)...');
+      const ollamaResult = await summarizeWithOllama(bodyText, title, publishedAt);
+      extractedData = { ...extractedData, ...ollamaResult };
+      engine = ollamaResult.engine;
+    } catch (ollamaErr) {
+      console.warn('[AI] Local AI failed, falling back to Gemini:', ollamaErr.message);
+      ollamaErrorMsg = ollamaErr.message;
+
+      // [Step 2] Gemini 시도
       try {
-        const claudeResult = await summarizeWithClaude(bodyText, title, publishedAt);
-        extractedData = { ...extractedData, ...claudeResult };
-        engine = "Claude";
-        // Gemini 실패 사유를 본문 하단에 작게 기록 (진단용)
-        extractedData.summary += `\n\n[Gemini 진단: ${geminiErrorMsg.slice(0, 100)}]`;
-      } catch (claudeError) {
-        console.error('All AI engines failed:', claudeError.message);
-        extractedData.summary = `⚠️ AI 요약 시스템 긴급 점검 중\n- Gemini: ${geminiErrorMsg}\n- Claude: ${claudeError.message}`;
-        engine = "Error";
+        const geminiResult = await summarizeWithGemini(bodyText, title, publishedAt);
+        extractedData = { ...extractedData, ...geminiResult };
+        engine = "Gemini";
+      } catch (geminiError) {
+        console.error('Gemini Failed, switching to Claude fallback:', geminiError.message);
+        geminiErrorMsg = geminiError.message;
+        
+        // [Step 3] Claude 시도
+        try {
+          const claudeResult = await summarizeWithClaude(bodyText, title, publishedAt);
+          extractedData = { ...extractedData, ...claudeResult };
+          engine = "Claude";
+          // 실패 사유 기록
+          extractedData.summary += `\n\n[Diagnosis: Local(${ollamaErrorMsg.slice(0,30)}) / Gemini(${geminiErrorMsg.slice(0,30)})]`;
+        } catch (claudeError) {
+          console.error('All AI engines failed:', claudeError.message);
+          extractedData.summary = `⚠️ AI 요약 시스템 긴급 점검 중\n- Local: ${ollamaErrorMsg}\n- Gemini: ${geminiErrorMsg}\n- Claude: ${claudeError.message}`;
+          engine = "Error";
+        }
       }
     }
 
@@ -479,11 +540,18 @@ app.post('/api/summarize-text', express.json({ limit: '10mb' }), async (req, res
     const targetTitle = title || '직접 입력한 뉴스';
     
     try {
-      result = await summarizeWithGemini(text, targetTitle);
-    } catch (geminiError) {
-      console.warn('[API] Gemini text summarize failed, trying Claude:', geminiError.message);
-      result = await summarizeWithClaude(text, targetTitle);
-      engine = "Claude";
+      console.log('[API] Attempting Local Ollama for Text Summary...');
+      result = await summarizeWithOllama(text, targetTitle);
+      engine = result.engine;
+    } catch (ollamaErr) {
+      console.warn('[API] Local AI failed, trying Gemini:', ollamaErr.message);
+      try {
+        result = await summarizeWithGemini(text, targetTitle);
+      } catch (geminiError) {
+        console.warn('[API] Gemini text summarize failed, trying Claude:', geminiError.message);
+        result = await summarizeWithClaude(text, targetTitle);
+        engine = "Claude";
+      }
     }
     
     res.json({ success: true, ...result, engine });
