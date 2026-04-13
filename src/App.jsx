@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabaseClient';
 import * as XLSX from 'xlsx';
+import pptxgen from 'pptxgenjs';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Compass, List, Plus, X, ChevronUp, 
@@ -315,6 +316,57 @@ function App() {
     }
   };
 
+  const handleExportPPT = () => {
+    try {
+      if (filteredNews.length === 0) {
+        alert('추출할 뉴스가 없습니다.');
+        return;
+      }
+
+      const pres = new pptxgen();
+      pres.layout = 'LAYOUT_16x9';
+
+      filteredNews.forEach(news => {
+        const slide = pres.addSlide();
+        
+        // 제목 배치 (상단)
+        slide.addText(news.title, { 
+          x: 0.5, y: 0.3, w: '90%', 
+          fontSize: 24, bold: true, color: '0066CC',
+          underline: { style: 'sng' }
+        });
+
+        // 요약 내용 (좌측)
+        const summaryLines = (news.summary || '')
+          .split('\n')
+          .filter(line => line.trim() !== '')
+          .map(line => ({ 
+            text: line.replace(/^[•\-\*]\s*/, ''), 
+            options: { bullet: true, fontSize: 16, color: '333333', lineSpacing: 28 } 
+          }));
+
+        slide.addText(summaryLines, { 
+          x: 0.5, y: 1.2, w: '55%', h: '70%', 
+          valign: 'top' 
+        });
+
+        // 이미지 (우측)
+        if (news.image) {
+          slide.addImage({ 
+            path: news.image, 
+            x: 6.2, y: 1.2, w: 3.5, h: 2.6,
+            sizing: { type: 'contain', w: 3.5, h: 2.6 }
+          });
+        }
+      });
+
+      pres.writeFile({ fileName: `AI_Bongchae_PPT_${new Date().toLocaleDateString()}.pptx` });
+    } catch (err) {
+      console.error('PPT Export Error:', err);
+      alert('PPT 생성 중 오류가 발생했습니다.');
+    }
+  };
+
   // 전체 뉴스 데이터에서 유니크한 카테고리 목록 추출 및 커스텀 정렬
   const categories = ['All', ...new Set(newsList.map(news => news.category).filter(Boolean))].sort((a, b) => {
     if (a === 'All') return -1;
@@ -433,10 +485,10 @@ function App() {
             </div>
             <button 
               className="export-btn"
-              onClick={handleExportExcel}
-              title="전체 뉴스 엑셀로 내보내기"
+              onClick={showOnlyLiked ? handleExportPPT : handleExportExcel}
+              title={showOnlyLiked ? "좋아요 뉴스 PPT로 내보내기" : "전체 뉴스 엑셀로 내보내기"}
             >
-              📊 엑셀 Export
+              {showOnlyLiked ? '📊 PPT 만들기' : '📊 엑셀 Export'}
             </button>
             <button 
               className={`filter-btn ${showOnlyLiked ? 'active' : ''}`}
