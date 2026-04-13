@@ -367,9 +367,8 @@ function App() {
         {rssItems.map((item, idx) => (
           <motion.div 
             key={idx}
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: idx * 0.04 }}
             className={`rss-card ${item.isAdded ? 'added' : ''} ${processingUrls.has(item.link) ? 'processing' : ''}`}
             onClick={() => window.open(item.link, '_blank')}
           >
