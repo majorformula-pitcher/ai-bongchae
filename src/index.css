@@ -243,11 +243,12 @@ body::before {
 @media (min-width: 768px) {
   .news-feed {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(550px, 1fr));
-    gap: 32px;
-    justify-content: center; /* 카드들을 중앙으로 모음 */
+    /* 카드 최소 너비를 400px로 줄여 유연성 확보 */
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 24px; /* 간격을 살짝 좁혀 공간 활용도 높임 */
+    justify-content: center;
     width: 100%;
-    max-width: 1800px;
+    max-width: 1600px; /* 사이드바와 조화를 위해 최대 폭 소폭 조정 */
   }
 }
 
@@ -717,7 +718,7 @@ body::before {
   .app-content {
     margin-left: 422px;
     width: calc(100% - 422px);
-    padding: 100px 60px;
+    padding: 80px 40px; /* 상단 및 좌우 패딩 최적화 */
     display: flex;
     flex-direction: column;
     align-items: center;
