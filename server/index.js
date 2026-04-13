@@ -9,6 +9,12 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import Anthropic from '@anthropic-ai/sdk';
 
 dotenv.config();
+import { createClient } from '@supabase/supabase-js';
+
+const supabase = createClient(
+  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
+  process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -449,6 +455,24 @@ app.post('/api/summarize-text', express.json({ limit: '10mb' }), async (req, res
     res.json({ success: true, ...result, engine });
   } catch (error) {
     console.error('[API] Text summarization error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.post('/api/like', express.json(), async (req, res) => {
+  const { id, currentStatus } = req.body;
+  
+  try {
+    const { data, error } = await supabase
+      .from('ai-bongchae')
+      .update({ likes: !currentStatus })
+      .eq('id', id)
+      .select();
+
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('[API] Like Proxy Error:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });

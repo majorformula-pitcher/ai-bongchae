@@ -221,14 +221,17 @@ function App() {
     e.stopPropagation(); // Stop event from bubbling up to parents
     
     try {
-      const { error } = await supabase
-        .from('ai-bongchae')
-        .update({ likes: !currentStatus })
-        .eq('id', id);
+      const response = await fetch('/api/like', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, currentStatus })
+      });
+      
+      const result = await response.json();
 
-      if (error) {
-        console.error('Like error:', error);
-        alert(`좋아요 처리 중 오류가 발생했습니다.\n\n[상세 사유]: ${error.message}\n[에러 코드]: ${error.code}\n\n※ 사내 보안망이나 광고 차단 프로그램(uBlock, AdBlock 등)에 의해 차단될 수 있습니다.`);
+      if (!result.success) {
+        console.error('Like error:', result.error);
+        alert(`좋아요 처리 중 오류가 발생했습니다.\n\n[상세 사유]: ${result.error}\n\n※ 사내 보안망이나 광고 차단 프로그램 또는 서버 설정 문제일 수 있습니다.`);
       } else {
         setNewsList(prevList => prevList.map(news => 
           news.id === id ? { ...news, likes: !currentStatus } : news
@@ -236,7 +239,7 @@ function App() {
       }
     } catch (err) {
       console.error('Like exception:', err);
-      alert(`시스템 예외가 발생했습니다.\n\n[상세]: ${err.message}\n\n※ 브라우저 보안 설정이나 확장 프로그램에 의해 차단되었을 가능성이 큽니다.`);
+      alert(`시스템 예외가 발생했습니다.\n\n[상세]: ${err.message}\n\n※ 서버 연결이 원활하지 않거나 보안망에 의해 통신이 차단되었을 가능성이 큽니다.`);
     }
   };
   
