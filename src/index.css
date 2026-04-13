@@ -78,12 +78,12 @@ body::before {
 
 .header-content {
   width: 100%;
-  max-width: 600px; /* Mobile Default */
-  padding: 0 20px;
+  max-width: 100%;
+  padding: 0 40px;
   display: flex;
-  justify-content: space-between;
+  justify-content: center; /* 로고가 빠진 자리에 버튼들이 정중앙에 오도록 수정 */
   align-items: center;
-  transition: max-width 0.3s ease;
+  gap: 20px; /* 버튼 사이의 간격 부여 */
 }
 
 @media (min-width: 768px) {
@@ -101,6 +101,12 @@ body::before {
 
 .logo-link:hover {
   opacity: 0.8;
+}
+
+.sidebar-logo {
+  display: block;
+  margin-bottom: 32px;
+  text-decoration: none;
 }
 
 .logo {
@@ -243,13 +249,13 @@ body::before {
 @media (min-width: 768px) {
   .news-feed {
     display: grid;
-    /* 카드 최소 너비 380px 기준, 최대 4열 배치를 유도하기 위해 max-width 조정 */
-    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    /* 카드 가로 폭을 1.1배(약 420px)로 정밀 조정하여 밸런스 최적화 */
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
     gap: 24px;
     justify-content: center;
     width: 100%;
-    max-width: 1600px; /* 한 줄에 최대 4개까지만 배치되도록 제한 */
-    margin: 0 auto; /* 중앙 정렬 유지 */
+    max-width: 1760px; /* 4열 배치가 가장 아름답게 보이는 너비 */
+    margin: 0 auto;
     box-sizing: border-box;
   }
 }
