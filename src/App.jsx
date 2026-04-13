@@ -372,8 +372,10 @@ function App() {
           // 이미지 (우측) - 에러 발생 시 건너뜀
           if (news.image) {
             try {
+              // CORS 문제를 해결하기 위해 백엔드 프록시 주소 사용
+              const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(news.image)}`;
               slide.addImage({ 
-                path: news.image, 
+                path: proxyUrl, 
                 x: 6.2, y: 1.2, w: 3.5, h: 2.6,
                 sizing: { type: 'contain', w: 3.5, h: 2.6 }
               });
