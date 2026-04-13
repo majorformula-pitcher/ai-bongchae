@@ -37,7 +37,8 @@ const RSS_FEEDS = [
   { name: "Wired", url: "https://www.wired.com/feed/category/business/latest/rss" },
   { name: "Techmeme", url: "https://www.techmeme.com/feed.xml" },
   { name: "Hugging Face", url: "https://huggingface.co/blog/feed.xml" },
-  { name: "네이버 뉴스-IT", url: "https://news.naver.com/main/rss/rss.naver?menuId=105" },
+  { name: "한겨레 IT-과학", url: "https://www.hani.co.kr/rss/science/" },
+  { name: "경향신문 IT", url: "https://www.khan.co.kr/rss/rssdata/it_news.xml" },
   { name: "블로터(Bloter)", url: "https://www.bloter.net/rss/allArticle.xml" },
   { name: "NYT Technology", url: "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml" }
 ];
@@ -589,9 +590,15 @@ app.get('/api/rss/:id', async (req, res) => {
   const feedConfig = RSS_FEEDS[feedId];
 
   try {
-    const feed = await rssParser.parseURL(feedConfig.url);
+    const response = await axios.get(feedConfig.url, {
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36' 
+      },
+      timeout: 10000
+    });
+    const feed = await rssParser.parseString(response.data);
     const items = feed.items.slice(0, 50).map(item => {
-      let link = item.link;
+      let link = item.link || item.guid;
       let originalUrl = null;
 
       // [Special Case] Techmeme 원본 URL 추출 (사용자 파이썬 로직 이식)

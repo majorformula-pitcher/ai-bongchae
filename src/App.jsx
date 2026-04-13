@@ -75,6 +75,7 @@ function App() {
 
   const loadRssItems = async (id) => {
     setIsRssLoading(true);
+    setRssItems([]); // 채널 변경 시 즉시 이전 목록 초기화
     try {
       const res = await fetch(`/api/rss/${id}`);
       const data = await res.json();
