@@ -35,6 +35,7 @@ function App() {
   const [isRssLoading, setIsRssLoading] = useState(false);
   const [navTab, setNavTab] = useState('home');
   const [processingUrls, setProcessingUrls] = useState(new Set()); // 개별 뉴스 처리 상태 추적
+  const [activePreviewUrl, setActivePreviewUrl] = useState(null); // 뉴스 미리보기 URL
 
   // DB에서 뉴스 읽어오기
   const fetchNews = async () => {
@@ -370,17 +371,35 @@ function App() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.04 }}
             className={`rss-card ${item.isAdded ? 'added' : ''} ${processingUrls.has(item.link) ? 'processing' : ''}`}
-            onClick={() => !item.isAdded && !processingUrls.has(item.link) && handleAddNews(item.link)}
+            onClick={() => setActivePreviewUrl(item.link)}
           >
-            <div className="rss-title">{item.title}</div>
-            <div className="rss-meta">
-              <span>{new Date(item.pubDate).toLocaleDateString()}</span>
+            <div className="rss-card-main">
+              <div className="rss-title">{item.title}</div>
+              <div className="rss-meta">
+                <span>{new Date(item.pubDate).toLocaleDateString()}</span>
+              </div>
+            </div>
+            
+            <div className="rss-action-area">
               {processingUrls.has(item.link) ? (
-                <RefreshCw size={14} className="animate-spin text-primary" />
+                <div className="rss-status-icon processing">
+                  <RefreshCw size={18} className="animate-spin text-primary" />
+                </div>
               ) : item.isAdded ? (
-                <CheckCircle2 size={14} className="text-emerald-500" />
+                <div className="rss-status-icon added" title="이미 추가됨">
+                  <CheckCircle2 size={20} className="text-emerald-500" />
+                </div>
               ) : (
-                <Plus size={14} className="text-primary" />
+                <button 
+                  className="rss-add-btn" 
+                  title="뉴스 카드로 추가"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleAddNews(item.link);
+                  }}
+                >
+                  <Plus size={18} />
+                </button>
               )}
             </div>
           </motion.div>
@@ -645,6 +664,58 @@ function App() {
               <DiscoveryContent />
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* 뉴스 미리보기 모달 (Web Browser Overlay) */}
+      <AnimatePresence>
+        {activePreviewUrl && (
+          <motion.div 
+            className="preview-modal-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div 
+              className="preview-modal-content"
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            >
+              <div className="preview-header">
+                <div className="preview-url-display">
+                  <ExternalLink size={14} />
+                  <span>{activePreviewUrl}</span>
+                </div>
+                <div className="preview-actions">
+                  <a 
+                    href={activePreviewUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="preview-external-link"
+                    title="새 창에서 열기"
+                  >
+                    원본 보기
+                  </a>
+                  <button 
+                    className="preview-close-btn" 
+                    onClick={() => setActivePreviewUrl(null)}
+                    title="닫기"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
+              <div className="preview-body">
+                <iframe 
+                  src={activePreviewUrl} 
+                  title="News Preview" 
+                  className="preview-iframe"
+                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+                />
+              </div>
+            </motion.div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
