@@ -326,41 +326,67 @@ function App() {
       const pres = new pptxgen();
       pres.layout = 'LAYOUT_16x9';
 
-      filteredNews.forEach(news => {
-        const slide = pres.addSlide();
-        
-        // 제목 배치 (상단)
-        slide.addText(news.title, { 
-          x: 0.5, y: 0.3, w: '90%', 
-          fontSize: 24, bold: true, color: '0066CC',
-          underline: { style: 'sng' }
-        });
+      const totalNews = filteredNews.length;
+      let processedCount = 0;
 
-        // 요약 내용 (좌측)
-        const summaryLines = (news.summary || '')
-          .split('\n')
-          .filter(line => line.trim() !== '')
-          .map(line => ({ 
-            text: line.replace(/^[•\-\*]\s*/, ''), 
-            options: { bullet: true, fontSize: 16, color: '333333', lineSpacing: 28 } 
-          }));
-
-        slide.addText(summaryLines, { 
-          x: 0.5, y: 1.2, w: '55%', h: '70%', 
-          valign: 'top' 
-        });
-
-        // 이미지 (우측)
-        if (news.image) {
-          slide.addImage({ 
-            path: news.image, 
-            x: 6.2, y: 1.2, w: 3.5, h: 2.6,
-            sizing: { type: 'contain', w: 3.5, h: 2.6 }
-          });
+      // 이미지를 안전하게 가져오기 위한 헬퍼 함수
+      const getSafeImage = async (url) => {
+        try {
+          const resp = await fetch(url, { mode: 'no-cors' }); 
+          // 'no-cors'는 이미지를 직접 읽을 순 없지만 브라우저 캐시에는 넣을 수 있음. 
+          // 하지만 pptxgenjs는 내부적으로 fetch(url)을 다시 할 것이므로 큰 의미는 없음.
+          // 대신, 특정 이미지 서버가 CORS를 허용하는지 미리 체크하거나, 실패 시 null 반환
+          const checkResp = await fetch(url, { method: 'HEAD' }).catch(() => ({ ok: false }));
+          return checkResp.ok ? url : null;
+        } catch {
+          return null;
         }
-      });
+      };
 
-      pres.writeFile({ fileName: `AI_Bongchae_PPT_${new Date().toLocaleDateString()}.pptx` });
+      // 순차적으로 슬라이드 생성 (이미지 체크 대기)
+      const generateSlides = async () => {
+        for (const news of filteredNews) {
+          const slide = pres.addSlide();
+          
+          // 제목 배치 (상단)
+          slide.addText(news.title, { 
+            x: 0.5, y: 0.3, w: '90%', 
+            fontSize: 24, bold: true, color: '0066CC',
+            underline: { style: 'sng' }
+          });
+
+          // 요약 내용 (좌측)
+          const summaryLines = (news.summary || '')
+            .split('\n')
+            .filter(line => line.trim() !== '')
+            .map(line => ({ 
+              text: line.replace(/^[•\-\*]\s*/, ''), 
+              options: { bullet: true, fontSize: 16, color: '333333', lineSpacing: 28 } 
+            }));
+
+          slide.addText(summaryLines, { 
+            x: 0.5, y: 1.2, w: '55%', h: '70%', 
+            valign: 'top' 
+          });
+
+          // 이미지 (우측) - 에러 발생 시 건너뜀
+          if (news.image) {
+            try {
+              slide.addImage({ 
+                path: news.image, 
+                x: 6.2, y: 1.2, w: 3.5, h: 2.6,
+                sizing: { type: 'contain', w: 3.5, h: 2.6 }
+              });
+            } catch (imgErr) {
+              console.warn('Image skip due to error:', imgErr);
+            }
+          }
+        }
+        
+        await pres.writeFile({ fileName: `AI_Bongchae_PPT_${new Date().toLocaleDateString()}.pptx` });
+      };
+
+      generateSlides();
     } catch (err) {
       console.error('PPT Export Error:', err);
       alert('PPT 생성 중 오류가 발생했습니다.');
