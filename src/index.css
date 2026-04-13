@@ -243,12 +243,13 @@ body::before {
 @media (min-width: 768px) {
   .news-feed {
     display: grid;
-    /* 카드 최소 너비를 380px로 조정하여 영문 제목과 해상도 대응력 균형 최적화 */
+    /* 카드 최소 너비 380px 기준, 최대 4열 배치를 유도하기 위해 max-width 조정 */
     grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
     gap: 24px;
     justify-content: center;
     width: 100%;
-    max-width: 100%; /* 1600px 제한 대신 100%로 유연하게 변경 */
+    max-width: 1600px; /* 한 줄에 최대 4개까지만 배치되도록 제한 */
+    margin: 0 auto; /* 중앙 정렬 유지 */
     box-sizing: border-box;
   }
 }
