@@ -641,6 +641,34 @@ app.get('/api/rss/:id', async (req, res) => {
   }
 });
 
+// 이미지 보안 우회용 프록시 API
+app.get('/api/proxy-image', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.status(400).send('URL is required');
+
+  try {
+    const response = await axios({
+      method: 'get',
+      url: url,
+      responseType: 'arraybuffer',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': new URL(url).origin
+      },
+      timeout: 5000 // 5초 타임아웃
+    });
+
+    const contentType = response.headers['content-type'] || 'image/jpeg';
+    res.set('Content-Type', contentType);
+    res.set('Cache-Control', 'public, max-age=86400'); // 1일간 캐시
+    res.send(response.data);
+  } catch (error) {
+    console.error('Image Proxy Error:', error.message);
+    // 실패 시 404 또는 에러 이미지를 보낼 수 있지만, 일단은 500 에러를 반환
+    res.status(500).send('Failed to fetch image');
+  }
+});
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
