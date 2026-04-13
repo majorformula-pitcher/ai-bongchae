@@ -119,7 +119,7 @@ body::before {
   padding: 15px 16px;
   background: rgba(17, 24, 39, 0.5);
   margin: 0 auto 24px;
-  max-width: 800px;
+  max-width: 1600px;
   border-radius: 16px;
   border: 1px solid var(--border);
   overflow-x: auto;
@@ -489,7 +489,7 @@ body::before {
 /* Modal/Filter Section */
 .search-container {
   margin: 0 auto 24px;
-  max-width: 800px;
+  max-width: 1600px;
 }
 
 .search-input {
@@ -518,7 +518,7 @@ body::before {
   border-radius: 20px;
   padding: 20px;
   margin: 0 auto 32px;
-  max-width: 800px;
+  max-width: 1600px;
   animation: fadeIn 0.5s ease-out;
 }
 
