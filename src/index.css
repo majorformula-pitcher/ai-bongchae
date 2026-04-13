@@ -699,7 +699,7 @@ body::before {
   left: 0;
   top: 70px; /* Below Header */
   bottom: 0;
-  width: 320px;
+  width: 384px; /* 320px * 1.2 = 384px */
   background: rgba(15, 23, 42, 0.75);
   backdrop-filter: blur(25px);
   -webkit-backdrop-filter: blur(25px);
@@ -715,8 +715,8 @@ body::before {
     display: block;
   }
   .app-content {
-    margin-left: 320px;
-    width: calc(100% - 320px);
+    margin-left: 384px;
+    width: calc(100% - 384px);
     padding: 100px 60px;
     display: flex;
     flex-direction: column;
