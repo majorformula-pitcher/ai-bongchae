@@ -713,7 +713,8 @@ body::before {
   .app-content {
     margin-left: 320px;
     width: calc(100% - 320px);
-    padding-top: 100px; /* 데스크톱 패딩 보강 */
+    padding: 100px 60px; /* 상하 100px, 좌우 60px로 여백 확보 */
+    max-width: 1920px;   /* 무한 확장을 막기 위한 안정적인 제한 */
   }
   .header {
     left: 320px;
