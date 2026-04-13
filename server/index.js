@@ -10,11 +10,40 @@ import Anthropic from '@anthropic-ai/sdk';
 
 dotenv.config();
 import { createClient } from '@supabase/supabase-js';
+import Parser from 'rss-parser';
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
   process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
 );
+
+const rssParser = new Parser({
+  customFields: {
+    item: ['pubDate', 'description'],
+  }
+});
+
+const RSS_FEEDS = [
+  { name: "로봇신문-AI", url: "https://www.irobotnews.com/rss/S1N2.xml" },
+  { name: "로봇신문-로봇", url: "https://www.irobotnews.com/rss/S1N1.xml" },
+  { name: "전자신문-AI", url: "http://rss.etnews.com/04046.xml" },
+  { name: "전자신문-전자", url: "http://rss.etnews.com/06061.xml" },
+  { name: "The AI", url: "https://www.newstheai.com/rss/allArticle.xml" },
+  { name: "디지털투데이", url: "https://www.digitaltoday.co.kr/rss/allArticle.xml" },
+  { name: "한국경제-IT", url: "https://www.hankyung.com/feed/it" },
+  { name: "ZDNet Korea", url: "https://zdnet.co.kr/feed" },
+  { name: "TechCrunch", url: "https://techcrunch.com/category/artificial-intelligence/feed/" },
+  { name: "The Verge", url: "https://www.theverge.com/rss/index.xml" },
+  { name: "Wired", url: "https://www.wired.com/feed/category/business/latest/rss" },
+  { name: "OpenAI", url: "https://openai.com/news/rss.xml" },
+  { name: "AI Jobs", url: "https://aijobs.net/feed/" },
+  { name: "AI (arxiv)", url: "http://export.arxiv.org/rss/cs.AI" },
+  { name: "Techmeme", url: "https://www.techmeme.com/feed.xml" },
+  { name: "Hugging Face", url: "https://huggingface.co/blog/feed.xml" },
+  { name: "네이버 뉴스-IT", url: "https://news.naver.com/main/rss/rss.naver?menuId=105" },
+  { name: "블로터(Bloter)", url: "https://www.bloter.net/rss/allArticle.xml" },
+  { name: "NYT Technology", url: "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml" }
+];
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -473,6 +502,64 @@ app.post('/api/like', express.json(), async (req, res) => {
     res.json({ success: true, data });
   } catch (error) {
     console.error('[API] Like Proxy Error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+app.get('/api/rss-feeds', (req, res) => {
+  res.json({ success: true, feeds: RSS_FEEDS.map((f, i) => ({ id: i, name: f.name })) });
+});
+
+app.get('/api/rss/:id', async (req, res) => {
+  const feedId = parseInt(req.params.id);
+  if (isNaN(feedId) || !RSS_FEEDS[feedId]) {
+    return res.status(404).json({ success: false, error: "Feed not found" });
+  }
+
+  const feedConfig = RSS_FEEDS[feedId];
+
+  try {
+    const feed = await rssParser.parseURL(feedConfig.url);
+    const items = feed.items.slice(0, 50).map(item => {
+      let link = item.link;
+      let originalUrl = null;
+
+      // [Special Case] Techmeme 원본 URL 추출 (사용자 파이썬 로직 이식)
+      if (feedConfig.name === "Techmeme" && item.content) {
+        const $ = cheerio.load(item.content);
+        const aTag = $('span a').first();
+        if (aTag.length && !aTag.attr('href').includes('techmeme.com')) {
+          link = aTag.attr('href');
+          originalUrl = link;
+        }
+      }
+
+      return {
+        title: item.title,
+        link: link,
+        pubDate: item.pubDate,
+        summary: item.contentSnippet || item.description || "",
+        originalUrl
+      };
+    });
+
+    // DB 중복 체크 (ai-bongchae 테이블)
+    const urls = items.map(it => it.link);
+    const { data: existingNews } = await supabase
+      .from('ai-bongchae')
+      .select('url')
+      .in('url', urls);
+    
+    const existingUrls = new Set((existingNews || []).map(n => n.url));
+    
+    const finalItems = items.map(it => ({
+      ...it,
+      isAdded: existingUrls.has(it.link)
+    }));
+
+    res.json({ success: true, channel: feed.title, items: finalItems });
+  } catch (error) {
+    console.error(`[RSS] Error fetching ${feedConfig.name}:`, error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
