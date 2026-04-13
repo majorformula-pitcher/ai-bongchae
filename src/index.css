@@ -119,6 +119,7 @@ body::before {
   padding: 15px 16px;
   background: rgba(17, 24, 39, 0.5);
   margin: 0 auto 24px;
+  width: 100%;
   max-width: 1600px;
   border-radius: 16px;
   border: 1px solid var(--border);
@@ -489,6 +490,7 @@ body::before {
 /* Modal/Filter Section */
 .search-container {
   margin: 0 auto 24px;
+  width: 100%;
   max-width: 1600px;
 }
 
@@ -518,6 +520,7 @@ body::before {
   border-radius: 20px;
   padding: 20px;
   margin: 0 auto 32px;
+  width: 100%;
   max-width: 1600px;
   animation: fadeIn 0.5s ease-out;
 }
