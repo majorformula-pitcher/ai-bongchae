@@ -79,9 +79,9 @@ body::before {
 .header-content {
   width: 100%;
   max-width: 100%;
-  padding: 0 24px; /* 사이드바 내부 패딩(24px)과 로고 위치를 맞춤 */
+  padding: 0 12px; /* 로고를 왼쪽으로 더 밀기 위해 패딩 축소 */
   display: flex;
-  justify-content: space-between; /* 로고-좌측, 버튼-우측 배치 복구 */
+  justify-content: space-between;
   align-items: center;
 }
 
@@ -370,7 +370,7 @@ body::before {
 }
 
 .news-content {
-  padding: 20px 24px 24px; /* Reduced top padding */
+  padding: 20px 12px 24px; /* 좌우 여백을 절반(12px)으로 줄여 가로 폭 확보 및 세로 길이 축소 */
 }
 
 .news-title {
