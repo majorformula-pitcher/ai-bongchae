@@ -34,6 +34,7 @@ function App() {
   const [rssItems, setRssItems] = useState([]);
   const [isRssLoading, setIsRssLoading] = useState(false);
   const [navTab, setNavTab] = useState('home');
+  const [processingUrls, setProcessingUrls] = useState(new Set()); // 개별 뉴스 처리 상태 추적
 
   // DB에서 뉴스 읽어오기
   const fetchNews = async () => {
@@ -92,7 +93,10 @@ function App() {
       return;
     }
 
+    if (processingUrls.has(finalUrl)) return; // 이미 처리 중이면 중단
+
     setIsProcessing(true);
+    setProcessingUrls(prev => new Set(prev).add(finalUrl)); // 해당 URL 락(Lock)
     setLoadingProgress(10);
     setManualMode(false); // 초기화
 
@@ -153,6 +157,11 @@ function App() {
       alert('뉴스 추가 중 오류 발생: ' + error.message);
     } finally {
       setIsProcessing(false);
+      setProcessingUrls(prev => {
+        const next = new Set(prev);
+        next.delete(finalUrl);
+        return next;
+      }); // 패치 완료 후 락 해제
     }
   };
 
@@ -360,14 +369,19 @@ function App() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: idx * 0.04 }}
-            className={`rss-card ${item.isAdded ? 'added' : ''}`}
-            onClick={() => !item.isAdded && handleAddNews(item.link)}
+            className={`rss-card ${item.isAdded ? 'added' : ''} ${processingUrls.has(item.link) ? 'processing' : ''}`}
+            onClick={() => !item.isAdded && !processingUrls.has(item.link) && handleAddNews(item.link)}
           >
             <div className="rss-title">{item.title}</div>
             <div className="rss-meta">
               <span>{new Date(item.pubDate).toLocaleDateString()}</span>
-              {!item.isAdded && <Plus size={14} className="text-primary" />}
-              {item.isAdded && <CheckCircle2 size={14} className="text-emerald-500" />}
+              {processingUrls.has(item.link) ? (
+                <RefreshCw size={14} className="animate-spin text-primary" />
+              ) : item.isAdded ? (
+                <CheckCircle2 size={14} className="text-emerald-500" />
+              ) : (
+                <Plus size={14} className="text-primary" />
+              )}
             </div>
           </motion.div>
         ))}
