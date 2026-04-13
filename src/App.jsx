@@ -345,6 +345,9 @@ function App() {
 
   const DiscoveryContent = () => (
     <>
+      <a href="/" className="logo-link sidebar-logo">
+        <div className="logo">AI Bongchae</div>
+      </a>
       <div className="discovery-header">
         <Compass size={20} className="text-primary" />
         <span>뉴스 발견 (Discovery)</span>
@@ -414,9 +417,6 @@ function App() {
     <div className="discovery-container">
       <header className="header">
         <div className="header-content">
-          <a href="/" className="logo-link">
-            <div className="logo">AI Bongchae</div>
-          </a>
           <div className="header-actions">
             <div className="date-filter-group">
               <input 
