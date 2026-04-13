@@ -413,6 +413,42 @@ function App() {
 
   return (
     <div className="discovery-container">
+      <header className="header">
+        <div className="header-content">
+          <a href="/" className="logo-link">
+            <div className="logo">AI Bongchae</div>
+          </a>
+          <div className="header-actions">
+            <div className="date-filter-group">
+              <input 
+                type="date" 
+                className="date-input" 
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
+              {selectedDate && (
+                <button className="date-clear-btn" onClick={() => setSelectedDate('')} title="날짜 초기화">
+                  ×
+                </button>
+              )}
+            </div>
+            <button 
+              className="export-btn"
+              onClick={handleExportExcel}
+              title="전체 뉴스 엑셀로 내보내기"
+            >
+              📊 엑셀 Export
+            </button>
+            <button 
+              className={`filter-btn ${showOnlyLiked ? 'active' : ''}`}
+              onClick={() => setShowOnlyLiked(!showOnlyLiked)}
+            >
+              {showOnlyLiked ? '전체 보기' : '좋아요 목록'}
+            </button>
+          </div>
+        </div>
+      </header>
+
       {/* Desktop Sidebar Exploration */}
       <aside className="discovery-sidebar">
         <DiscoveryContent />
@@ -420,41 +456,6 @@ function App() {
 
       {/* Main Core Content */}
       <main className={`app-content ${navTab === 'discover' ? 'hidden-mobile' : ''}`}>
-        <header className="header">
-          <div className="header-content">
-            <a href="/" className="logo-link">
-              <div className="logo">AI Bongchae</div>
-            </a>
-            <div className="header-actions">
-              <div className="date-filter-group">
-                <input 
-                  type="date" 
-                  className="date-input" 
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                />
-                {selectedDate && (
-                  <button className="date-clear-btn" onClick={() => setSelectedDate('')} title="날짜 초기화">
-                    ×
-                  </button>
-                )}
-              </div>
-              <button 
-                className="export-btn"
-                onClick={handleExportExcel}
-                title="전체 뉴스 엑셀로 내보내기"
-              >
-                📊 엑셀 Export
-              </button>
-              <button 
-                className={`filter-btn ${showOnlyLiked ? 'active' : ''}`}
-                onClick={() => setShowOnlyLiked(!showOnlyLiked)}
-              >
-                {showOnlyLiked ? '전체 보기' : '좋아요 목록'}
-              </button>
-            </div>
-          </div>
-        </header>
 
         <div className="url-input-container">
           <div className="url-input-group">

@@ -64,13 +64,13 @@ body::before {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100%;
+  width: 100vw; /* Always span full width */
   height: 70px;
-  background: rgba(3, 7, 18, 0.8);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(3, 7, 18, 0.85); /* Slightly more opaque for globalization */
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
-  z-index: 100;
+  z-index: 2000; /* Higher than sidebar */
   display: flex;
   justify-content: center;
   align-items: center;
@@ -693,25 +693,23 @@ body::before {
   transition: all 0.3s ease;
 }
 
-/* Desktop Sidebar */
 .discovery-sidebar {
   display: none; /* Mobile first */
   position: fixed;
   left: 0;
-  top: 0;
+  top: 70px; /* Below Header */
   bottom: 0;
   width: 320px;
-  background: rgba(15, 23, 42, 0.7);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(25px);
+  -webkit-backdrop-filter: blur(25px);
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   padding: 24px;
   overflow-y: auto;
-  z-index: 100;
+  z-index: 1000; /* Below Header */
   box-shadow: 10px 0 30px rgba(0, 0, 0, 0.3);
 }
 
-/* Main Layout Offset for Sidebar */
 @media (min-width: 1280px) {
   .discovery-sidebar {
     display: block;
@@ -724,12 +722,6 @@ body::before {
     flex-direction: column;
     align-items: center;
     min-height: 100vh;
-  }
-  .header {
-    left: 320px;
-    width: calc(100% - 320px);
-    display: flex;
-    justify-content: center;
   }
 }
 
