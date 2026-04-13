@@ -351,7 +351,7 @@ function App() {
           // 제목 배치 (상단)
           slide.addText(news.title, { 
             x: 0.5, y: 0.3, w: '90%', 
-            fontSize: 24, bold: true, color: '0066CC',
+            fontSize: 16, bold: true, color: '0066CC',
             underline: { style: 'sng' }
           });
 
@@ -361,7 +361,7 @@ function App() {
             .filter(line => line.trim() !== '')
             .map(line => ({ 
               text: line.replace(/^[•\-\*]\s*/, ''), 
-              options: { bullet: true, fontSize: 16, color: '333333', lineSpacing: 28 } 
+              options: { bullet: true, fontSize: 12, color: '333333', lineSpacing: 28 } 
             }));
 
           slide.addText(summaryLines, { 
