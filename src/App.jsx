@@ -15,8 +15,26 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showOnlyLiked, setShowOnlyLiked] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(''); // 날짜 필터 추가 (YYYY-MM-DD 형식)
+  const [selectedDate, setSelectedDate] = useState('');
   
+  const [urlInput, setUrlInput] = useState('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+
+  const [manualMode, setManualMode] = useState(false);
+  const [manualErrorMessage, setManualErrorMessage] = useState('');
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualSummary, setManualSummary] = useState('');
+  const [manualCategory, setManualCategory] = useState('');
+
+  // RSS Discovery 관련 상태
+  const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false);
+  const [rssFeeds, setRssFeeds] = useState([]);
+  const [selectedFeedId, setSelectedFeedId] = useState(null);
+  const [rssItems, setRssItems] = useState([]);
+  const [isRssLoading, setIsRssLoading] = useState(false);
+  const [navTab, setNavTab] = useState('home');
+
   // DB에서 뉴스 읽어오기
   const fetchNews = async () => {
     const { data, error } = await supabase
@@ -27,20 +45,6 @@ function App() {
     if (error) console.error('Error fetching news:', error);
     else setNewsList(data || []);
   };
-
-  const [manualMode, setManualMode] = useState(false);
-  const [manualErrorMessage, setManualErrorMessage] = useState(''); // 에러 메시지 상태 추가
-  const [manualTitle, setManualTitle] = useState('');
-  const [manualSummary, setManualSummary] = useState(''); // 수동 요약문 상태 추가
-  const [manualCategory, setManualCategory] = useState(''); // 초기값 비움
-
-  // RSS Discovery 관련 상태
-  const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false);
-  const [rssFeeds, setRssFeeds] = useState([]);
-  const [selectedFeedId, setSelectedFeedId] = useState(null);
-  const [rssItems, setRssItems] = useState([]);
-  const [isRssLoading, setIsRssLoading] = useState(false);
-  const [navTab, setNavTab] = useState('home'); // 'home' or 'discover'
 
   useEffect(() => {
     fetchNews();
@@ -300,6 +304,20 @@ function App() {
       alert('엑셀 내보내기 오류: ' + error.message);
     }
   };
+
+  // 전체 뉴스 데이터에서 유니크한 카테고리 목록 추출 및 커스텀 정렬
+  const categories = ['All', ...new Set(newsList.map(news => news.category).filter(Boolean))].sort((a, b) => {
+    if (a === 'All') return -1;
+    if (b === 'All') return 1;
+    
+    const aIsEng = /^[a-zA-Z]/.test(a);
+    const bIsEng = /^[a-zA-Z]/.test(b);
+    
+    if (aIsEng && !bIsEng) return -1; // 영어가 앞으로
+    if (!aIsEng && bIsEng) return 1;  // 한글이 뒤로
+    
+    return a.localeCompare(b, 'ko'); // 같은 언어끼리는 가나다/ABC 순
+  });
 
   const filteredNews = newsList.filter(news => {
     const matchesSearch = news.title.toLowerCase().includes(searchTerm.toLowerCase());
