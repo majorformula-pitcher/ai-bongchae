@@ -804,6 +804,14 @@ body::before {
   cursor: default;
 }
 
+.rss-card.processing {
+  opacity: 0.7;
+  cursor: not-allowed;
+  pointer-events: none;
+  border-color: var(--primary);
+  background: rgba(139, 92, 246, 0.05);
+}
+
 .rss-card.added::after {
   content: '✓ 추가됨';
   position: absolute;
