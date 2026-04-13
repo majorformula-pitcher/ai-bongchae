@@ -78,19 +78,11 @@ body::before {
 
 .header-content {
   width: 100%;
-  max-width: 100%;
+  max-width: 100%; /* 너비 제한을 완전히 해제하여 모든 화면에서 끝까지 펼쳐지게 함 */
   padding: 0 8px; /* 로고를 왼쪽 구석으로 최대한 밀기 위해 패딩 최소화 */
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-
-@media (min-width: 768px) {
-  .header-content { max-width: 900px; }
-}
-
-@media (min-width: 1200px) {
-  .header-content { max-width: 1800px; }
 }
 
 .logo-link {
