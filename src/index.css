@@ -79,11 +79,10 @@ body::before {
 .header-content {
   width: 100%;
   max-width: 100%;
-  padding: 0 40px;
+  padding: 0 24px; /* 사이드바 내부 패딩(24px)과 로고 위치를 맞춤 */
   display: flex;
-  justify-content: center; /* 로고가 빠진 자리에 버튼들이 정중앙에 오도록 수정 */
+  justify-content: space-between; /* 로고-좌측, 버튼-우측 배치 복구 */
   align-items: center;
-  gap: 20px; /* 버튼 사이의 간격 부여 */
 }
 
 @media (min-width: 768px) {
@@ -101,12 +100,6 @@ body::before {
 
 .logo-link:hover {
   opacity: 0.8;
-}
-
-.sidebar-logo {
-  display: block;
-  margin-bottom: 32px;
-  text-decoration: none;
 }
 
 .logo {
