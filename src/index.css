@@ -242,8 +242,8 @@ body::before {
 @media (min-width: 768px) {
   .news-feed {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
-    gap: 24px;
+    grid-template-columns: repeat(auto-fill, minmax(550px, 1fr));
+    gap: 32px;
   }
 }
 
