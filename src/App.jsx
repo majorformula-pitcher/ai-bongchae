@@ -58,7 +58,7 @@ function App() {
         const data = await res.json();
         if (data.success) {
           setRssFeeds(data.feeds);
-          if (data.feeds.length > 0) setSelectedFeedId(data.feeds[0].id);
+          // 초기 선택 삭제 (사용자 의도에 따라 수동 로딩으로 변경)
         }
       } catch (err) {
         console.error('Failed to fetch RSS feeds:', err);
@@ -494,9 +494,18 @@ function App() {
     <div className="discovery-container">
       <header className="header">
         <div className="header-content">
-          <a href="/" className="logo-link">
+          <div 
+            className="logo-link" 
+            onClick={() => {
+              setShowOnlyLiked(false);
+              setSelectedCategory('All');
+              setSearchTerm('');
+              setSelectedDate('');
+            }}
+            style={{ cursor: 'pointer' }}
+          >
             <div className="logo">AI Bongchae</div>
-          </a>
+          </div>
           <div className="header-actions">
             <div className="date-filter-group">
               <input 
