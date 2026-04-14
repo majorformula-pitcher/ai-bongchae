@@ -8,14 +8,45 @@ import * as cheerio from 'cheerio';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import Anthropic from '@anthropic-ai/sdk';
 
-dotenv.config();
 import { createClient } from '@supabase/supabase-js';
 import Parser from 'rss-parser';
+import Database from 'better-sqlite3';
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
-  process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
-);
+dotenv.config();
+
+const USE_LOCAL_DB = process.env.USE_LOCAL_DB === 'true';
+const TABLE_NAME = process.env.TABLE_NAME || 'ai-bongchae';
+
+// [DB 초기화] 로컬 SQLite 설정
+let localDb;
+if (USE_LOCAL_DB) {
+  localDb = new Database('bongchae.dev.db');
+  console.log('[DB] Local SQLite initialized (bongchae.dev.db)');
+  
+  // 테이블 자동 생성 (없을 경우)
+  localDb.prepare(`
+    CREATE TABLE IF NOT EXISTS "${TABLE_NAME}" (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      title TEXT,
+      summary TEXT,
+      url TEXT UNIQUE,
+      category TEXT,
+      published_at TEXT,
+      image TEXT,
+      engine TEXT,
+      likes INTEGER DEFAULT 0
+    )
+  `).run();
+}
+
+let supabase = null;
+if (!USE_LOCAL_DB) {
+  supabase = createClient(
+    process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL,
+    process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY
+  );
+}
 
 const rssParser = new Parser({
   customFields: {
@@ -61,33 +92,65 @@ const anthropic = new Anthropic({
 });
 
 // ----------------------------------------------------
-// AI 요약 엔진 섹션 (하이브리드: Ollama + Gemini)
+// AI 요약 엔진 및 순차 처리 큐 (Ollama 과부하 방지)
 // ----------------------------------------------------
+let isOllamaBusy = false;
+const ollamaQueue = [];
+
+const processOllamaQueue = async () => {
+  if (isOllamaBusy || ollamaQueue.length === 0) return;
+  isOllamaBusy = true;
+  const { requestFn, resolve, reject } = ollamaQueue.shift();
+  try {
+    const result = await requestFn();
+    resolve(result);
+  } catch (err) {
+    reject(err);
+  } finally {
+    isOllamaBusy = false;
+    processOllamaQueue();
+  }
+};
+
+const enqueueOllama = (requestFn) => {
+  return new Promise((resolve, reject) => {
+    ollamaQueue.push({ requestFn, resolve, reject });
+    processOllamaQueue();
+  });
+};
 
 async function summarizeWithOllama(bodyText, title, publishedAt) {
+  return enqueueOllama(() => _summarizeWithOllamaInternal(bodyText, title, publishedAt));
+}
+
+async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
   const isEnglish = /[a-zA-Z]{5,}/.test(title);
   const prompt = `
     다음 뉴스 본문을 분석해서 '반드시' 아래 형식의 순수 JSON으로만 응답해줘. 
-    설명이나 마크다운 코드 블록(예: \`\`\`json)은 절대 포함하지 마.
+    당신의 응답은 반드시 '{' 로 시작해서 '}' 로 끝나야 하며, 그 외의 설명이나 마크다운 코드 블록은 절대 포함하지 마.
     
+    데이터 형식 (JSON RFC 규격을 엄격히 준수할 것):
     {
-      "title": "${isEnglish ? "기사 제목의 한국어 번역" : "기사 제목 (매체명이나 사이트 이름은 반드시 제거하고 핵심 헤드라인만 명확하게 보강)"}",
-      "category": "AI, Robot, 보안, IT, 기타 중 하나를 가장 적절한 것으로 선택",
-      "summary": "첫 번째 핵심 요약\\n두 번째 핵심 요약\\n세 번째 핵심 요약\\n네 번째 핵심 요약",
+      "title": "${isEnglish ? "기사 제목의 한국어 번역" : "기사 제목 (매체명/사이트명 제거 후 핵심 헤드라인만 보강)"}",
+      "category": "AI, Robot, 보안, IT, 기타 중 하나 선택",
+      "summary": "핵심 문장 1\\n핵심 문장 2\\n핵심 문장 3\\n핵심 문장 4",
       "published_at": "${publishedAt || new Date().toISOString().split('T')[0]}"
     }
     
-    뉴스 본문:
-    ${bodyText}
+    주의사항 (필독):
+    1. 요약(summary)은 반드시 숫자를 붙이지 말고 4개의 핵심 문장으로만 작성하고 각 문장 사이엔 \\n을 넣으세요.
+    2. 제목이나 요약 내용에 큰따옴표(")가 들어갈 경우 반드시 \\" 로 이스케이프 처리하세요.
+    3. JSON 외에 어떠한 인사말이나 부연 설명도 하지 마세요.
     
-    주의사항:
-    - 요약(summary)은 반드시 숫자를 붙이지 말고 4개의 핵심 문장으로만 작성하세요. (각 문장은 줄바꿈으로 구분)
+    분석할 뉴스 본문:
+    ${bodyText}
   `;
 
   try {
     const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
     const MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:14b';
     
+    console.log(`[Ollama] Requesting summary from ${MODEL}... (Timeout: 90s)`);
     const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
       model: MODEL,
       prompt: prompt,
@@ -96,16 +159,46 @@ async function summarizeWithOllama(bodyText, title, publishedAt) {
       options: {
         temperature: 0.1
       }
-    });
+    }, { timeout: 90000 }); // 90초 타임아웃 설정
 
-    const aiData = JSON.parse(response.data.response);
+    console.log('[Ollama] Response received successfully.');
+    const modelLabel = MODEL.includes('14b') ? '14B' : (MODEL.includes('7b') ? '7B' : MODEL);
+    let rawResponse = response.data.response.trim();
+    
+    // [Emergency Cleaning] 마크다운 블록 제거 및 JSON 추출
+    if (rawResponse.includes('```json')) {
+      rawResponse = rawResponse.split('```json')[1].split('```')[0].trim();
+    } else if (rawResponse.includes('```')) {
+      rawResponse = rawResponse.split('```')[1].split('```')[0].trim();
+    }
+
+    let aiData;
+    try {
+      aiData = JSON.parse(rawResponse);
+    } catch (parseErr) {
+      console.warn('[Ollama] Standard JSON parse failed, attempting emergency fix...');
+      try {
+        const cleanResponse = rawResponse
+          .replace(/[\u0000-\u001F\u007F-\u009F]/g, "")
+          .replace(/\\"/g, '"')
+          .replace(/"/g, '\"');
+        throw parseErr;
+      } catch (e) {
+        throw new Error(`AI 응답 형식 오류: ${parseErr.message}\n응답원본: ${rawResponse.slice(0, 100)}...`);
+      }
+    }
+
     return {
       ...aiData,
-      engine: `Local Qwen 2.5 (14B)`
+      engine: `Local Qwen 2.5 (${modelLabel})`
     };
   } catch (err) {
-    console.error('[Ollama] Error:', err.message);
-    throw err; // 상위에서 Gemini로 폴백하도록 예외 던짐
+    if (err.code === 'ECONNABORTED') {
+      console.error('[Ollama] Error: Request timed out (90s). Model might be too slow or loading.');
+    } else {
+      console.error('[Ollama] Error:', err.message);
+    }
+    throw err; 
   }
 }
 
@@ -480,18 +573,30 @@ app.post('/api/extract', async (req, res) => {
     let ollamaErrorMsg = "";
     let engine = "";
 
-    // [Step 1] Ollama (Local AI) 시도
-    try {
-      console.log('[AI] Attempting Local Ollama (Qwen 2.5)...');
-      const ollamaResult = await summarizeWithOllama(bodyText, title, publishedAt);
-      extractedData = { ...extractedData, ...ollamaResult };
-      engine = ollamaResult.engine;
-    } catch (ollamaErr) {
-      console.warn('[AI] Local AI failed, falling back to Gemini:', ollamaErr.message);
-      ollamaErrorMsg = ollamaErr.message;
-
-      // [Step 2] Gemini 시도
+    // [Step 1] Ollama (Local AI) 시도 - 로컬 환경에서만 우선 시도
+    let ollamaAttempted = false;
+    if (USE_LOCAL_DB || process.env.ENABLE_OLLAMA === 'true') {
+      ollamaAttempted = true;
       try {
+        console.log('[AI] Attempting Local Ollama (Qwen 2.5)...');
+        const ollamaResult = await summarizeWithOllama(bodyText, title, publishedAt);
+        extractedData = { ...extractedData, ...ollamaResult };
+        engine = ollamaResult.engine;
+      } catch (ollamaErr) {
+        console.warn('[AI] Local AI failed:', ollamaErr.message);
+        ollamaErrorMsg = ollamaErr.message;
+
+        // 로컬 전용 모드일 경우 여기서 중단
+        if (USE_LOCAL_DB) {
+          throw new Error(`로컬 Qwen 요약 실패: ${ollamaErr.message} (로컬 전용 모드 활성 중)`);
+        }
+      }
+    }
+
+    // [Step 2 & 3] 외부 API (Gemini/Claude) 시도 - Ollama 실패했거나 시도하지 않았을 경우
+    if (engine !== "Local Qwen 2.5 (14B)" && engine !== "Local Qwen 2.5 (7B)") {
+      try {
+        // ... (Gemini/Claude 로직)
         const geminiResult = await summarizeWithGemini(bodyText, title, publishedAt);
         extractedData = { ...extractedData, ...geminiResult };
         engine = "Gemini";
@@ -543,7 +648,12 @@ app.post('/api/summarize-text', express.json({ limit: '10mb' }), async (req, res
       result = await summarizeWithOllama(text, targetTitle);
       engine = result.engine;
     } catch (ollamaErr) {
-      console.warn('[API] Local AI failed, trying Gemini:', ollamaErr.message);
+      console.warn('[API] Local AI failed:', ollamaErr.message);
+      
+      if (USE_LOCAL_DB) {
+        throw new Error(`로컬 요약 실패: ${ollamaErr.message}`);
+      }
+
       try {
         result = await summarizeWithGemini(text, targetTitle);
       } catch (geminiError) {
@@ -560,20 +670,106 @@ app.post('/api/summarize-text', express.json({ limit: '10mb' }), async (req, res
   }
 });
 
-app.post('/api/like', express.json(), async (req, res) => {
-  const { id, currentStatus } = req.body;
+// [신규 API] 뉴스 목록 전체 조회
+app.get('/api/news', async (req, res) => {
+  try {
+    if (USE_LOCAL_DB) {
+      const rows = localDb.prepare(`SELECT * FROM "${TABLE_NAME}" ORDER BY created_at DESC`).all();
+      // SQLite의 0/1 값을 boolean으로 변환
+      const data = rows.map(r => ({ ...r, likes: !!r.likes }));
+      return res.json({ success: true, data });
+    } else {
+      const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      res.json({ success: true, data });
+    }
+  } catch (error) {
+    console.error('[API] Fetch News Error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// [신규 API] 뉴스 추가 (서버에서 DB 직접 입력)
+app.post('/api/news', async (req, res) => {
+  const newsData = req.body;
+  try {
+    if (USE_LOCAL_DB) {
+      const stmt = localDb.prepare(`
+        INSERT INTO "${TABLE_NAME}" (title, summary, url, category, published_at, image, engine, likes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `);
+      const info = stmt.run(
+        newsData.title,
+        newsData.summary,
+        newsData.url,
+        newsData.category,
+        newsData.published_at,
+        newsData.image,
+        newsData.engine,
+        newsData.likes ? 1 : 0
+      );
+      // 저장된 데이터 다시 조회해서 반환
+      const saved = localDb.prepare(`SELECT * FROM "${TABLE_NAME}" WHERE id = ?`).get(info.lastInsertRowid);
+      return res.json({ success: true, data: [{ ...saved, likes: !!saved.likes }] });
+    } else {
+      const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .insert([newsData])
+        .select();
+      if (error) throw error;
+      res.json({ success: true, data });
+    }
+  } catch (error) {
+    console.error('[API] Insert News Error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// [신규 API] 뉴스 삭제
+app.delete('/api/news/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    if (USE_LOCAL_DB) {
+      localDb.prepare(`DELETE FROM "${TABLE_NAME}" WHERE id = ?`).run(id);
+      return res.json({ success: true });
+    } else {
+      const { error } = await supabase
+        .from(TABLE_NAME)
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      res.json({ success: true });
+    }
+  } catch (error) {
+    console.error('[API] Delete News Error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// [기능 변경] 좋아요 토글 Proxy (기존 API 확장)
+app.patch('/api/news/:id/like', async (req, res) => {
+  const { id } = req.params;
+  const { currentStatus } = req.body;
   
   try {
-    const { data, error } = await supabase
-      .from('ai-bongchae')
-      .update({ likes: !currentStatus })
-      .eq('id', id)
-      .select();
-
-    if (error) throw error;
-    res.json({ success: true, data });
+    if (USE_LOCAL_DB) {
+      localDb.prepare(`UPDATE "${TABLE_NAME}" SET likes = ? WHERE id = ?`).run(currentStatus ? 0 : 1, id);
+      const updated = localDb.prepare(`SELECT * FROM "${TABLE_NAME}" WHERE id = ?`).get(id);
+      return res.json({ success: true, data: [{ ...updated, likes: !!updated.likes }] });
+    } else {
+      const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .update({ likes: !currentStatus })
+        .eq('id', id)
+        .select();
+      if (error) throw error;
+      res.json({ success: true, data });
+    }
   } catch (error) {
-    console.error('[API] Like Proxy Error:', error.message);
+    console.error('[API] Like Toggle Error:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -621,14 +817,22 @@ app.get('/api/rss/:id', async (req, res) => {
       };
     });
 
-    // DB 중복 체크 (ai-bongchae 테이블)
+    // DB 중복 체크
     const urls = items.map(it => it.link);
-    const { data: existingNews } = await supabase
-      .from('ai-bongchae')
-      .select('url')
-      .in('url', urls);
-    
-    const existingUrls = new Set((existingNews || []).map(n => n.url));
+    let existingUrls = new Set();
+
+    if (USE_LOCAL_DB) {
+      // SQLite에서 해당 URL들이 있는지 확인
+      const placeholders = urls.map(() => '?').join(',');
+      const rows = localDb.prepare(`SELECT url FROM "${TABLE_NAME}" WHERE url IN (${placeholders})`).all(...urls);
+      existingUrls = new Set(rows.map(r => r.url));
+    } else {
+      const { data: existingNews } = await supabase
+        .from(TABLE_NAME)
+        .select('url')
+        .in('url', urls);
+      existingUrls = new Set((existingNews || []).map(n => n.url));
+    }
     
     const finalItems = items.map(it => ({
       ...it,

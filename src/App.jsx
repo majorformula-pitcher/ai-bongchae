@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from './lib/supabaseClient';
+import axios from 'axios';
 import * as XLSX from 'xlsx';
 import pptxgen from 'pptxgenjs';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -112,15 +112,16 @@ function App() {
   const [navTab, setNavTab] = useState('home');
   const [processingUrls, setProcessingUrls] = useState(new Set()); // 개별 뉴스 처리 상태 추적
 
-  // DB에서 뉴스 읽어오기
+  // DB에서 뉴스 읽어오기 (서버 API 경유)
   const fetchNews = async () => {
-    const { data, error } = await supabase
-      .from('ai-bongchae')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
-    if (error) console.error('Error fetching news:', error);
-    else setNewsList(data || []);
+    try {
+      const res = await axios.get('/api/news');
+      if (res.data.success) {
+        setNewsList(res.data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching news:', error);
+    }
   };
 
   useEffect(() => {
@@ -197,27 +198,24 @@ function App() {
 
       setLoadingProgress(80);
 
-      // 2. Supabase DB 저장
-      const { data, error } = await supabase
-        .from('ai-bongchae')
-        .insert([
-          {
-            title: result.title,
-            summary: result.summary,
-            url: result.url,
-            category: result.category,
-            published_at: result.published_at,
-            image: result.image,
-            engine: result.engine,
-            likes: false
-          }
-        ])
-        .select();
+      // 2. 서버 API를 통한 DB 저장
+      const res = await axios.post('/api/news', {
+        title: result.title,
+        summary: result.summary,
+        url: result.url,
+        category: result.category,
+        published_at: result.published_at,
+        image: result.image,
+        engine: result.engine,
+        likes: false
+      });
 
-      if (error) throw error;
+      if (!res.data.success) throw new Error('DB 저장에 실패했습니다.');
+
+      const savedData = res.data.data[0];
 
       // 3. 상태 업데이트 및 알림
-      setNewsList([data[0], ...newsList]);
+      setNewsList([savedData, ...newsList]);
       if (!targetUrl) setUrlInput('');
       
       // RSS 리스트 상태 업데이트 (목록에서 '추가됨' 표시를 위해)
@@ -279,25 +277,21 @@ function App() {
         }
       }
 
-      const { data, error } = await supabase
-        .from('ai-bongchae')
-        .insert([
-          {
-            title: finalTitle,
-            summary: finalSummary,
-            url: urlInput,
-            category: finalCategory || '기타',
-            engine: finalEngine, // 동적으로 결정된 엔진 정보 저장
-            published_at: new Date().toISOString(),
-            image: null, 
-            likes: false
-          }
-        ])
-        .select();
+      // 서버 API를 통한 저장
+      const res = await axios.post('/api/news', {
+        title: finalTitle,
+        summary: finalSummary,
+        url: urlInput || `manual-${Date.now()}`,
+        category: finalCategory || '기타',
+        published_at: new Date().toISOString().split('T')[0],
+        engine: finalEngine,
+        likes: false
+      });
 
-      if (error) throw error;
-
-      setNewsList([data[0], ...newsList]);
+      if (!res.data.success) throw new Error('수동 저장에 실패했습니다.');
+      
+      const savedData = res.data.data[0];
+      setNewsList([savedData, ...newsList]);
       setUrlInput('');
       setManualMode(false);
       setManualTitle('');
@@ -316,15 +310,12 @@ function App() {
     
     if (window.confirm('정말 삭제하시겠습니까?')) {
       try {
-        const { error } = await supabase
-          .from('ai-bongchae')
-          .delete()
-          .eq('id', id);
-
-        if (error) throw error;
-
-        setNewsList(newsList.filter(news => news.id !== id));
+        const res = await axios.delete(`/api/news/${id}`);
+        if (res.data.success) {
+          setNewsList(newsList.filter(news => news.id !== id));
+        }
       } catch (error) {
+        console.error('Delete error:', error);
         alert('삭제 중 오류 발생: ' + error.message);
       }
     }
@@ -332,39 +323,29 @@ function App() {
 
   const toggleLike = async (e, id, currentStatus) => {
     e.preventDefault();
-    e.stopPropagation(); // Stop event from bubbling up to parents
+    e.stopPropagation();
     
     try {
-      const response = await fetch('/api/like', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, currentStatus })
-      });
+      const res = await axios.patch(`/api/news/${id}/like`, { currentStatus });
       
-      const result = await response.json();
-
-      if (!result.success) {
-        console.error('Like error:', result.error);
-        alert(`좋아요 처리 중 오류가 발생했습니다.\n\n[상세 사유]: ${result.error}\n\n※ 사내 보안망이나 광고 차단 프로그램 또는 서버 설정 문제일 수 있습니다.`);
-      } else {
+      if (res.data.success) {
         setNewsList(prevList => prevList.map(news => 
           news.id === id ? { ...news, likes: !currentStatus } : news
         ));
+      } else {
+        throw new Error(res.data.error || '알 수 없는 오류');
       }
     } catch (err) {
       console.error('Like exception:', err);
-      alert(`시스템 예외가 발생했습니다.\n\n[상세]: ${err.message}\n\n※ 서버 연결이 원활하지 않거나 보안망에 의해 통신이 차단되었을 가능성이 큽니다.`);
+      alert(`좋아요 처리 중 오류가 발생했습니다.\n\n[상세]: ${err.message}`);
     }
   };
   
   const handleExportExcel = async () => {
     try {
-      const { data, error } = await supabase
-        .from('ai-bongchae')
-        .select('title, summary, category, url, created_at, engine')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
+      const res = await axios.get('/api/news');
+      if (!res.data.success) throw new Error('데이터를 불러오지 못했습니다.');
+      const data = res.data.data;
 
       const excelData = data.map(item => ({
         '제목': item.title,
