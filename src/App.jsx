@@ -214,8 +214,8 @@ function App() {
 
       const savedData = res.data.data[0];
 
-      // 3. 상태 업데이트 및 알림
-      setNewsList([savedData, ...newsList]);
+      // 3. 상태 업데이트 및 알림 (함수형 업데이트로 유실 방지)
+      setNewsList(prev => [savedData, ...prev]);
       if (!targetUrl) setUrlInput('');
       
       // RSS 리스트 상태 업데이트 (목록에서 '추가됨' 표시를 위해)
@@ -231,12 +231,13 @@ function App() {
       console.error('Add news error:', error);
       alert('뉴스 추가 중 오류 발생: ' + error.message);
     } finally {
-      setIsProcessing(false);
       setProcessingUrls(prev => {
         const next = new Set(prev);
         next.delete(finalUrl);
+        // 모든 요약 작업이 진짜로 다 끝났을 때만 버튼을 원래대로 돌림
+        if (next.size === 0) setIsProcessing(false);
         return next;
-      }); // 패치 완료 후 락 해제
+      });
     }
   };
 
@@ -291,7 +292,7 @@ function App() {
       if (!res.data.success) throw new Error('수동 저장에 실패했습니다.');
       
       const savedData = res.data.data[0];
-      setNewsList([savedData, ...newsList]);
+      setNewsList(prev => [savedData, ...prev]);
       setUrlInput('');
       setManualMode(false);
       setManualTitle('');
@@ -300,7 +301,13 @@ function App() {
     } catch (error) {
       alert('등록 중 오류 발생: ' + error.message);
     } finally {
-      setIsProcessing(false);
+      // 처리 중인 다른 작업이 없을 때만 버튼 상태 원복
+      setProcessingUrls(prev => {
+        const next = new Set(prev);
+        // 수동 모드의 경우 고유 ID 등을 쓰지 않으므로 개수 기반 혹은 단순 체크
+        if (next.size === 0) setIsProcessing(false);
+        return next;
+      });
     }
   };
 
@@ -310,9 +317,20 @@ function App() {
     
     if (window.confirm('정말 삭제하시겠습니까?')) {
       try {
+        // 삭제할 뉴스의 URL 정보를 미리 확보 (RSS 버튼 복구용)
+        const targetNews = newsList.find(n => n.id === id);
+        
         const res = await axios.delete(`/api/news/${id}`);
         if (res.data.success) {
-          setNewsList(newsList.filter(news => news.id !== id));
+          // 1. 메인 뉴스 목록에서 제거
+          setNewsList(prev => prev.filter(news => news.id !== id));
+
+          // 2. RSS 발견 목록의 버튼 상태 복구 (+ 버튼으로 다시 변경)
+          if (targetNews && targetNews.url) {
+            setRssItems(prev => prev.map(item => 
+              item.link === targetNews.url ? { ...item, isAdded: false } : item
+            ));
+          }
         }
       } catch (error) {
         console.error('Delete error:', error);
