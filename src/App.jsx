@@ -58,7 +58,7 @@ function App() {
         const data = await res.json();
         if (data.success) {
           setRssFeeds(data.feeds);
-          // 초기 선택 삭제 (사용자 의도에 따라 수동 로딩으로 변경)
+          if (data.feeds.length > 0) setSelectedFeedId(data.feeds[0].id);
         }
       } catch (err) {
         console.error('Failed to fetch RSS feeds:', err);
