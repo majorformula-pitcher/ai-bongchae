@@ -539,7 +539,15 @@ function App() {
 
       {/* Desktop Sidebar Exploration */}
       <aside className="discovery-sidebar">
-        <DiscoveryContent />
+        <DiscoveryContent 
+          isRssLoading={isRssLoading}
+          rssFeeds={rssFeeds}
+          selectedFeedId={selectedFeedId}
+          setSelectedFeedId={setSelectedFeedId}
+          rssItems={rssItems}
+          processingUrls={processingUrls}
+          handleAddNews={handleAddNews}
+        />
       </aside>
 
       {/* Main Core Content */}
