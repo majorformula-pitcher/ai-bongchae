@@ -11,6 +11,81 @@ import './index.css';
 
 const API_URL = ''; // 백엔드 통신 주소 복구
 
+const DiscoveryContent = React.memo(({ 
+  isRssLoading, 
+  rssFeeds, 
+  selectedFeedId, 
+  setSelectedFeedId, 
+  rssItems, 
+  processingUrls, 
+  handleAddNews 
+}) => (
+  <>
+    <div className="discovery-header">
+      <Compass size={20} className="text-primary" />
+      <span>뉴스 발견 (Discovery)</span>
+      {isRssLoading && <RefreshCw size={14} className="animate-spin ml-auto text-primary" />}
+    </div>
+    
+    <div className="channel-list">
+      {rssFeeds.map(feed => (
+        <button 
+          key={feed.id} 
+          className={`channel-btn ${selectedFeedId === feed.id ? 'active' : ''}`}
+          onClick={() => setSelectedFeedId(feed.id)}
+        >
+          {feed.name}
+        </button>
+      ))}
+    </div>
+
+    <div className="rss-feed-list">
+      {rssItems.map((item, idx) => (
+        <motion.div 
+          key={idx}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`rss-card ${item.isAdded ? 'added' : ''} ${processingUrls.has(item.link) ? 'processing' : ''}`}
+          onClick={() => window.open(item.link, '_blank')}
+        >
+          <div className="rss-card-main">
+            <div className="rss-title">{item.title}</div>
+            <div className="rss-meta">
+              <span>{new Date(item.pubDate).toLocaleDateString()}</span>
+            </div>
+          </div>
+          
+          <div className="rss-action-area">
+            {processingUrls.has(item.link) ? (
+              <div className="rss-status-icon processing">
+                <RefreshCw size={18} className="animate-spin text-primary" />
+              </div>
+            ) : item.isAdded ? (
+              <div className="rss-status-icon added" title="이미 추가됨">
+                <CheckCircle2 size={20} className="text-emerald-500" />
+              </div>
+            ) : (
+              <button 
+                className="rss-add-btn" 
+                title="뉴스 카드로 추가"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAddNews(item.link);
+                }}
+              >
+                <Plus size={18} />
+              </button>
+            )}
+          </div>
+        </motion.div>
+      ))}
+      {rssItems.length === 0 && !isRssLoading && (
+        <div className="no-result" style={{fontSize: '0.8rem', opacity: 0.6}}>기사를 불러오는 중이거나 목록이 비어있습니다.</div>
+      )}
+    </div>
+  </>
+));
+
 function App() {
   const [newsList, setNewsList] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -423,89 +498,14 @@ function App() {
     return matchesSearch && matchesCategory && matchesLike && matchesDate;
   });
 
-  const DiscoveryContent = () => (
-    <>
-      <div className="discovery-header">
-        <Compass size={20} className="text-primary" />
-        <span>뉴스 발견 (Discovery)</span>
-        {isRssLoading && <RefreshCw size={14} className="animate-spin ml-auto text-primary" />}
-      </div>
-      
-      <div className="channel-list">
-        {rssFeeds.map(feed => (
-          <button 
-            key={feed.id} 
-            className={`channel-btn ${selectedFeedId === feed.id ? 'active' : ''}`}
-            onClick={() => setSelectedFeedId(feed.id)}
-          >
-            {feed.name}
-          </button>
-        ))}
-      </div>
-
-      <div className="rss-feed-list">
-        {rssItems.map((item, idx) => (
-          <motion.div 
-            key={idx}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={`rss-card ${item.isAdded ? 'added' : ''} ${processingUrls.has(item.link) ? 'processing' : ''}`}
-            onClick={() => window.open(item.link, '_blank')}
-          >
-            <div className="rss-card-main">
-              <div className="rss-title">{item.title}</div>
-              <div className="rss-meta">
-                <span>{new Date(item.pubDate).toLocaleDateString()}</span>
-              </div>
-            </div>
-            
-            <div className="rss-action-area">
-              {processingUrls.has(item.link) ? (
-                <div className="rss-status-icon processing">
-                  <RefreshCw size={18} className="animate-spin text-primary" />
-                </div>
-              ) : item.isAdded ? (
-                <div className="rss-status-icon added" title="이미 추가됨">
-                  <CheckCircle2 size={20} className="text-emerald-500" />
-                </div>
-              ) : (
-                <button 
-                  className="rss-add-btn" 
-                  title="뉴스 카드로 추가"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAddNews(item.link);
-                  }}
-                >
-                  <Plus size={18} />
-                </button>
-              )}
-            </div>
-          </motion.div>
-        ))}
-        {rssItems.length === 0 && !isRssLoading && (
-          <div className="no-result" style={{fontSize: '0.8rem', opacity: 0.6}}>기사를 불러오는 중이거나 목록이 비어있습니다.</div>
-        )}
-      </div>
-    </>
-  );
 
   return (
     <div className="discovery-container">
       <header className="header">
         <div className="header-content">
-          <div 
-            className="logo-link" 
-            onClick={() => {
-              setShowOnlyLiked(false);
-              setSelectedCategory('All');
-              setSearchTerm('');
-              setSelectedDate('');
-            }}
-            style={{ cursor: 'pointer' }}
-          >
+          <a href="/" className="logo-link">
             <div className="logo">AI Bongchae</div>
-          </div>
+          </a>
           <div className="header-actions">
             <div className="date-filter-group">
               <input 
@@ -750,7 +750,15 @@ function App() {
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             >
               <div className="sheet-handle" onClick={() => setIsDiscoveryOpen(false)} />
-              <DiscoveryContent />
+              <DiscoveryContent 
+                isRssLoading={isRssLoading}
+                rssFeeds={rssFeeds}
+                selectedFeedId={selectedFeedId}
+                setSelectedFeedId={setSelectedFeedId}
+                rssItems={rssItems}
+                processingUrls={processingUrls}
+                handleAddNews={handleAddNews}
+              />
             </motion.div>
           </>
         )}
