@@ -495,7 +495,10 @@ app.post('/api/extract', async (req, res) => {
 
     let title = $('meta[property="og:title"]').attr('content') || $('title').text().trim() || "제목 없음";
     
-    // [제목 세척 고도화] 매체명 접미사 제거 ( - , | , : , / 등)
+    // [제목 세척 고도화] 매체명 접미사 제거 ( - , | , : , / 등 및 특정 매체명 직접 제거)
+    title = title.replace(/\s*[-|:|/]\s*(Bloomberg\.com|Bloomberg|CNBC|The Verge|NYT|Reuters|Financial Times|FT|TechCrunch|VentureBeat|CNET|Wired).*$/i, '').trim();
+    
+    // Fallback: 위 정규식으로 안 잡히는 일반적인 구분자 처리
     if (title.includes(' - ')) title = title.split(' - ').slice(0, -1).join(' - ');
     else if (title.includes(' | ')) title = title.split(' | ').slice(0, -1).join(' | ');
     else if (title.includes(' : ')) title = title.split(' : ').slice(0, -1).join(' : ');

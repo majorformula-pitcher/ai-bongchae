@@ -191,9 +191,12 @@ function App() {
       if (!result.success) {
         setManualErrorMessage(result.error || '자동 추출에 실패했습니다.');
         
-        // [수정] RSS에서 가져온 제목을 우선 사용
-        if (defaultTitle) setManualTitle(defaultTitle);
-        else if (result.title) setManualTitle(result.title);
+        // 제목 정제 헬퍼 (매체명 접미사 제거)
+        const cleanTitle = (t) => t.replace(/\s*[-|:|/]\s*(Bloomberg\.com|Bloomberg|CNBC|The Verge|NYT|Reuters|Financial Times|FT|TechCrunch|VentureBeat|CNET|Wired).*$/i, '').trim();
+
+        // [우선순위] 이미 알고 있는 제목(RSS) > 서버에서 준 제목 순으로 세팅
+        if (defaultTitle) setManualTitle(cleanTitle(defaultTitle));
+        else if (result.title) setManualTitle(cleanTitle(result.title));
         
         setManualMode(true);
         setIsProcessing(false);
