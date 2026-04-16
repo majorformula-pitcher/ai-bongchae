@@ -965,8 +965,6 @@ app.get('/api/proxy-image', async (req, res) => {
   }
 });
 
-});
-
 app.post('/api/send-email', async (req, res) => {
   const { newsList, images } = req.body; 
   
