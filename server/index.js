@@ -217,9 +217,16 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
       throw new Error('AI 요약 데이터가 누락되었거나 형식이 올바르지 않습니다.');
     }
 
-    // [고도화된 정구조적 정제] 배열로 받은 요약문을 핀셋 정제 (1~4번 번호만 제거)
+    // [구조적 정제] 배열로 받은 요약문을 핀셋 정제 (1~4번 번호만 제거)
     let sumLines = Array.isArray(summaryRaw) ? summaryRaw : String(summaryRaw).split('\n');
     
+    // 카테고리 필드 정제 로직 복구
+    const validCategories = ['AI', 'Robot', '보안', 'IT', '기타'];
+    let finalCategory = aiData.category || '기타';
+    if (!validCategories.includes(finalCategory)) {
+      finalCategory = validCategories.find(c => finalCategory.toUpperCase().includes(c.toUpperCase())) || '기타';
+    }
+
     const cleanSummary = sumLines
       .map(line => line
         .replace(/^([1-4]\.[\s]*)?[\s\-*•·]+/g, '') // 불렛 및 1~4번 번호만 선택적 제거
