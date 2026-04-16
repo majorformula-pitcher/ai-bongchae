@@ -524,16 +524,16 @@ function App() {
         
         const element = document.getElementById('email-capture-template');
         if (element) {
-          // 3. 선명도와 용량의 황금 비율 캡처 (750px * scale 1.2)
+          // 3. Retina급 고해상도 캡처 (800px * scale 2.0)
           const canvas = await html2canvas(element, {
             useCORS: true,
             allowTaint: true,
-            scale: 1.2, 
+            scale: 2.0, 
             backgroundColor: '#ffffff',
             logging: false
           });
           
-          images.push(canvas.toDataURL('image/jpeg', 0.6));
+          images.push(canvas.toDataURL('image/jpeg', 0.7));
         }
       }
 
