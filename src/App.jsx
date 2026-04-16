@@ -237,9 +237,20 @@ function App() {
 
       setLoadingProgress(100);
       setTimeout(() => setLoadingProgress(0), 1000);
-    } catch (error) {
-      console.error('Add news error:', error);
-      alert('뉴스 추가 중 오류 발생: ' + error.message);
+    } catch (err) {
+      console.error('Email Send Error:', err);
+      
+      // [정밀 진단] 상세 에러 메시지 구성
+      let detailedMsg = err.message;
+      if (err.response) {
+        // 서버가 응답을 준 경우 (예: 413, 500 등)
+        detailedMsg = `[Status: ${err.response.status}] ${JSON.stringify(err.response.data || 'No details')}`;
+      } else if (err.request) {
+        // 서버에 요청은 갔으나 응답을 못 받은 경우 (Timeout)
+        detailedMsg = '서버로부터 응답이 없습니다. (서버 타임아웃 또는 프로세스 다운)';
+      }
+      
+      alert(`발송 중 오류가 발생했습니다:\n${detailedMsg}`);
     } finally {
       setProcessingUrls(prev => {
         const next = new Set(prev);

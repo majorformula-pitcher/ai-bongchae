@@ -969,17 +969,16 @@ app.get('/api/proxy-image', async (req, res) => {
 app.post('/api/send-email', async (req, res) => {
   const { newsList, images } = req.body; 
   
-  // [정밀 진단] 요청 크기 및 뉴스 개수 로깅
+  // [정밀 진단] 요청 데이터 크기 및 뉴스 개수 로깅
   const totalSize = JSON.stringify(req.body).length;
   console.log('----------------------------------------------------');
-  console.log(`[Email Request Received]`);
-  console.log(`- Time: ${new Date().toLocaleString()}`);
-  console.log(`- News Count: ${newsList?.length || 0}`);
-  console.log(`- Total Payload Size: ${(totalSize / 1024).toFixed(2)} KB`);
+  console.log(`[Email Request Received] ${new Date().toLocaleString()}`);
+  console.log(`- News Items: ${newsList?.length || 0}개`);
+  console.log(`- Payload Size: ${(totalSize / 1024).toFixed(2)} KB`);
   console.log('----------------------------------------------------');
 
   if (!newsList || !images || newsList.length !== images.length) {
-    console.error('[Email Error] Validation failed: length mismatch or empty data');
+    console.error('[Email Error] Data validation failed');
     return res.status(400).json({ success: false, error: '뉴스 목록과 이미지 데이터가 일치하지 않습니다.' });
   }
 
@@ -1040,8 +1039,10 @@ app.get('*', (req, res) => {
 });
 
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Advanced Scraper Server is running on http://0.0.0.0:${PORT}`);
+  console.log(`Server is running on http://0.0.0.0:${PORT}`);
+  console.log('[Config] Body limit: 50MB');
+  console.log('[Config] DB Mode:', USE_LOCAL_DB ? 'Local SQLite' : 'Supabase');
 });
 
-// 대용량 이미지 처리 및 이메일 발송을 위한 서버 타임아웃 연장 (120초)
+// [대용량 처리 보강] 서버 타임아웃을 120초로 연장하여 대용량 이미지 전송 중 중단 방지
 server.timeout = 120000;
