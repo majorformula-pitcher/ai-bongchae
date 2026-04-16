@@ -70,6 +70,7 @@ const RSS_FEEDS = [
   { name: "CNBC Tech", url: "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910" },
   { name: "The Verge", url: "https://www.theverge.com/rss/index.xml" },
   { name: "Wired", url: "https://www.wired.com/feed/category/business/latest/rss" },
+  { name: "CNET", url: "https://www.cnet.com/rss/all/" },
   { name: "Techmeme", url: "https://www.techmeme.com/feed.xml" },
   { name: "Hugging Face", url: "https://huggingface.co/blog/feed.xml" },
   { name: "NYT Technology", url: "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml" }
