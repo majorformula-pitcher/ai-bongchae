@@ -968,11 +968,14 @@ body::before {
 }
 
 /* ---------------------------------------------------- */
-/* [Email Capture Template] - 뉴스레터 전용 PPT 스타일 (800px 고해상도 버전) */
-#email-capture-template {
-  width: 800px; /* 750px -> 800px 확장 */
+/* [Email Capture Template] - 뉴스레터 전용 PPT 스타일 (이미지 2번 복구 버전) */
+.slide-capture-area {
+  position: fixed;
+  left: -9999px; /* 화면 밖에서 렌더링 */
+  top: 0;
+  width: 800px;
   background: white;
-  padding: 35px; /* 여백 증가 */
+  padding: 35px;
   font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
   color: #333;
   box-sizing: border-box;
@@ -981,47 +984,50 @@ body::before {
   border: 1px solid #e2e8f0;
 }
 
-.capture-header {
-  border-bottom: 3px solid #0056b3; /* 선 두께 강화 */
-  padding-bottom: 15px;
+.slide-capture-header {
+  border-bottom: 3px solid #0056b3; /* 상단 포인트 파란선 */
+  padding-bottom: 12px;
   margin-bottom: 25px;
 }
 
-.capture-title {
-  font-size: 26px; /* 24px -> 26px 상향 */
+.slide-capture-title {
+  font-size: 26px;
   font-weight: 800;
   color: #004085;
   line-height: 1.35;
   word-break: keep-all;
+  margin: 0;
 }
 
-.capture-body {
-  display: flex;
+.slide-capture-body {
+  display: flex; /* 가로 2단 배치 */
+  flex-direction: row;
   gap: 30px;
   flex-grow: 1;
+  align-items: flex-start;
 }
 
-.capture-text-area {
-  flex: 1.2; /* 텍스트 영역 비중 소폭 증가 */
+.slide-capture-content {
+  flex: 1.2; /* 텍스트 영역 60% */
 }
 
-.capture-summary-list {
+.slide-capture-bullet-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.capture-summary-item {
+.slide-capture-bullet-item {
   position: relative;
   padding-left: 20px;
-  margin-bottom: 18px; /* 간격 증가 */
-  font-size: 17px; /* 16px -> 17px 상향 */
+  margin-bottom: 15px;
+  font-size: 16px;
   line-height: 1.7;
   color: #444;
   word-break: keep-all;
 }
 
-.capture-summary-item::before {
+.slide-capture-bullet-item::before {
   content: "•";
   position: absolute;
   left: 0;
