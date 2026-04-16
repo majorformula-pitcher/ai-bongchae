@@ -969,11 +969,11 @@ body::before {
   position: absolute;
   left: -9999px;
   top: 0;
-  width: 900px;
-  height: 506px; /* 16:9 비율 */
+  width: 600px;
+  height: 337px; /* 16:9 비율 */
   background: white;
   color: #1e293b;
-  padding: 40px;
+  padding: 30px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -982,14 +982,14 @@ body::before {
 }
 
 .slide-capture-header {
-  margin-bottom: 25px;
-  border-bottom: 4px solid #3b82f6; /* 파란색 밑줄 */
-  padding-bottom: 12px;
+  margin-bottom: 20px;
+  border-bottom: 3px solid #3b82f6; /* 파란색 밑줄 */
+  padding-bottom: 8px;
   text-align: left;
 }
 
 .slide-capture-title {
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 800;
   color: #1d4ed8; /* PPT 스타일 파란색 */
   margin: 0;
@@ -1001,7 +1001,7 @@ body::before {
 .slide-capture-body {
   display: flex;
   flex: 1;
-  gap: 35px;
+  gap: 20px;
   align-items: center;
   overflow: hidden;
 }
@@ -1018,10 +1018,10 @@ body::before {
 
 .slide-capture-bullet-item {
   position: relative;
-  padding-left: 20px;
-  font-size: 18px;
+  padding-left: 15px;
+  font-size: 13px;
   line-height: 1.5;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
   color: #334155;
   text-align: left;
 }
@@ -1041,8 +1041,8 @@ body::before {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: 10px;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
   background: #f1f5f9;
 }
 
@@ -1053,12 +1053,12 @@ body::before {
 }
 
 .slide-capture-footer {
-  margin-top: 25px;
+  margin-top: 15px;
   display: flex;
   justify-content: space-between;
   border-top: 1px solid #e2e8f0;
-  padding-top: 12px;
-  font-size: 12px;
+  padding-top: 8px;
+  font-size: 10px;
   color: #64748b;
 }
 
