@@ -986,13 +986,21 @@ app.get('/api/proxy-image', async (req, res) => {
 app.post('/api/send-email', async (req, res) => {
   const { newsList, images } = req.body; 
   
-  // [정밀 진단] 요청 데이터 크기 및 뉴스 개수 로깅
-  const totalSize = JSON.stringify(req.body).length;
+  // [AWS 정밀 진단] 요청 수신 로그 및 서버 자원 상태 기록
+  const bodySize = JSON.stringify(req.body).length;
+  const bodySizeMb = (bodySize / (1024 * 1024)).toFixed(2);
+  const memUsage = process.memoryUsage();
   console.log('----------------------------------------------------');
   console.log(`[Email Request Received] ${new Date().toLocaleString()}`);
-  console.log(`- News Items: ${newsList?.length || 0}개`);
-  console.log(`- Payload Size: ${(totalSize / 1024).toFixed(2)} KB`);
+  console.log(`- News Cards: ${newsList?.length || 0}개`);
+  console.log(`- Total Payload Size: ${bodySizeMb} MB`);
+  console.log(`- Server RSA Memory: ${(memUsage.rss / (1024 * 1024)).toFixed(2)} MB`);
+  console.log(`- Server Heap Used: ${(memUsage.heapUsed / (1024 * 1024)).toFixed(2)} MB`);
   console.log('----------------------------------------------------');
+
+  if (bodySizeMb > 45) {
+    console.warn('⚠️ Payload size is near limit (50MB). This might cause issue on AWS.');
+  }
 
   if (!newsList || !images || newsList.length !== images.length) {
     console.error('[Email Error] Data validation failed');
