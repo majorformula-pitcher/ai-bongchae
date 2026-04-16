@@ -969,7 +969,17 @@ app.get('/api/proxy-image', async (req, res) => {
 app.post('/api/send-email', async (req, res) => {
   const { newsList, images } = req.body; 
   
+  // [정밀 진단] 요청 크기 및 뉴스 개수 로깅
+  const totalSize = JSON.stringify(req.body).length;
+  console.log('----------------------------------------------------');
+  console.log(`[Email Request Received]`);
+  console.log(`- Time: ${new Date().toLocaleString()}`);
+  console.log(`- News Count: ${newsList?.length || 0}`);
+  console.log(`- Total Payload Size: ${(totalSize / 1024).toFixed(2)} KB`);
+  console.log('----------------------------------------------------');
+
   if (!newsList || !images || newsList.length !== images.length) {
+    console.error('[Email Error] Validation failed: length mismatch or empty data');
     return res.status(400).json({ success: false, error: '뉴스 목록과 이미지 데이터가 일치하지 않습니다.' });
   }
 
