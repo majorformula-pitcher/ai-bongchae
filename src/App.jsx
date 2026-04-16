@@ -510,7 +510,7 @@ function App() {
         
         const element = document.getElementById('email-capture-template');
         if (element) {
-          // 3. 고해상도 캡처 수행
+          // 3. 고해상도 캡처 수행 (화질 대폭 상향)
           const canvas = await html2canvas(element, {
             useCORS: true,
             allowTaint: true,
@@ -519,7 +519,7 @@ function App() {
             logging: false
           });
           
-          images.push(canvas.toDataURL('image/png'));
+          images.push(canvas.toDataURL('image/jpeg', 0.9));
         }
       }
 
