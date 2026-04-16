@@ -524,27 +524,27 @@ function App() {
         
         const element = document.getElementById('email-capture-template');
         if (element) {
-          // 3. 안정적인 고해상도 캡처 (800px * scale 1.5)
+          // 3. 초고해상도 Retina급 캡처 (800px * scale 2.0)
           const canvas = await html2canvas(element, {
             useCORS: true,
             allowTaint: true,
-            scale: 1.5, 
+            scale: 2.0, 
             backgroundColor: '#ffffff',
             logging: false
           });
           
-          images.push(canvas.toDataURL('image/jpeg', 0.6));
+          images.push(canvas.toDataURL('image/jpeg', 0.8));
         }
       }
 
       setLoadingProgress(85);
 
-      // 4. 백엔드로 데이터 전송 (이미지 포함, 대용량 처리를 위해 300초 타임아웃 설정)
+      // 4. 백엔드로 데이터 전송 (초고화질 대용량 처리를 위해 600초 타임아웃 설정)
       const response = await axios.post('/api/send-email', {
         newsList: filteredNews,
         images: images
       }, {
-        timeout: 300000 // 300초 대기
+        timeout: 600000 // 600초 대기
       });
 
       if (response.data.success) {
