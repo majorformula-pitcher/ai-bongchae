@@ -73,6 +73,7 @@ const RSS_FEEDS = [
   { name: "CNET", url: "https://www.cnet.com/rss/all/" },
   { name: "Techmeme", url: "https://www.techmeme.com/feed.xml" },
   { name: "Hugging Face", url: "https://huggingface.co/blog/feed.xml" },
+  { name: "MIT", url: "https://news.mit.edu/rss/feed" },
   { name: "NYT Technology", url: "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml" }
 ];
 
