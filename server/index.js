@@ -64,6 +64,7 @@ const RSS_FEEDS = [
   { name: "한국경제-IT", url: "https://www.hankyung.com/feed/it" },
   { name: "ZDNet Korea", url: "https://zdnet.co.kr/feed" },
   { name: "TechCrunch", url: "https://techcrunch.com/category/artificial-intelligence/feed/" },
+  { name: "CNBC Tech", url: "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910" },
   { name: "The Verge", url: "https://www.theverge.com/rss/index.xml" },
   { name: "Wired", url: "https://www.wired.com/feed/category/business/latest/rss" },
   { name: "Techmeme", url: "https://www.techmeme.com/feed.xml" },
