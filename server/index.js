@@ -976,47 +976,45 @@ app.post('/api/send-email', async (req, res) => {
   try {
     const to = process.env.RESEND_TO || 'srtechinsight@gmail.com';
     const from = process.env.RESEND_FROM || 'onboarding@resend.dev';
-    const subject = `[AI Bongchae] 뉴스 요약 보고서 (${new Date().toLocaleDateString()})`;
+    
+    // Gmail 스레드 묶임 및 트림 방지를 위해 현재 시간 정보를 제목에 포함합니다.
+    const now = new Date();
+    const subject = `[AI Bongchae] 뉴스 요약 보고서 (${now.toLocaleDateString()} ${now.toLocaleTimeString()})`;
 
-    let htmlContent = `
-      <div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; max-width: 600px; margin: 0 auto; background: #0f172a; color: #f8fafc; padding: 20px; border-radius: 16px;">
-        <h1 style="color: #8b5cf6; text-align: center; font-size: 24px;">AI Bongchae 뉴스 리포트</h1>
-        <p style="text-align: center; color: #94a3b8;">${new Date().toLocaleDateString()} 최신 뉴스 요약입니다.</p>
-        <hr style="border: 0; border-top: 1px solid #1e293b; margin: 20px 0;">
-    `;
+    // 순백색 배경의 깔끔한 본문 시작
+    let htmlContent = `<div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: #ffffff; padding: 10px;">`;
 
     const attachments = [];
 
     newsList.forEach((news, idx) => {
-      const filename = `slide_${idx}.png`;
+      const filename = `slide_${idx}.jpg`;
       const base64Data = images[idx].split(',')[1];
       
+      // Gmail 표준 규격인 꺾쇠(< >)를 포함한 CID를 설정하여 인라인 전송합니다.
       attachments.push({
         filename: filename,
         content: Buffer.from(base64Data, 'base64'),
-        cid: filename 
+        disposition: 'inline',
+        contentId: `<slide_${idx}>` // 표준 CID 규격
       });
 
-      // 사용자 요청에 따라 다른 장식 없이 이미지만 깔끔하게 나열 (클릭 시 링크 작동)
       htmlContent += `
-        <div style="margin-bottom: 0; text-align: center; background-color: #ffffff;">
+        <div style="margin-bottom: 0px; text-align: center;">
           <a href="${news.url}" target="_blank" style="display: block; text-decoration: none; border: none;">
-            <img src="cid:${filename}" style="width: 100%; max-width: 1000px; display: block; margin: 0 auto; border: none;" alt="${news.title}">
+            <img src="cid:slide_${idx}" style="width: 100%; max-width: 1000px; display: block; margin: 0 auto; border: none;" alt="${news.title}">
           </a>
         </div>
       `;
     });
 
-    htmlContent += `
-      </div>
-    `;
+    htmlContent += `</div>`;
 
     const data = await resend.emails.send({
       from,
       to,
       subject,
       html: htmlContent,
-      attachments: attachments
+      attachments: attachments 
     });
 
     console.log('[Email] Success:', data);
