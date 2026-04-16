@@ -789,6 +789,12 @@ app.post('/api/news', async (req, res) => {
   const newsData = req.body;
   try {
     if (USE_LOCAL_DB) {
+      // 1. 중복 체크 (UNIQUE 제약 조건 위반 방지)
+      const existing = localDb.prepare(`SELECT id FROM "${TABLE_NAME}" WHERE url = ?`).get(newsData.url);
+      if (existing) {
+        return res.status(400).json({ success: false, error: '이미 등록된 뉴스입니다.' });
+      }
+
       const stmt = localDb.prepare(`
         INSERT INTO "${TABLE_NAME}" (title, summary, url, category, published_at, image, engine, likes)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -807,6 +813,17 @@ app.post('/api/news', async (req, res) => {
       const saved = localDb.prepare(`SELECT * FROM "${TABLE_NAME}" WHERE id = ?`).get(info.lastInsertRowid);
       return res.json({ success: true, data: [{ ...saved, likes: !!saved.likes }] });
     } else {
+      // Supabase 모드에서도 중복 체크 수행
+      const { data: existingNews } = await supabase
+        .from(TABLE_NAME)
+        .select('id')
+        .eq('url', newsData.url)
+        .maybeSingle();
+
+      if (existingNews) {
+        return res.status(400).json({ success: false, error: '이미 등록된 뉴스입니다.' });
+      }
+
       const { data, error } = await supabase
         .from(TABLE_NAME)
         .insert([newsData])

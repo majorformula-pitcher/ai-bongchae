@@ -98,6 +98,7 @@ function App() {
   const [captureItem, setCaptureItem] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
+  const [processingType, setProcessingType] = useState('news'); // 'news' or 'email'
 
   const [manualMode, setManualMode] = useState(false);
   const [manualErrorMessage, setManualErrorMessage] = useState('');
@@ -176,6 +177,7 @@ function App() {
     if (processingUrls.has(finalUrl)) return; // 이미 처리 중이면 중단
 
     setIsProcessing(true);
+    setProcessingType('news');
     setProcessingUrls(prev => new Set(prev).add(finalUrl)); // 해당 URL 락(Lock)
     setLoadingProgress(10);
     setManualMode(false); // 초기화
@@ -504,6 +506,7 @@ function App() {
 
     try {
       setIsProcessing(true);
+      setProcessingType('email');
       setLoadingProgress(5);
       
       const images = [];
@@ -896,7 +899,7 @@ function App() {
           }}>
             <RefreshCw className="animate-spin text-primary mb-4" size={48} />
             <div style={{color: 'white', fontSize: '1.2rem', fontWeight: 'bold'}}>
-              PPT 슬라이드 캡처 및 발송 중... ({loadingProgress}%)
+              {processingType === 'email' ? 'PPT 슬라이드 캡처 및 발송 중...' : 'AI 분석 및 뉴스 카드 생성 중...'} ({loadingProgress}%)
             </div>
             <div style={{width: '300px', height: '8px', background: '#334155', borderRadius: '4px', marginTop: '20px', overflow: 'hidden'}}>
               <div style={{width: `${loadingProgress}%`, height: '100%', background: '#8b5cf6', transition: 'width 0.3s ease'}} />
