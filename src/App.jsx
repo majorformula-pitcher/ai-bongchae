@@ -524,16 +524,16 @@ function App() {
         
         const element = document.getElementById('email-capture-template');
         if (element) {
-          // 3. 초고해상도 Retina급 캡처 (800px * scale 2.0)
+          // 3. AWS 최적화 고해상도 캡처 (800px * scale 1.6)
           const canvas = await html2canvas(element, {
             useCORS: true,
             allowTaint: true,
-            scale: 2.0, 
+            scale: 1.6, 
             backgroundColor: '#ffffff',
             logging: false
           });
           
-          images.push(canvas.toDataURL('image/jpeg', 0.8));
+          images.push(canvas.toDataURL('image/jpeg', 0.7));
         }
       }
 
