@@ -190,6 +190,7 @@ function App() {
       // 추출 실패 시 수동 입력 모드로 전환
       if (!result.success) {
         setManualErrorMessage(result.error || '자동 추출에 실패했습니다.');
+        if (result.title) setManualTitle(result.title); // 추출된 제목이 있으면 자동 세팅
         setManualMode(true);
         setIsProcessing(false);
         setLoadingProgress(0);
