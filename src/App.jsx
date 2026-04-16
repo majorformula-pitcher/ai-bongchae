@@ -474,6 +474,9 @@ function App() {
       };
 
       generateSlides();
+    } catch (err) {
+      console.error('PPT Export Error:', err);
+      alert('PPT 생성 중 오류가 발생했습니다.');
     }
   };
 
@@ -555,13 +558,15 @@ function App() {
             >
               {showOnlyLiked ? '📊 PPT 만들기' : '📊 엑셀 Export'}
             </button>
-            <button 
-              className="export-btn mail-btn" 
-              onClick={handleSendEmail}
-              title="이메일로 요약 보고서 보내기"
-            >
-              📧 Email 보내기
-            </button>
+            {showOnlyLiked && (
+              <button 
+                className="export-btn mail-btn" 
+                onClick={handleSendEmail}
+                title="이메일로 요약 보고서 보내기"
+              >
+                📧 Email 보내기
+              </button>
+            )}
             <button 
               className={`filter-btn ${showOnlyLiked ? 'active' : ''}`}
               onClick={() => setShowOnlyLiked(!showOnlyLiked)}
