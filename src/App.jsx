@@ -510,11 +510,11 @@ function App() {
         
         const element = document.getElementById('email-capture-template');
         if (element) {
-          // 3. 고해상도 캡처 수행 (화질 대폭 상향)
+          // 3. 해상도 최적화 캡처 (용량과 화질의 최적 균형: scale 1.2)
           const canvas = await html2canvas(element, {
             useCORS: true,
             allowTaint: true,
-            scale: 2, 
+            scale: 1.2, 
             backgroundColor: '#ffffff',
             logging: false
           });
