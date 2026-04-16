@@ -125,44 +125,52 @@ async function summarizeWithOllama(bodyText, title, publishedAt) {
 
 async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
   const isEnglish = /[a-zA-Z]{5,}/.test(title);
-  const prompt = `
-    다음 뉴스 본문을 분석해서 '반드시' 아래 형식의 순수 JSON으로만 응답해줘. 
-    당신의 응답은 반드시 '{' 로 시작해서 '}' 로 끝나야 하며, 그 외의 설명이나 마크다운 코드 블록은 절대 포함하지 마.
-    
-    데이터 형식 (JSON RFC 규격을 엄격히 준수할 것):
-    {
-      "title": "${isEnglish ? "기사 제목의 한국어 번역" : "기사 제목 (매체명/사이트명 제거 후 핵심 헤드라인만 보강)"}",
-      "category": "AI, Robot, 보안, IT, 기타 중 하나 선택",
-      "summary": "핵심 문장 1\\n핵심 문장 2\\n핵심 문장 3\\n핵심 문장 4",
-      "published_at": "${publishedAt || new Date().toISOString().split('T')[0]}"
-    }
-    
-    주의사항 (필독):
-    1. 요약(summary)은 반드시 숫자를 붙이지 말고 4개의 핵심 문장으로만 작성하고 각 문장 사이엔 \\n을 넣으세요.
-    2. 제목이나 요약 내용에 큰따옴표(")가 들어갈 경우 반드시 \\" 로 이스케이프 처리하세요.
-    3. JSON 외에 어떠한 인사말이나 부연 설명도 하지 마세요.
-    
-    분석할 뉴스 본문:
-    ${bodyText}
-  `;
-
   try {
     const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
     const MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:14b';
+
+    const systemPrompt = `너는 뉴스 핵심 요약 전문가이다. 
+    반드시 한국어만 사용하며, 오직 JSON 데이터만 출력하라.
+    요약(summary)은 반드시 3~4개의 문장으로 구성하며, 각 문장 사이에는 줄바꿈(\\n)을 넣어라.
+    각 문장의 끝은 반드시 ~임, ~함, ~했음, ~함과 같이 명사형 또는 종결어미로 짧게 끊어라.
+    문장 앞에 숫자(1.)나 기호(-, •)를 절대 넣지 마라.`;
+
+    const userPrompt = `
+    다음 뉴스 본문을 분석해서 '반드시' 아래 형식의 순수 JSON으로만 응답해줘. 
+    설명이나 마크다운 코드 블록(예: \`\`\`json)은 절대 포함하지 마.
     
+    {
+      "title": "${isEnglish ? "기사 제목의 한국어 번역" : "기사 제목 (매체명이나 사이트 이름은 반드시 제거하고 핵심 헤드라인만 명확하게 보강)"}",
+      "category": "AI, Robot, 보안, IT, 기타 중 하나를 가장 적절한 것으로 선택",
+      "summary": "첫 번째 핵심 요약\\n두 번째 핵심 요약\\n세 번째 핵심 요약\\n네 번째 핵심 요약",
+      "published_at": "${publishedAt || new Date().toISOString().split('T')[0]}"
+    }
+    
+    주의: 기사 발행일 힌트가 "${publishedAt || '날짜 정보 없음'}" 이므로, 이를 우선적으로 참고하세요.
+    
+    뉴스 본문:
+    ${bodyText}
+    
+    주의사항:
+    - 요약(summary)은 반드시 숫자를 붙이지 말고 4개의 핵심 문장으로만 작성하세요. (각 문장은 줄바꿈으로 구분)
+    - 각 문장은 '~이다'와 같이 전문적인 완성형 어미를 사용하여 문장으로 작성하세요.
+    `;
+
     console.log(`[Ollama] Requesting summary from ${MODEL}... (Timeout: 90s)`);
     const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
       model: MODEL,
-      prompt: prompt,
+      system: systemPrompt,
+      prompt: userPrompt,
       stream: false,
       format: "json", // Ollama에서 JSON 출력을 강제함
       options: {
-        temperature: 0.1
+        temperature: 0.1,
+        num_predict: 500 // 불필요한 수다 방지를 위해 출력 길이 제한
       }
     }, { timeout: 90000 }); // 90초 타임아웃 설정
 
     console.log('[Ollama] Response received successfully.');
-    const modelLabel = MODEL.includes('14b') ? '14B' : (MODEL.includes('7b') ? '7B' : MODEL);
+    const modelLabel = MODEL.includes(':') ? MODEL.split(':')[1] : MODEL;
     let rawResponse = response.data.response.trim();
     
     // [Emergency Cleaning] 마크다운 블록 제거 및 JSON 추출
@@ -182,25 +190,41 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
           .replace(/[\u0000-\u001F\u007F-\u009F]/g, "")
           .replace(/\\"/g, '"')
           .replace(/"/g, '\"');
-        throw parseErr;
+        aiData = JSON.parse(cleanResponse);
       } catch (e) {
         throw new Error(`AI 응답 형식 오류: ${parseErr.message}\n응답원본: ${rawResponse.slice(0, 100)}...`);
       }
     }
+
+    // 유연한 유효성 검사: 문자열이든 배열이든 통과
+    const summaryRaw = aiData?.summary;
+    const summaryIsEmpty = !summaryRaw ||
+      (typeof summaryRaw === 'string' && summaryRaw.trim().length < 5) ||
+      (Array.isArray(summaryRaw) && summaryRaw.filter(s => s?.trim()).length === 0);
+
+    if (!aiData || summaryIsEmpty) {
+      console.error('[Ollama] Validation Failed. Raw Response:', rawResponse);
+      throw new Error('AI 요약 데이터가 누락되었거나 형식이 올바르지 않습니다.');
+    }
+
+    let rawStr = Array.isArray(summaryRaw) ? summaryRaw.join('\n') : String(summaryRaw);
+    let sumLines = rawStr.split('\n');
+
+    aiData.summary = sumLines
+      .map(line => line.replace(/^\d+[\.\s-]*\s*/, '').trim())
+      .filter(l => l)
+      .join('\n');
 
     return {
       ...aiData,
       engine: `Local Qwen 2.5 (${modelLabel})`
     };
   } catch (err) {
-    if (err.code === 'ECONNABORTED') {
-      console.error('[Ollama] Error: Request timed out (90s). Model might be too slow or loading.');
-    } else {
-      console.error('[Ollama] Error:', err.message);
-    }
+    console.error('[Ollama] Error:', err.message);
     throw err; 
   }
 }
+
 
 // AI 요약 함수 - Gemini 로직 (REST API 직통 호출 방식)
 async function summarizeWithGemini(bodyText, title, publishedAt) {
@@ -329,7 +353,7 @@ async function summarizeWithClaude(bodyText, title, publishedAt) {
  카테고리: <AI, Robot, 보안, IT, 기타 중 하나 선택>
  
  주의사항:
- - 반드시 각 문장 뒤에 줄바꿈(\n)을 넣어 4개의 별도 문장으로 구성하세요.
+ - 반드시 각 문장 뒤에 줄바꿈(\\n)을 넣어 4개의 별도 문장으로 구성하세요.
  - 1., 2. 같은 숫자나 불렛 기호(-, *)를 절대 붙이지 마세요.
  - 서론과 결론 없이 오직 4줄의 요약 내용만 출력하세요.
  
@@ -568,7 +592,7 @@ app.post('/api/extract', async (req, res) => {
       .replace(/[가-힣]{2,4}\s*기자(?!\w)/g, '')
       .slice(0, 8000);
 
-    let extractedData = { title, category: "기타", summary: "분석 중...", published_at: publishedAt || new Date().toISOString().split('T')[0] };
+    let extractedData = { title, category: "기타", summary: "", published_at: publishedAt || new Date().toISOString().split('T')[0] };
     let geminiErrorMsg = "";
     let ollamaErrorMsg = "";
     let engine = "";
@@ -579,7 +603,9 @@ app.post('/api/extract', async (req, res) => {
       ollamaAttempted = true;
       try {
         console.log('[AI] Attempting Local Ollama (Qwen 2.5)...');
-        const ollamaResult = await summarizeWithOllama(bodyText, title, publishedAt);
+        // 로컬 AI 부하 경감을 위해 본문 길이를 4,000자로 제한
+        const liteBodyText = bodyText.slice(0, 4000);
+        const ollamaResult = await summarizeWithOllama(liteBodyText, title, publishedAt);
         extractedData = { ...extractedData, ...ollamaResult };
         engine = ollamaResult.engine;
       } catch (ollamaErr) {
@@ -593,8 +619,8 @@ app.post('/api/extract', async (req, res) => {
       }
     }
 
-    // [Step 2 & 3] 외부 API (Gemini/Claude) 시도 - Ollama 실패했거나 시도하지 않았을 경우
-    if (engine !== "Local Qwen 2.5 (14B)" && engine !== "Local Qwen 2.5 (7B)") {
+    // [Step 2 & 3] 외부 API (Gemini/Claude) 시도 - Ollama 실패했거나 결과를 받지 못했을 경우
+    if (!engine) {
       try {
         // ... (Gemini/Claude 로직)
         const geminiResult = await summarizeWithGemini(bodyText, title, publishedAt);
