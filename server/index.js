@@ -214,6 +214,14 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
     let sumLines = rawStr.split('\n');
 
     aiData.summary = sumLines
+    // 카테고리 필드에 지시문이 포함되었을 경우 정제
+    const validCategories = ['AI', 'Robot', '보안', 'IT', '기타'];
+    let finalCategory = aiData.category || '기타';
+    if (!validCategories.includes(finalCategory)) {
+      finalCategory = validCategories.find(c => finalCategory.toUpperCase().includes(c.toUpperCase())) || '기타';
+    }
+
+    const cleanSummary = sumLines
       .map(line => line
         .replace(/^[\s\-*•·\d.]+/g, '') // 불렛 및 숫자 제거
         .replace(/^(첫|두|세|네|다섯)\s*번째?\s*핵심\s*요약[:\s]*/g, '') // "첫 번째 핵심 요약" 제거
@@ -223,15 +231,11 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
       .filter(l => l.length > 5)
       .join('\n');
 
-    // 카테고리 필드에 지시문이 포함되었을 경우 정제
-    const validCategories = ['AI', 'Robot', '보안', 'IT', '기타'];
-    let finalCategory = aiData.category || '기타';
-    if (!validCategories.includes(finalCategory)) {
-      finalCategory = validCategories.find(c => finalCategory.toUpperCase().includes(c.toUpperCase())) || '기타';
-    }
-
     return {
-      ...aiData,
+      title: aiData.title || title,
+      category: finalCategory,
+      summary: cleanSummary,
+      published_at: aiData.published_at || new Date().toISOString().split('T')[0],
       engine: `Local Qwen 2.5 (${modelLabel})`
     };
   } catch (err) {
