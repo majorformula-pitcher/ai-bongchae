@@ -1,4 +1,5 @@
 import express from 'express';
+import { Resend } from 'resend';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import cors from 'cors';
@@ -13,6 +14,8 @@ import Parser from 'rss-parser';
 import Database from 'better-sqlite3';
 
 dotenv.config();
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const USE_LOCAL_DB = process.env.USE_LOCAL_DB === 'true';
 const TABLE_NAME = process.env.TABLE_NAME || 'ai-bongchae';
@@ -959,6 +962,74 @@ app.get('/api/proxy-image', async (req, res) => {
     console.error('Image Proxy Error:', error.message);
     // 실패 시 404 또는 에러 이미지를 보낼 수 있지만, 일단은 500 에러를 반환
     res.status(500).send('Failed to fetch image');
+  }
+});
+
+});
+
+app.post('/api/send-email', async (req, res) => {
+  const { newsList, images } = req.body; 
+  
+  if (!newsList || !images || newsList.length !== images.length) {
+    return res.status(400).json({ success: false, error: '뉴스 목록과 이미지 데이터가 일치하지 않습니다.' });
+  }
+
+  try {
+    const to = process.env.RESEND_TO || 'srtechinsight@gmail.com';
+    const from = process.env.RESEND_FROM || 'onboarding@resend.dev';
+    const subject = `[AI Bongchae] 뉴스 요약 보고서 (${new Date().toLocaleDateString()})`;
+
+    let htmlContent = `
+      <div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; max-width: 600px; margin: 0 auto; background: #0f172a; color: #f8fafc; padding: 20px; border-radius: 16px;">
+        <h1 style="color: #8b5cf6; text-align: center; font-size: 24px;">AI Bongchae 뉴스 리포트</h1>
+        <p style="text-align: center; color: #94a3b8;">${new Date().toLocaleDateString()} 최신 뉴스 요약입니다.</p>
+        <hr style="border: 0; border-top: 1px solid #1e293b; margin: 20px 0;">
+    `;
+
+    const attachments = [];
+
+    newsList.forEach((news, idx) => {
+      const filename = `slide_${idx}.png`;
+      const base64Data = images[idx].split(',')[1];
+      
+      attachments.push({
+        filename: filename,
+        content: Buffer.from(base64Data, 'base64'),
+      });
+
+      htmlContent += `
+        <div style="margin-bottom: 40px; border: 1px solid #334155; border-radius: 12px; overflow: hidden; background: #020617;">
+          <div style="padding: 15px;">
+            <h2 style="font-size: 18px; margin: 0 0 10px 0; color: #38bdf8;">${idx + 1}. ${news.title}</h2>
+            <img src="https://resend.com/static/sample-image.png" style="display:none;" alt="placeholder"> <!-- Resend might need this for some readers -->
+            <p style="font-size: 14px; line-height: 1.6; color: #cbd5e1;">${news.summary.replace(/\n/g, '<br>')}</p>
+            <p style="font-size: 12px; color: #64748b; margin-top: 5px;">(이미지는 첨부파일에서 확인하실 수 있습니다.)</p>
+            <a href="${news.url}" style="display: inline-block; background: #8b5cf6; color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: bold; margin-top: 10px;">기사 원문 보기</a>
+          </div>
+        </div>
+      `;
+    });
+
+    htmlContent += `
+        <footer style="text-align: center; font-size: 12px; color: #64748b; margin-top: 40px;">
+          본 메일은 AI Bongchae 뉴스 큐레이션 서비스에서 발송되었습니다.
+        </footer>
+      </div>
+    `;
+
+    const data = await resend.emails.send({
+      from,
+      to,
+      subject,
+      html: htmlContent,
+      attachments: attachments
+    });
+
+    console.log('[Email] Success:', data);
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('[Email] Failed:', error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import * as XLSX from 'xlsx';
 import pptxgen from 'pptxgenjs';
+import html2canvas from 'html2canvas';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Compass, List, Plus, X, ChevronUp, 
@@ -480,25 +481,62 @@ function App() {
     }
   };
 
-  const handleSendEmail = () => {
+  const handleSendEmail = async () => {
     if (filteredNews.length === 0) {
       alert('보낼 뉴스가 없습니다.');
       return;
     }
 
-    const subject = encodeURIComponent(`[AI Bongchae] 뉴스 요약 보고서 (${new Date().toLocaleDateString()})`);
-    let bodyText = "최신 뉴스 요약 보고서입니다.\n\n";
+    const confirmSend = window.confirm(`현재 필터링된 ${filteredNews.length}개의 뉴스를 이미지 리포트로 발송할까요?`);
+    if (!confirmSend) return;
 
-    filteredNews.forEach((news, idx) => {
-      bodyText += `${idx + 1}. ${news.title}\n`;
-      bodyText += `기사링크: ${news.url}\n`;
-      bodyText += `요약내용:\n${news.summary}\n`;
-      bodyText += `--------------------------------------------------\n\n`;
-    });
+    try {
+      setIsProcessing(true);
+      setLoadingProgress(10);
+      
+      const images = [];
 
-    bodyText += "\n본 메일은 AI Bongchae 뉴스 큐레이션 서비스에서 발송되었습니다.";
-    
-    window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(bodyText)}`;
+      // 순차적으로 뉴스 카드 캡처
+      for (let i = 0; i < filteredNews.length; i++) {
+        const news = filteredNews[i];
+        const element = document.getElementById(`news-card-${news.id}`);
+        
+        if (element) {
+          setLoadingProgress(10 + Math.floor((i / filteredNews.length) * 60));
+          
+          // 캡처 설정 (CORS 및 품질)
+          const canvas = await html2canvas(element, {
+            useCORS: true,
+            allowTaint: true,
+            scale: 2, // 고해상도 캡처
+            backgroundColor: '#0f172a',
+            logging: false
+          });
+          
+          images.push(canvas.toDataURL('image/png'));
+        }
+      }
+
+      setLoadingProgress(80);
+
+      // 서버로 전송
+      const response = await axios.post('/api/send-email', {
+        newsList: filteredNews,
+        images: images
+      });
+
+      if (response.data.success) {
+        alert('뉴스 리포트 이메일 발송에 성공했습니다! 📧🚀');
+      } else {
+        throw new Error(response.data.error || '발송 실패');
+      }
+    } catch (err) {
+      console.error('Email Send Error:', err);
+      alert(`발송 중 오류가 발생했습니다: ${err.message}`);
+    } finally {
+      setIsProcessing(false);
+      setLoadingProgress(0);
+    }
   };
 
   // 전체 뉴스 데이터에서 유니크한 카테고리 목록 추출 및 커스텀 정렬
@@ -697,12 +735,17 @@ function App() {
         <div className="news-feed">
           {filteredNews.length > 0 ? (
             filteredNews.map(news => (
-              <div key={news.id} className="news-card">
+              <div key={news.id} id={`news-card-${news.id}`} className="news-card">
                 <div className="news-category-badge">{news.category}</div>
                 <button className="delete-btn" title="뉴스 삭제" onClick={(e) => handleDelete(e, news.id)}>×</button>
                 <a href={news.url} target="_blank" rel="noopener noreferrer" className="news-image-container">
                   {news.image ? (
-                    <img src={news.image} alt={news.title} className="news-image" />
+                    <img 
+                      src={`/api/proxy-image?url=${encodeURIComponent(news.image)}`} 
+                      alt={news.title} 
+                      className="news-image" 
+                      crossOrigin="anonymous" 
+                    />
                   ) : (
                     <div className="news-image-placeholder">
                       <span>이미지가 없는 뉴스입니다</span>
