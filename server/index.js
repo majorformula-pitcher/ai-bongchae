@@ -76,7 +76,7 @@ const RSS_FEEDS = [
   { name: "Hugging Face", url: "https://huggingface.co/blog/feed.xml" },
   { name: "MIT", url: "https://news.mit.edu/rss/feed" },
   { name: "NYT Technology", url: "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml" },
-  { name: "Bloomberg", url: "https://news.google.com/rss/search?q=when:24h+allinurl:bloomberg.com/technology&hl=en-US&gl=US&ceid=US:en" }
+  { name: "Bloomberg", url: "https://news.google.com/rss/search?q=when:24h+allinurl:bloomberg.com+(AI+OR+Robot+OR+Security+OR+Tech)&hl=en-US&gl=US&ceid=US:en" }
 ];
 
 const __filename = fileURLToPath(import.meta.url);
