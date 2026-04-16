@@ -459,6 +459,24 @@ app.post('/api/extract', async (req, res) => {
     };
     
     console.log(`[Crawler] Attempting to fetch: ${url}`);
+
+    // [Step 0] 구글 뉴스 리다이렉트 URL 사전 처리 (진짜 주소 찾기)
+    if (url.includes('news.google.com/rss/articles/')) {
+      try {
+        const splashRes = await axios.get(url, { headers, timeout: 5000 });
+        const $splash = cheerio.load(splashRes.data);
+        const resolved = $splash('link[rel="canonical"]').attr('href') || 
+                         $splash('meta[property="og:url"]').attr('content') ||
+                         splashRes.data.match(/data-n-au="([^"]+)"/)?.[1];
+        if (resolved && !resolved.includes('news.google.com')) {
+          url = resolved;
+          console.log(`[Crawler] Successfully resolved Google News redirect: ${url}`);
+        }
+      } catch (e) {
+        console.warn('[Crawler] Google News resolve failed, using original:', e.message);
+      }
+    }
+
     const response = await axios.get(url, { headers, timeout: 15000, validateStatus: (status) => status < 500 });
     const html = response.data;
     const status = response.status;
