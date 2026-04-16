@@ -192,7 +192,7 @@ function App() {
         setManualErrorMessage(result.error || '자동 추출에 실패했습니다.');
         
         // 제목 정제 헬퍼 (매체명 접미사 제거)
-        const cleanTitle = (t) => t.replace(/\s*[-|:|/]\s*(Bloomberg\.com|Bloomberg|CNBC|The Verge|NYT|Reuters|Financial Times|FT|TechCrunch|VentureBeat|CNET|Wired).*$/i, '').trim();
+        const cleanTitle = (t) => t.replace(/\s*[-|:|/]\s*(더밀크\s*\|\s*The\s*Miilk|더밀크|Bloomberg\.com|Bloomberg|CNBC|The Verge|NYT|Reuters|Financial Times|FT|TechCrunch|VentureBeat|CNET|Wired).*$/i, '').trim();
 
         // [우선순위] 이미 알고 있는 제목(RSS) > 서버에서 준 제목 순으로 세팅
         if (defaultTitle) setManualTitle(cleanTitle(defaultTitle));
@@ -710,14 +710,19 @@ function App() {
                       </span>
                     </div>
                     <div className="published-date">
-                      {news.created_at ? new Date(news.created_at).toLocaleString('ko-KR', {
-                        year: 'numeric',
-                        month: '2-digit',
-                        day: '2-digit',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        hour12: true
-                      }).replace(/(\d{4}). (\d{2}). (\d{2})./, '$1.$2.$3.') : ''}
+                      {news.created_at ? (() => {
+                        // DB에서 온 시간 문자열에 시간대 정보(Z 혹은 +)가 없으면 UTC('Z')를 붙여줌
+                        const val = news.created_at;
+                        const dateStr = (val.includes('Z') || val.includes('+')) ? val : (val.includes(' ') ? val.replace(' ', 'T') + 'Z' : val + 'Z');
+                        return new Date(dateStr).toLocaleString('ko-KR', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: true
+                        }).replace(/(\d{4}). (\d{2}). (\d{2})./, '$1.$2.$3.');
+                      })() : ''}
                     </div>
                   </div>
                 </div>
