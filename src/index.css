@@ -227,6 +227,17 @@ body::before {
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
 }
 
+.mail-btn {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.mail-btn:hover {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.2);
+}
+
 /* News Feed & Cards */
 .news-feed {
   display: flex;
