@@ -555,15 +555,17 @@ function App() {
     } catch (err) {
       console.error('Email Send Error:', err);
       
-      // [정밀 진단] 상세 에러 메시지 구성
+      // [정밀 진단] 상세 에러 메시지 구성 (AWS 환경 대응)
       let detailedMsg = err.message;
       if (err.response) {
-        detailedMsg = `[Status: ${err.response.status}] ${JSON.stringify(err.response.data || 'No details')}`;
+        // 서버가 응답을 준 경우 (413, 500 등)
+        detailedMsg = `[서버 상태 코드: ${err.response.status}] ${JSON.stringify(err.response.data || '상세 정보 없음')}\n\n*데이터 용량이 ${loadingProgress}% 지점에서 초과했을 수 있습니다.`;
       } else if (err.request) {
-        detailedMsg = '서버로부터 응답이 없습니다. (Timeout 또는 Network Down)';
+        // 서버로 요청은 갔으나 응답이 없는 경우 (타임아웃 또는 연결 강제 종료)
+        detailedMsg = `서버로부터 응답이 없습니다. (Timeout 또는 AWS 네트워크 강제 종료)\n\n[진단]: 고해상도 이미지 데이터가 너무 커서 AWS 환경에서 전송 중 연결이 차단(Drop)되었을 가능성이 큽니다.`;
       }
       
-      alert(`발송 중 오류가 발생했습니다:\n${detailedMsg}`);
+      alert(`발송 중 오류가 발생했습니다:\n\n${detailedMsg}\n\n[해결책]: 1. 뉴스 카드를 2-3개로 줄여서 테스트해보세요.\n2. AWS 서버 터미널의 로그(Payload Size)를 확인해주세요.`);
     } finally {
       setIsProcessing(false);
       setCaptureItem(null);
