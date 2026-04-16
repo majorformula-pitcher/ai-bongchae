@@ -142,20 +142,20 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
     설명이나 마크다운 코드 블록(예: \`\`\`json)은 절대 포함하지 마.
     
     {
-      "title": "${isEnglish ? "기사 제목의 한국어 번역" : "기사 제목 (매체명이나 사이트 이름은 반드시 제거하고 핵심 헤드라인만 명확하게 보강)"}",
-      "category": "AI, Robot, 보안, IT, 기타 중 하나를 가장 적절한 것으로 선택",
-      "summary": "첫 번째 핵심 요약\\n두 번째 핵심 요약\\n세 번째 핵심 요약\\n네 번째 핵심 요약",
+      "title": "${isEnglish ? "한국어 번역 제목" : "핵심 헤드라인"}",
+      "category": "AI, Robot, 보안, IT, 기타 중 하나 선택",
+      "summary": "핵심요약1\\n핵심요약2\\n핵심요약3\\n핵심요약4",
       "published_at": "${publishedAt || new Date().toISOString().split('T')[0]}"
     }
     
-    주의: 기사 발행일 힌트가 "${publishedAt || '날짜 정보 없음'}" 이므로, 이를 우선적으로 참고하세요.
-    
+    주의사항:
+    - title: 기사 제목이 영어라면 반드시 한국어로 번역하세요. 매체명은 삭제하세요.
+    - category: 반드시 제시된 [AI, Robot, 보안, IT, 기타] 중 하나만 단어로 출력하세요. 지시문을 포함하지 마세요.
+    - summary: 숫자를 붙이지 말고 4개의 핵심 문장으로만 작성하세요 (줄바꿈 구분). "~이다" 체를 사용하세요.
+    - 기사 발행일 힌트: "${publishedAt || '날짜 정보 없음'}" 를 참고하세요.
+
     뉴스 본문:
     ${bodyText}
-    
-    주의사항:
-    - 요약(summary)은 반드시 숫자를 붙이지 말고 4개의 핵심 문장으로만 작성하세요. (각 문장은 줄바꿈으로 구분)
-    - 각 문장은 '~이다'와 같이 전문적인 완성형 어미를 사용하여 문장으로 작성하세요.
     `;
 
     console.log(`[Ollama] Requesting summary from ${MODEL}... (Timeout: 90s)`);
@@ -209,13 +209,26 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
       throw new Error('AI 요약 데이터가 누락되었거나 형식이 올바르지 않습니다.');
     }
 
+    // [고도화된 정제 로직] Qwen/3b 모델의 환각(첫 번째 핵심 요약 등) 제거
     let rawStr = Array.isArray(summaryRaw) ? summaryRaw.join('\n') : String(summaryRaw);
     let sumLines = rawStr.split('\n');
 
     aiData.summary = sumLines
-      .map(line => line.replace(/^\d+[\.\s-]*\s*/, '').trim())
-      .filter(l => l)
+      .map(line => line
+        .replace(/^[\s\-*•·\d.]+/g, '') // 불렛 및 숫자 제거
+        .replace(/^(첫|두|세|네|다섯)\s*번째?\s*핵심\s*요약[:\s]*/g, '') // "첫 번째 핵심 요약" 제거
+        .replace(/^(첫|두|세|네|다섯)\s*번째?[:\s]*/g, '') // "첫 번째:" 제거
+        .trim()
+      )
+      .filter(l => l.length > 5)
       .join('\n');
+
+    // 카테고리 필드에 지시문이 포함되었을 경우 정제
+    const validCategories = ['AI', 'Robot', '보안', 'IT', '기타'];
+    let finalCategory = aiData.category || '기타';
+    if (!validCategories.includes(finalCategory)) {
+      finalCategory = validCategories.find(c => finalCategory.toUpperCase().includes(c.toUpperCase())) || '기타';
+    }
 
     return {
       ...aiData,
