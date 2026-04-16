@@ -933,7 +933,7 @@ function App() {
             </div>
             <div className="slide-capture-footer">
               <span className="slide-capture-source">Source: {captureItem.engine || 'AI Bongchae'}</span>
-              <span>{new Date().toLocaleDateString()} News Report</span>
+              <span className="slide-capture-date">{new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}. News Report</span>
             </div>
           </div>
         )}
