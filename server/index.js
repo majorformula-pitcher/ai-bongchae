@@ -147,14 +147,19 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
     {
       "title": "${isEnglish ? "한국어 번역 제목" : "핵심 헤드라인"}",
       "category": "AI, Robot, 보안, IT, 기타 중 하나 선택",
-      "summary": "핵심요약1\\n핵심요약2\\n핵심요약3\\n핵심요약4",
+      "summary": [
+        "첫 번째 핵심 문장 (반드시 번호 없이 문장만 작성)",
+        "두 번째 핵심 문장",
+        "세 번째 핵심 문장",
+        "네 번째 핵심 문장"
+      ],
       "published_at": "${publishedAt || new Date().toISOString().split('T')[0]}"
     }
     
     주의사항:
     - title: 기사 제목이 영어라면 반드시 한국어로 번역하세요. 매체명은 삭제하세요.
     - category: 반드시 제시된 [AI, Robot, 보안, IT, 기타] 중 하나만 단어로 출력하세요. 지시문을 포함하지 마세요.
-    - summary: 숫자를 붙이지 말고 4개의 핵심 문장으로만 작성하세요 (줄바꿈 구분). "~이다" 체를 사용하세요.
+    - summary: 4개의 핵심 문장을 배열 형식으로 작성하세요. 1., 2. 같은 숫자를 문장 안에 절대 넣지 마세요. "~이다" 체를 사용하세요.
     - 기사 발행일 힌트: "${publishedAt || '날짜 정보 없음'}" 를 참고하세요.
 
     뉴스 본문:
@@ -212,26 +217,17 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
       throw new Error('AI 요약 데이터가 누락되었거나 형식이 올바르지 않습니다.');
     }
 
-    // [고도화된 정제 로직] Qwen/3b 모델의 환각(첫 번째 핵심 요약 등) 제거
-    let rawStr = Array.isArray(summaryRaw) ? summaryRaw.join('\n') : String(summaryRaw);
-    let sumLines = rawStr.split('\n');
-
-    aiData.summary = sumLines
-    // 카테고리 필드에 지시문이 포함되었을 경우 정제
-    const validCategories = ['AI', 'Robot', '보안', 'IT', '기타'];
-    let finalCategory = aiData.category || '기타';
-    if (!validCategories.includes(finalCategory)) {
-      finalCategory = validCategories.find(c => finalCategory.toUpperCase().includes(c.toUpperCase())) || '기타';
-    }
-
+    // [고도화된 정구조적 정제] 배열로 받은 요약문을 핀셋 정제 (1~4번 번호만 제거)
+    let sumLines = Array.isArray(summaryRaw) ? summaryRaw : String(summaryRaw).split('\n');
+    
     const cleanSummary = sumLines
       .map(line => line
-        .replace(/^[\s\-*•·\d.]+/g, '') // 불렛 및 숫자 제거
-        .replace(/^(첫|두|세|네|다섯)\s*번째?\s*핵심\s*요약[:\s]*/g, '') // "첫 번째 핵심 요약" 제거
-        .replace(/^(첫|두|세|네|다섯)\s*번째?[:\s]*/g, '') // "첫 번째:" 제거
+        .replace(/^([1-4]\.[\s]*)?[\s\-*•·]+/g, '') // 불렛 및 1~4번 번호만 선택적 제거
+        .replace(/^(첫|두|세|네)\s*번째?\s*핵심\s*요약[:\s]*/g, '')
         .trim()
       )
       .filter(l => l.length > 5)
+      .slice(0, 4)
       .join('\n');
 
     return {
@@ -258,7 +254,12 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
     {
       "title": "${isEnglish ? "기사 제목의 한국어 번역" : "기사 제목 (매체명이나 사이트 이름은 반드시 제거하고 핵심 헤드라인만 명확하게 보강)"}",
       "category": "AI, Robot, 보안, IT, 기타 중 하나를 가장 적절한 것으로 선택",
-      "summary": "첫 번째 핵심 요약\\n두 번째 핵심 요약\\n세 번째 핵심 요약\\n네 번째 핵심 요약",
+      "summary": [
+        "첫 번째 핵심 요약 문장",
+        "두 번째 핵심 요약 문장",
+        "세 번째 핵심 요약 문장",
+        "네 번째 핵심 요약 문장"
+      ],
       "published_at": "${publishedAt || new Date().toISOString().split('T')[0]}"
     }
     
@@ -268,7 +269,7 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
     ${bodyText}
     
     주의사항:
-    - 요약(summary)은 반드시 숫자를 붙이지 말고 4개의 핵심 문장으로만 작성하세요. (각 문장은 줄바꿈으로 구분)
+    - 요약(summary)은 반드시 숫자를 붙이지 말고 4개의 문장을 포함하는 JSON 배열([]) 형식으로 작성하세요.
   `;
 
   const API_KEY = process.env.GEMINI_API_KEY;
@@ -316,8 +317,13 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
         finalCategory = validCategories.find(c => finalCategory.toUpperCase().includes(c.toUpperCase())) || '기타';
       }
 
-      // 숫자가 포함되어 올 경우를 대비한 정제
-      let cleanSummary = (aiData.summary || '').split('\n').map(line => line.replace(/^\d+[\.\s-]*\s*/, '').trim()).filter(l => l).join('\n');
+      // [구조적 정제] 1~4번 번호패턴만 핀셋 제거
+      let summaryLines = Array.isArray(aiData.summary) ? aiData.summary : (aiData.summary || '').split('\n');
+      let cleanSummary = summaryLines
+        .map(line => line.replace(/^([1-4]\.[\s]*)?[\s\-*•·]+/g, '').trim())
+        .filter(l => l)
+        .slice(0, 4)
+        .join('\n');
 
       // 날짜 유효성 검사 (YYYY-MM-DD 형식이 아니면 오늘 날짜 사용)
       let finalDate = aiData.published_at;
@@ -407,10 +413,10 @@ async function summarizeWithClaude(bodyText, title, publishedAt) {
       const validCategories = ['AI', 'Robot', '보안', 'IT', '기타'];
       finalCategory = validCategories.find(v => cat.toUpperCase().includes(v.toUpperCase())) || "기타";
     } else {
-      // 마침표(.)를 기준으로 문장이 뭉쳐있을 경우 쪼갬
+      // [구조적 정제] 1~4번 번호패턴만 핀셋 제거하여 연도/소수점 보호
       const sentences = line.split(/(?<=\.)\s+/);
       for (const sent of sentences) {
-        const cleanSent = sent.replace(/^[\d\.\s\-\*•]+/, '').trim();
+        const cleanSent = sent.replace(/^([1-4]\.[\s]*)?[\s\-*•·]+/g, '').trim();
         if (cleanSent) finalLines.push(cleanSent);
       }
     }
