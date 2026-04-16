@@ -962,4 +962,108 @@ body::before {
   100% { transform: scale(0.1) translate(500px, -500px); opacity: 0; }
 }
 
+/* ---------------------------------------------------- */
+/* 이메일 발송용 PPT 슬라이드 캡처 템플릿 스타일 */
+/* ---------------------------------------------------- */
+.slide-capture-area {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 1200px;
+  height: 675px; /* 16:9 비율 */
+  background: white;
+  color: #1e293b;
+  padding: 60px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+  z-index: -1000;
+}
+
+.slide-capture-header {
+  margin-bottom: 40px;
+  border-bottom: 4px solid #3b82f6; /* 파란색 밑줄 */
+  padding-bottom: 15px;
+  text-align: left;
+}
+
+.slide-capture-title {
+  font-size: 34px;
+  font-weight: 800;
+  color: #1d4ed8; /* PPT 스타일 파란색 */
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.slide-capture-body {
+  display: flex;
+  flex: 1;
+  gap: 50px;
+  align-items: center;
+  overflow: hidden;
+}
+
+.slide-capture-content {
+  flex: 1.2;
+}
+
+.slide-capture-bullet-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.slide-capture-bullet-item {
+  position: relative;
+  padding-left: 30px;
+  font-size: 22px;
+  line-height: 1.6;
+  margin-bottom: 25px;
+  color: #334155;
+  text-align: left;
+}
+
+.slide-capture-bullet-item::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: #3b82f6;
+  font-weight: bold;
+}
+
+.slide-capture-image-box {
+  flex: 0.8;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  background: #f1f5f9;
+}
+
+.slide-capture-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.slide-capture-footer {
+  margin-top: 30px;
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 15px;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.slide-capture-source {
+  font-weight: 600;
+}
+
 

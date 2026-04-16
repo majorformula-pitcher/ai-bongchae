@@ -92,7 +92,8 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware 및 정적 파일 서빙 설정 (중요: 장애 해결 핵심)
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, '../dist')));
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -993,25 +994,20 @@ app.post('/api/send-email', async (req, res) => {
       attachments.push({
         filename: filename,
         content: Buffer.from(base64Data, 'base64'),
+        cid: filename 
       });
 
+      // 사용자 요청에 따라 다른 장식 없이 이미지만 깔끔하게 나열 (클릭 시 링크 작동)
       htmlContent += `
-        <div style="margin-bottom: 40px; border: 1px solid #334155; border-radius: 12px; overflow: hidden; background: #020617;">
-          <div style="padding: 15px;">
-            <h2 style="font-size: 18px; margin: 0 0 10px 0; color: #38bdf8;">${idx + 1}. ${news.title}</h2>
-            <img src="https://resend.com/static/sample-image.png" style="display:none;" alt="placeholder"> <!-- Resend might need this for some readers -->
-            <p style="font-size: 14px; line-height: 1.6; color: #cbd5e1;">${news.summary.replace(/\n/g, '<br>')}</p>
-            <p style="font-size: 12px; color: #64748b; margin-top: 5px;">(이미지는 첨부파일에서 확인하실 수 있습니다.)</p>
-            <a href="${news.url}" style="display: inline-block; background: #8b5cf6; color: white; text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 12px; font-weight: bold; margin-top: 10px;">기사 원문 보기</a>
-          </div>
+        <div style="margin-bottom: 0; text-align: center; background-color: #ffffff;">
+          <a href="${news.url}" target="_blank" style="display: block; text-decoration: none; border: none;">
+            <img src="cid:${filename}" style="width: 100%; max-width: 1000px; display: block; margin: 0 auto; border: none;" alt="${news.title}">
+          </a>
         </div>
       `;
     });
 
     htmlContent += `
-        <footer style="text-align: center; font-size: 12px; color: #64748b; margin-top: 40px;">
-          본 메일은 AI Bongchae 뉴스 큐레이션 서비스에서 발송되었습니다.
-        </footer>
       </div>
     `;
 

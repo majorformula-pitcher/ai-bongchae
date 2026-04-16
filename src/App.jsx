@@ -95,6 +95,7 @@ function App() {
   const [selectedDate, setSelectedDate] = useState('');
   
   const [urlInput, setUrlInput] = useState('');
+  const [captureItem, setCaptureItem] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
 
@@ -487,29 +488,34 @@ function App() {
       return;
     }
 
-    const confirmSend = window.confirm(`현재 필터링된 ${filteredNews.length}개의 뉴스를 이미지 리포트로 발송할까요?`);
+    const confirmSend = window.confirm(`현재 필터링된 ${filteredNews.length}개의 뉴스를 실제 PPT 디자인 슬라이드 리포트로 발송할까요?\n(이미지 클릭 시 원본 기사가 연결됩니다.)`);
     if (!confirmSend) return;
 
     try {
       setIsProcessing(true);
-      setLoadingProgress(10);
+      setLoadingProgress(5);
       
       const images = [];
 
-      // 순차적으로 뉴스 카드 캡처
+      // 순차적으로 가상 슬라이드 캡처
       for (let i = 0; i < filteredNews.length; i++) {
         const news = filteredNews[i];
-        const element = document.getElementById(`news-card-${news.id}`);
         
+        // 1. 캡처용 데이터 주입
+        setCaptureItem(news);
+        setLoadingProgress(5 + Math.floor((i / filteredNews.length) * 70));
+        
+        // 2. DOM이 렌더링되고 이미지가 로드될 시간을 줍니다.
+        await new Promise(resolve => setTimeout(resolve, 800)); 
+        
+        const element = document.getElementById('email-capture-template');
         if (element) {
-          setLoadingProgress(10 + Math.floor((i / filteredNews.length) * 60));
-          
-          // 캡처 설정 (CORS 및 품질)
+          // 3. 고해상도 캡처 수행
           const canvas = await html2canvas(element, {
             useCORS: true,
             allowTaint: true,
-            scale: 2, // 고해상도 캡처
-            backgroundColor: '#0f172a',
+            scale: 2, 
+            backgroundColor: '#ffffff',
             logging: false
           });
           
@@ -517,16 +523,16 @@ function App() {
         }
       }
 
-      setLoadingProgress(80);
+      setLoadingProgress(85);
 
-      // 서버로 전송
+      // 4. 백엔드로 데이터 전송 (이미지 포함)
       const response = await axios.post('/api/send-email', {
         newsList: filteredNews,
         images: images
       });
 
       if (response.data.success) {
-        alert('뉴스 리포트 이메일 발송에 성공했습니다! 📧🚀');
+        alert('PPT 디자인 뉴스 리포트 발송에 성공했습니다! 📧🚀');
       } else {
         throw new Error(response.data.error || '발송 실패');
       }
@@ -535,6 +541,7 @@ function App() {
       alert(`발송 중 오류가 발생했습니다: ${err.message}`);
     } finally {
       setIsProcessing(false);
+      setCaptureItem(null);
       setLoadingProgress(0);
     }
   };
@@ -857,6 +864,53 @@ function App() {
               />
             </motion.div>
           </>
+        )}
+        {/* 캡처 로딩 오버레이 */}
+        {isProcessing && loadingProgress > 0 && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+            background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex',
+            flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <RefreshCw className="animate-spin text-primary mb-4" size={48} />
+            <div style={{color: 'white', fontSize: '1.2rem', fontWeight: 'bold'}}>
+              PPT 슬라이드 캡처 및 발송 중... ({loadingProgress}%)
+            </div>
+            <div style={{width: '300px', height: '8px', background: '#334155', borderRadius: '4px', marginTop: '20px', overflow: 'hidden'}}>
+              <div style={{width: `${loadingProgress}%`, height: '100%', background: '#8b5cf6', transition: 'width 0.3s ease'}} />
+            </div>
+          </div>
+        )}
+
+        {/* 캡처용 가상 슬라이드 템플릿 (숨겨짐) */}
+        {captureItem && (
+          <div id="email-capture-template" className="slide-capture-area">
+            <div className="slide-capture-header">
+              <h1 className="slide-capture-title">{captureItem.title}</h1>
+            </div>
+            <div className="slide-capture-body">
+              <div className="slide-capture-content">
+                <ul className="slide-capture-bullet-list">
+                  {(captureItem.summary || '').split('\n').filter(l => l.trim()).map((line, idx) => (
+                    <li key={idx} className="slide-capture-bullet-item">{line}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="slide-capture-image-box">
+                {captureItem.image && (
+                  <img 
+                    src={`/api/proxy-image?url=${encodeURIComponent(captureItem.image)}`} 
+                    className="slide-capture-img" 
+                    crossOrigin="anonymous" 
+                  />
+                )}
+              </div>
+            </div>
+            <div className="slide-capture-footer">
+              <span className="slide-capture-source">Source: {captureItem.engine || 'AI Bongchae'}</span>
+              <span>{new Date().toLocaleDateString()} News Report</span>
+            </div>
+          </div>
         )}
       </AnimatePresence>
     </div>
