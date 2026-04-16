@@ -540,7 +540,16 @@ function App() {
       }
     } catch (err) {
       console.error('Email Send Error:', err);
-      alert(`발송 중 오류가 발생했습니다: ${err.message}`);
+      
+      // [정밀 진단] 상세 에러 메시지 구성
+      let detailedMsg = err.message;
+      if (err.response) {
+        detailedMsg = `[Status: ${err.response.status}] ${JSON.stringify(err.response.data || 'No details')}`;
+      } else if (err.request) {
+        detailedMsg = '서버로부터 응답이 없습니다. (Timeout 또는 Network Down)';
+      }
+      
+      alert(`발송 중 오류가 발생했습니다:\n${detailedMsg}`);
     } finally {
       setIsProcessing(false);
       setCaptureItem(null);
