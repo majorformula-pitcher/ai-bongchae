@@ -1061,5 +1061,5 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('[Config] DB Mode:', USE_LOCAL_DB ? 'Local SQLite' : 'Supabase');
 });
 
-// [대용량 처리 보강] 서버 타임아웃을 300초(5분)로 연장하여 대용량 이미지 전송 중 중단 방지
-server.timeout = 300000;
+// [대용량 처리 보강] 서버 타임아웃을 600초(10분)로 연장하여 초고화질 이미지 전송 중 중단 방지
+server.timeout = 600000;

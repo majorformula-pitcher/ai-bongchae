@@ -977,6 +977,9 @@ body::before {
   background: white;
   padding: 35px;
   font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+  -webkit-font-smoothing: antialiased; /* 텍스트 선명도 보강 */
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   color: #333;
   box-sizing: border-box;
   display: flex;
