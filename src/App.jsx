@@ -519,16 +519,18 @@ function App() {
             logging: false
           });
           
-          images.push(canvas.toDataURL('image/jpeg', 0.9));
+          images.push(canvas.toDataURL('image/jpeg', 0.7));
         }
       }
 
       setLoadingProgress(85);
 
-      // 4. 백엔드로 데이터 전송 (이미지 포함)
+      // 4. 백엔드로 데이터 전송 (이미지 포함, 대용량 처리를 위해 60초 타임아웃 설정)
       const response = await axios.post('/api/send-email', {
         newsList: filteredNews,
         images: images
+      }, {
+        timeout: 60000 // 60초 대기
       });
 
       if (response.data.success) {
