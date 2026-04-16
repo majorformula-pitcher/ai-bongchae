@@ -55,8 +55,7 @@ const rssParser = new Parser({
 });
 
 const RSS_FEEDS = [
-  { name: "로봇신문-AI", url: "https://www.irobotnews.com/rss/S1N2.xml" },
-  { name: "로봇신문-로봇", url: "https://www.irobotnews.com/rss/S1N1.xml" },
+  { name: "로봇신문", url: "https://www.irobotnews.com/rss/allArticle.xml" },
   { name: "전자신문-AI", url: "http://rss.etnews.com/04046.xml" },
   { name: "전자신문-전자", url: "http://rss.etnews.com/06061.xml" },
   { name: "The AI", url: "https://www.newstheai.com/rss/allArticle.xml" },
