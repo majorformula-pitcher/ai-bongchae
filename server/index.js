@@ -677,7 +677,12 @@ app.post('/api/extract', async (req, res) => {
     });
   } catch (error) {
     console.error('Extraction engine error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    // 에러 발생 시에도 추출된 제목이 있다면 프론트엔드 수동 입력을 위해 전달합니다.
+    res.status(200).json({ 
+      success: false, 
+      error: error.message,
+      title: typeof title !== 'undefined' ? title : "" 
+    });
   }
 });
 
