@@ -510,16 +510,16 @@ function App() {
         
         const element = document.getElementById('email-capture-template');
         if (element) {
-          // 3. 해상도 극단적 최적화 캡처 (용량 최소화: scale 1 / quality 0.4)
+          // 3. 선명도와 용량의 황금 비율 캡처 (750px * scale 1.2)
           const canvas = await html2canvas(element, {
             useCORS: true,
             allowTaint: true,
-            scale: 1, 
+            scale: 1.2, 
             backgroundColor: '#ffffff',
             logging: false
           });
           
-          images.push(canvas.toDataURL('image/jpeg', 0.4));
+          images.push(canvas.toDataURL('image/jpeg', 0.6));
         }
       }
 
