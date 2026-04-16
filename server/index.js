@@ -1029,6 +1029,9 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../dist/index.html'));
 });
 
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Advanced Scraper Server is running on http://0.0.0.0:${PORT}`);
 });
+
+// 대용량 이미지 처리 및 이메일 발송을 위한 서버 타임아웃 연장 (120초)
+server.timeout = 120000;
