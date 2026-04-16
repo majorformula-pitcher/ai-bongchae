@@ -70,7 +70,7 @@ const DiscoveryContent = React.memo(({
                 title="뉴스 카드로 추가"
                 onClick={(e) => {
                   e.stopPropagation();
-                  handleAddNews(item.link);
+                  handleAddNews(item.link, item.title); // [개선] 제목 전달
                 }}
               >
                 <Plus size={18} />
@@ -164,7 +164,7 @@ function App() {
     }
   };
 
-  const handleAddNews = async (targetUrl = null) => {
+  const handleAddNews = async (targetUrl = null, defaultTitle = null) => {
     const finalUrl = targetUrl || urlInput;
     if (!finalUrl || !finalUrl.startsWith('http')) {
       alert('올바른 URL을 입력해주세요.');
@@ -190,7 +190,11 @@ function App() {
       // 추출 실패 시 수동 입력 모드로 전환
       if (!result.success) {
         setManualErrorMessage(result.error || '자동 추출에 실패했습니다.');
-        if (result.title) setManualTitle(result.title); // 추출된 제목이 있으면 자동 세팅
+        
+        // [수정] RSS에서 가져온 제목을 우선 사용
+        if (defaultTitle) setManualTitle(defaultTitle);
+        else if (result.title) setManualTitle(result.title);
+        
         setManualMode(true);
         setIsProcessing(false);
         setLoadingProgress(0);
