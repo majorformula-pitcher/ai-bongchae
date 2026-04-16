@@ -69,7 +69,7 @@ const RSS_FEEDS = [
   { name: "Techmeme", url: "https://www.techmeme.com/feed.xml" },
   { name: "Hugging Face", url: "https://huggingface.co/blog/feed.xml" },
   { name: "한겨레 IT-과학", url: "https://www.hani.co.kr/rss/science/" },
-  { name: "경향신문 IT", url: "https://www.khan.co.kr/rss/rssdata/it_news.xml" },
+  { name: "서울경제 IT", url: "https://www.sedaily.com/rss/it" },
   { name: "블로터(Bloter)", url: "https://www.bloter.net/rss/allArticle.xml" },
   { name: "NYT Technology", url: "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml" },
   { name: "AI타임스", url: "https://www.aitimes.com/rss/allArticle.xml" }
