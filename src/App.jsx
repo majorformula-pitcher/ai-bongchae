@@ -465,16 +465,37 @@ function App() {
               console.warn('Image skip due to error:', imgErr);
             }
           }
+
+          // 슬라이드 노트에 원본 URL 추가
+          slide.addNotes(`원본 기사 링크: ${news.url}`);
         }
         
         await pres.writeFile({ fileName: `AI_Bongchae_PPT_${new Date().toLocaleDateString()}.pptx` });
       };
 
       generateSlides();
-    } catch (err) {
-      console.error('PPT Export Error:', err);
-      alert('PPT 생성 중 오류가 발생했습니다.');
     }
+  };
+
+  const handleSendEmail = () => {
+    if (filteredNews.length === 0) {
+      alert('보낼 뉴스가 없습니다.');
+      return;
+    }
+
+    const subject = encodeURIComponent(`[AI Bongchae] 뉴스 요약 보고서 (${new Date().toLocaleDateString()})`);
+    let bodyText = "최신 뉴스 요약 보고서입니다.\n\n";
+
+    filteredNews.forEach((news, idx) => {
+      bodyText += `${idx + 1}. ${news.title}\n`;
+      bodyText += `기사링크: ${news.url}\n`;
+      bodyText += `요약내용:\n${news.summary}\n`;
+      bodyText += `--------------------------------------------------\n\n`;
+    });
+
+    bodyText += "\n본 메일은 AI Bongchae 뉴스 큐레이션 서비스에서 발송되었습니다.";
+    
+    window.location.href = `mailto:?subject=${subject}&body=${encodeURIComponent(bodyText)}`;
   };
 
   // 전체 뉴스 데이터에서 유니크한 카테고리 목록 추출 및 커스텀 정렬
@@ -533,6 +554,13 @@ function App() {
               title={showOnlyLiked ? "좋아요 뉴스 PPT로 내보내기" : "전체 뉴스 엑셀로 내보내기"}
             >
               {showOnlyLiked ? '📊 PPT 만들기' : '📊 엑셀 Export'}
+            </button>
+            <button 
+              className="export-btn mail-btn" 
+              onClick={handleSendEmail}
+              title="이메일로 요약 보고서 보내기"
+            >
+              📧 Email 보내기
             </button>
             <button 
               className={`filter-btn ${showOnlyLiked ? 'active' : ''}`}
