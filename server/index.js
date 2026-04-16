@@ -61,7 +61,7 @@ const RSS_FEEDS = [
   { name: "The AI", url: "https://www.newstheai.com/rss/allArticle.xml" },
   { name: "디지털투데이", url: "https://www.digitaltoday.co.kr/rss/allArticle.xml" },
   { name: "한국경제-IT", url: "https://www.hankyung.com/feed/it" },
-  { name: "블로터(Bloter)", url: "https://www.bloter.net/rss/allArticle.xml" },
+  { name: "Bloter", url: "https://www.bloter.net/rss/allArticle.xml" },
   { name: "AI타임스", url: "https://www.aitimes.com/rss/allArticle.xml" },
   { name: "서울경제 IT", url: "https://www.sedaily.com/rss/it" },
   { name: "한겨레 IT-과학", url: "https://www.hani.co.kr/rss/science/" },
