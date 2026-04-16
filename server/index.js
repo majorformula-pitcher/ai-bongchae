@@ -65,6 +65,7 @@ const RSS_FEEDS = [
   { name: "AI타임스", url: "https://www.aitimes.com/rss/allArticle.xml" },
   { name: "한겨레 IT-과학", url: "https://www.hani.co.kr/rss/science/" },
   { name: "ZDNet Korea", url: "https://zdnet.co.kr/feed" },
+  { name: "더밀크", url: "https://news.google.com/rss/search?q=when:24h+site:themiilk.com&hl=ko&gl=KR&ceid=KR:ko" },
   { name: "TechCrunch", url: "https://techcrunch.com/category/artificial-intelligence/feed/" },
   { name: "CNBC Tech", url: "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=19854910" },
   { name: "The Verge", url: "https://www.theverge.com/rss/index.xml" },
