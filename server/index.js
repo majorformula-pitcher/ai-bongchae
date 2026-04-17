@@ -858,15 +858,18 @@ app.delete('/api/news/:id', async (req, res) => {
   }
 });
 
-// [기능 변경] 좋아요 토글 Proxy (기존 API 확장)
-app.patch('/api/news/:id/like', async (req, res) => {
+// [기능 변경] 좋아요 토글 Proxy (POST 방식으로 변경하여 보안망 호환성 확보)
+app.post('/api/news/:id/like', async (req, res) => {
   const { id } = req.params;
   const { currentStatus } = req.body;
+  
+  console.log(`[Like Request] News ID: ${id}, Current Status: ${currentStatus}`);
   
   try {
     if (USE_LOCAL_DB) {
       localDb.prepare(`UPDATE "${TABLE_NAME}" SET likes = ? WHERE id = ?`).run(currentStatus ? 0 : 1, id);
       const updated = localDb.prepare(`SELECT * FROM "${TABLE_NAME}" WHERE id = ?`).get(id);
+      console.log(`  ✅ Like Success (SQLite): ID ${id}`);
       return res.json({ success: true, data: [{ ...updated, likes: !!updated.likes }] });
     } else {
       const { data, error } = await supabase
@@ -874,11 +877,17 @@ app.patch('/api/news/:id/like', async (req, res) => {
         .update({ likes: !currentStatus })
         .eq('id', id)
         .select();
-      if (error) throw error;
+      
+      if (error) {
+        console.error('  ❌ Supabase Like Error:', error);
+        throw error;
+      }
+      
+      console.log(`  ✅ Like Success (Supabase): ID ${id}`);
       res.json({ success: true, data });
     }
   } catch (error) {
-    console.error('[API] Like Toggle Error:', error.message);
+    console.error(`  ❌ Like Toggle Error (ID ${id}):`, error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });

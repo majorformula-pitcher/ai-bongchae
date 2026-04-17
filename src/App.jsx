@@ -372,7 +372,8 @@ function App() {
     e.stopPropagation();
     
     try {
-      const res = await axios.patch(`/api/news/${id}/like`, { currentStatus });
+      // 회사 보안망 호환성을 위해 patch를 post로 변경
+      const res = await axios.post(`/api/news/${id}/like`, { currentStatus });
       
       if (res.data.success) {
         setNewsList(prevList => prevList.map(news => 
