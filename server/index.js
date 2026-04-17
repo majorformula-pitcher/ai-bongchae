@@ -988,25 +988,32 @@ app.put('/api/news/:id', async (req, res) => {
   const { id } = req.params;
   const { title, summary } = req.body;
 
+  console.log(`\n[Update Request] News ID: ${id}`);
+  console.log(`- New Title: ${title?.substring(0, 30)}...`);
+  console.log(`- Summary Length: ${summary?.length} chars`);
+
   if (!title || !summary) {
+    console.error('  ❌ Validation Failed: Title or Summary missing');
     return res.status(400).json({ success: false, error: '제목과 요약은 필수입니다.' });
   }
 
   try {
     if (USE_LOCAL_DB) {
-      // 로컬 SQLite 업데이트
+      // 로컬 SQLite 업데이트 (ID를 안전하게 숫자로 변환)
+      const numericId = parseInt(id, 10);
       const statement = localDb.prepare(`
         UPDATE "${TABLE_NAME}" 
         SET title = ?, summary = ? 
         WHERE id = ?
       `);
-      const info = statement.run(title, summary, id);
+      const info = statement.run(title, summary, numericId);
       
       if (info.changes === 0) {
+        console.error(`  ❌ Update Failed: No news found with ID ${id}`);
         return res.status(404).json({ success: false, error: '해당 뉴스를 찾을 수 없습니다.' });
       }
       
-      console.log(`[DB] News updated (SQLite): ID ${id}`);
+      console.log(`  ✅ Update Success (SQLite): ID ${id}`);
       res.json({ success: true, message: '뉴스가 성공적으로 수정되었습니다.' });
     } else {
       // Supabase 업데이트
@@ -1015,13 +1022,16 @@ app.put('/api/news/:id', async (req, res) => {
         .update({ title, summary })
         .eq('id', id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('  ❌ Supabase Error:', error);
+        throw error;
+      }
       
-      console.log(`[DB] News updated (Supabase): ID ${id}`);
+      console.log(`  ✅ Update Success (Supabase): ID ${id}`);
       res.json({ success: true, data });
     }
   } catch (error) {
-    console.error('[Update Error]', error);
+    console.error(`  ❌ Global Update Error:`, error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });
