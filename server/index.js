@@ -15,7 +15,7 @@ import Database from 'better-sqlite3';
 
 dotenv.config();
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// const resend = new Resend(process.env.RESEND_API_KEY); // 멀티 계정 발송을 위해 핸들러 내부에서 동적으로 생성합니다.
 
 const USE_LOCAL_DB = process.env.USE_LOCAL_DB === 'true';
 const TABLE_NAME = process.env.TABLE_NAME || 'ai-bongchae';
