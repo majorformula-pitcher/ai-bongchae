@@ -498,6 +498,9 @@ function App() {
     } catch (err) {
       console.error('PPT Export Error:', err);
       alert('PPT 생성 중 오류가 발생했습니다.');
+    }
+  };
+
   const handleSendEmail = async () => {
     if (filteredNews.length === 0) {
       alert('보낼 뉴스가 없습니다.');
