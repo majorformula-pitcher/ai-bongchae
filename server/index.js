@@ -82,7 +82,8 @@ const RSS_FEEDS = [
   { name: "Reuters", url: "https://news.google.com/rss/search?q=when:24h+site:reuters.com+(AI+OR+Artificial+Intelligence+OR+Algorithm)&hl=en-US&gl=US&ceid=US:en" },
   { name: "FT", url: "https://news.google.com/rss/search?q=when:24h+site:ft.com+(Tech+OR+IT+OR+Software)&hl=en-US&gl=US&ceid=US:en" },
   { name: "NYT Tech", url: "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml" },
-  { name: "Google Research", url: "https://research.google/blog/rss/" }
+  { name: "Google Research", url: "https://research.google/blog/rss/" },
+  { name: "9to5Google", url: "https://9to5google.com/guides/google/feed/" }
 ];
 
 const __filename = fileURLToPath(import.meta.url);
