@@ -548,7 +548,15 @@ function App() {
       });
 
       if (response.data.success) {
-        alert('PPT 디자인 뉴스 리포트 발송에 성공했습니다! 📧🚀');
+        const { total, successCount, results } = response.data;
+        const failed = results?.filter(r => !r.success) || [];
+        
+        let msg = `총 ${total}명 중 ${successCount}명에게 리포트 발송 성공! ✉️🚀`;
+        if (failed.length > 0) {
+          msg += `\n\n⚠️ 일부 실패 (${failed.length}건):\n` + failed.map(f => `- ${f.to}: ${f.error}`).join('\n');
+        }
+        
+        alert(msg);
       } else {
         throw new Error(response.data.error || '발송 실패');
       }

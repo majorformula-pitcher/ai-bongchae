@@ -1008,55 +1008,103 @@ app.post('/api/send-email', async (req, res) => {
   }
 
   try {
-    const rawTo = process.env.RESEND_TO || 'srtechinsight@gmail.com';
-    // 쉼표로 구분된 이메일 주소들을 배열로 변환 (공백 제거 포함)
-    const to = rawTo.includes(',') ? rawTo.split(',').map(e => e.trim()) : rawTo;
+    // [멀티 계정 수집] RESEND_ACCOUNT_N_KEY/TO 패턴의 모든 계정 수집
+    const accounts = [];
+    let i = 1;
+    while (process.env[`RESEND_ACCOUNT_${i}_KEY`]) {
+      accounts.push({
+        key: process.env[`RESEND_ACCOUNT_${i}_KEY`],
+        to: process.env[`RESEND_ACCOUNT_${i}_TO`] || 'srtechinsight@gmail.com'
+      });
+      i++;
+    }
+
+    // 등록된 계정이 없으면 기존 단일 변수 백업 사용
+    if (accounts.length === 0) {
+      const rawTo = process.env.RESEND_TO || 'srtechinsight@gmail.com';
+      accounts.push({
+        key: process.env.RESEND_API_KEY,
+        to: rawTo.includes(',') ? rawTo.split(',').map(e => e.trim()) : rawTo
+      });
+    }
+
     const from = process.env.RESEND_FROM || 'onboarding@resend.dev';
-    
-    // Gmail 스레드 묶임 및 트림 방지를 위해 현재 시간 정보를 제목에 포함합니다.
     const now = new Date();
     const subject = `[AI Bongchae] 뉴스 요약 보고서 (${now.toLocaleDateString()} ${now.toLocaleTimeString()})`;
 
-    // 순백색 배경의 깔끔한 본문 시작
-    let htmlContent = `<div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: #ffffff; padding: 10px;">`;
-
+    console.log(`\n[Batch Send Start] Processing ${accounts.length} accounts at ${now.toLocaleString()}`);
+    
+    const results = [];
     const attachments = [];
 
+    // 공통 첨부파일(이미지) 처리 (모든 계정에 동일하게 사용)
     newsList.forEach((news, idx) => {
-      const filename = `slide_${idx}.jpg`;
       const base64Data = images[idx].split(',')[1];
-      
-      // Gmail 표준 규격인 꺾쇠(< >)를 포함한 CID를 설정하여 인라인 전송합니다.
       attachments.push({
-        filename: filename,
+        filename: `slide_${idx}.jpg`,
         content: Buffer.from(base64Data, 'base64'),
         disposition: 'inline',
-        contentId: `<slide_${idx}>` // 표준 CID 규격
+        contentId: `<slide_${idx}>`
       });
+    });
 
+    // 공통 HTML 본문 구성
+    let htmlContent = `<div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: #ffffff; padding: 10px;">`;
+    newsList.forEach((news, idx) => {
       htmlContent += `
-        <div style="margin-bottom: 0px; text-align: center;">
+        <div style="margin-bottom: 20px; text-align: center;">
           <a href="${news.url}" target="_blank" style="display: block; text-decoration: none; border: none;">
             <img src="cid:slide_${idx}" style="width: 100%; max-width: 1000px; display: block; margin: 0 auto; border: none;" alt="${news.title}">
           </a>
-        </div>
-      `;
+        </div>`;
     });
-
     htmlContent += `</div>`;
 
-    const data = await resend.emails.send({
-      from,
-      to,
-      subject,
-      html: htmlContent,
-      attachments: attachments 
+    // [핵심] 각 계정별로 순차 발송 수행
+    for (const account of accounts) {
+      try {
+        console.log(`- Sending to: ${account.to} using API Key: ${account.key ? account.key.substring(0, 10) + '...' : 'MISSING'}`);
+        
+        if (!account.key) {
+           console.error(`  ❌ Skipping ${account.to}: No API Key found.`);
+           results.push({ to: account.to, success: false, error: 'API Key가 없습니다.' });
+           continue;
+        }
+
+        const resendInstance = new Resend(account.key);
+        const sendResult = await resendInstance.emails.send({
+          from: from,
+          to: account.to,
+          subject: subject,
+          html: htmlContent,
+          attachments: attachments
+        });
+
+        if (sendResult.error) {
+          console.error(`  ❌ Failed for ${account.to}:`, sendResult.error);
+          results.push({ to: account.to, success: false, error: sendResult.error });
+        } else {
+          console.log(`  ✅ Success for ${account.to}. ID: ${sendResult.data.id}`);
+          results.push({ to: account.to, success: true, id: sendResult.data.id });
+        }
+      } catch (innerErr) {
+        console.error(`  ❌ Exception for ${account.to}:`, innerErr.message);
+        results.push({ to: account.to, success: false, error: innerErr.message });
+      }
+    }
+
+    const successCount = results.filter(r => r.success).length;
+    console.log(`[Batch Send End] ${successCount}/${accounts.length} accounts succeeded.\n`);
+
+    res.json({ 
+      success: successCount > 0, 
+      total: accounts.length,
+      successCount: successCount,
+      results: results 
     });
 
-    console.log('[Email] Success:', data);
-    res.json({ success: true, data });
   } catch (error) {
-    console.error('[Email] Failed:', error);
+    console.error('[Global Email Error] Fatal:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
