@@ -115,6 +115,11 @@ function App() {
   const [navTab, setNavTab] = useState('home');
   const [processingUrls, setProcessingUrls] = useState(new Set()); // 개별 뉴스 처리 상태 추적
 
+  // [편집 기능] 뉴스 카드 수동 수정을 위한 상태
+  const [editingId, setEditingId] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editSummary, setEditSummary] = useState('');
+
   // DB에서 뉴스 읽어오기 (서버 API 경유)
   const fetchNews = async () => {
     try {
@@ -581,6 +586,32 @@ function App() {
     }
   };
 
+  // [뉴스 수정] 제목과 요약을 DB에 업데이트합니다.
+  const handleUpdateNews = async (id) => {
+    try {
+      const response = await axios.put(`/api/news/${id}`, {
+        title: editTitle,
+        summary: editSummary
+      });
+
+      if (response.data.success) {
+        setNewsList(prev => prev.map(news => 
+          news.id === id ? { ...news, title: editTitle, summary: editSummary } : news
+        ));
+        setEditingId(null);
+      }
+    } catch (err) {
+      console.error('Update News Error:', err);
+      alert('수정 중 오류가 발생했습니다.');
+    }
+  };
+
+  const startEditing = (news) => {
+    setEditingId(news.id);
+    setEditTitle(news.title);
+    setEditSummary(news.summary || '');
+  };
+
   // 전체 뉴스 데이터에서 유니크한 카테고리 목록 추출 및 커스텀 정렬
   const categories = ['All', ...new Set(newsList.map(news => news.category).filter(Boolean))].sort((a, b) => {
     if (a === 'All') return -1;
@@ -796,40 +827,79 @@ function App() {
                 </a>
                 <div className="news-content">
                   <h2 className="news-title">
-                    <a href={news.url} target="_blank" rel="noopener noreferrer" style={{color: 'inherit', textDecoration: 'none'}}>
-                      {news.title}
-                    </a>
+                    {editingId === news.id ? (
+                      <input 
+                        type="text" 
+                        className="edit-title-input"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        autoFocus
+                      />
+                    ) : (
+                      <a href={news.url} target="_blank" rel="noopener noreferrer" style={{color: 'inherit', textDecoration: 'none'}}>
+                        {news.title}
+                      </a>
+                    )}
                   </h2>
-                  <ul className="news-summary">
-                    {(news.summary || '').split('\n').filter(line => line.trim()).map((line, idx) => (
-                      <li key={idx}>{line}</li>
-                    ))}
-                  </ul>
+                  <div className="news-summary-container">
+                    {editingId === news.id ? (
+                      <textarea 
+                        className="edit-summary-input"
+                        value={editSummary}
+                        onChange={(e) => setEditSummary(e.target.value)}
+                        rows={6}
+                      />
+                    ) : (
+                      <ul className="news-summary">
+                        {(news.summary || '').split('\n').filter(line => line.trim()).map((line, idx) => (
+                          <li key={idx}>{line}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
                   <div className="action-bar">
                     <div className="action-left">
-                      <button 
-                        className={`like-btn ${news.likes ? 'active' : ''}`} 
-                        onClick={(e) => toggleLike(e, news.id, news.likes)}
-                        title={news.likes ? '좋아요 취소' : '좋아요'}
-                        type="button"
-                      >
-                        <span className={`like-icon ${news.likes ? 'active' : ''}`}>
-                          {news.likes ? '❤️' : '🤍'}
-                        </span>
-                        <span className="like-count">
-                          {news.likes ? 1 : 0}
-                        </span>
-                      </button>
+                      <div className="action-btns-row">
+                        <button 
+                          className={`like-btn ${news.likes ? 'active' : ''}`} 
+                          onClick={(e) => toggleLike(e, news.id, news.likes)}
+                          title={news.likes ? '좋아요 취소' : '좋아요'}
+                          type="button"
+                        >
+                          <span className={`like-icon ${news.likes ? 'active' : ''}`}>
+                            {news.likes ? '❤️' : '🤍'}
+                          </span>
+                          <span className="like-count">
+                            {news.likes ? 1 : 0}
+                          </span>
+                        </button>
+                        
+                        <button 
+                          className={`edit-mode-btn ${editingId === news.id ? 'save-mode' : ''}`}
+                          onClick={() => editingId === news.id ? handleUpdateNews(news.id) : startEditing(news)}
+                          title={editingId === news.id ? '저장' : '수정'}
+                        >
+                          {editingId === news.id ? '💾 저장' : '✏️ 수정'}
+                        </button>
+
+                        {editingId === news.id && (
+                          <button 
+                            className="edit-cancel-btn"
+                            onClick={() => setEditingId(null)}
+                          >
+                            취소
+                          </button>
+                        )}
+                      </div>
                       <span className="ai-source-info">
                         {news.engine && news.engine.includes('(수동)') ? 
-                          `${news.engine.replace('(수동)', '').trim()}가 요약했습니다. (사용자가 직접 등록)` : 
-                          news.engine && news.engine !== 'User' ? `${news.engine}가 요약했습니다.` : 
-                          news.engine === 'User' ? '사용자가 직접 등록했습니다.' : ''}
+                          `${news.engine.replace('(수동)', '').trim()}가 요약 (사용자 직접 등록)` : 
+                          news.engine && news.engine !== 'User' ? `${news.engine}가 요약` : 
+                          news.engine === 'User' ? '사용자 직접 등록' : ''}
                       </span>
                     </div>
                     <div className="published-date">
                       {news.created_at ? (() => {
-                        // DB에서 온 시간 문자열에 시간대 정보(Z 혹은 +)가 없으면 UTC('Z')를 붙여줌
                         const val = news.created_at;
                         const dateStr = (val.includes('Z') || val.includes('+')) ? val : (val.includes(' ') ? val.replace(' ', 'T') + 'Z' : val + 'Z');
                         return new Date(dateStr).toLocaleString('ko-KR', {
@@ -838,7 +908,7 @@ function App() {
                           day: '2-digit',
                           hour: '2-digit',
                           minute: '2-digit',
-                          hour12: true
+                          hour12: false // 24시간제로 변경
                         }).replace(/(\d{4}). (\d{2}). (\d{2})./, '$1.$2.$3.');
                       })() : ''}
                     </div>
