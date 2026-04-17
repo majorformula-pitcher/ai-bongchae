@@ -867,6 +867,7 @@ function App() {
                   </div>
                   <div className="news-url-container">
                     <a href={news.url} target="_blank" rel="noopener noreferrer" className="news-url-link">
+                      <ExternalLink size={12} />
                       {news.url}
                     </a>
                   </div>
