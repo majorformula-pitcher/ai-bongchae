@@ -865,6 +865,11 @@ function App() {
                       </ul>
                     )}
                   </div>
+                  <div className="news-url-container">
+                    <a href={news.url} target="_blank" rel="noopener noreferrer" className="news-url-link">
+                      {news.url}
+                    </a>
+                  </div>
                     <div className="action-bar">
                       <div className="action-left">
                         <div className="action-btns-row">
