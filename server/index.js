@@ -1115,7 +1115,7 @@ app.post('/api/send-email', async (req, res) => {
     let htmlContent = `<div style="font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background: #ffffff; padding: 10px;">`;
     newsList.forEach((news, idx) => {
       htmlContent += `
-        <div style="margin-bottom: 20px; text-align: center;">
+        <div style="margin-bottom: 0; text-align: center;">
           <a href="${news.url}" target="_blank" style="display: block; text-decoration: none; border: none;">
             <img src="cid:slide_${idx}" style="width: 100%; max-width: 1000px; display: block; margin: 0 auto; border: none;" alt="${news.title}">
           </a>
