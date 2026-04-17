@@ -857,63 +857,70 @@ function App() {
                       </ul>
                     )}
                   </div>
-                  <div className="action-bar">
-                    <div className="action-left">
-                      <div className="action-btns-row">
-                        <button 
-                          className={`like-btn ${news.likes ? 'active' : ''}`} 
-                          onClick={(e) => toggleLike(e, news.id, news.likes)}
-                          title={news.likes ? '좋아요 취소' : '좋아요'}
-                          type="button"
-                        >
-                          <span className={`like-icon ${news.likes ? 'active' : ''}`}>
-                            {news.likes ? '❤️' : '🤍'}
-                          </span>
-                          <span className="like-count">
-                            {news.likes ? 1 : 0}
-                          </span>
-                        </button>
-                        
-                        <button 
-                          className={`edit-mode-btn ${editingId === news.id ? 'save-mode' : ''}`}
-                          onClick={() => editingId === news.id ? handleUpdateNews(news.id) : startEditing(news)}
-                          title={editingId === news.id ? '저장' : '수정'}
-                        >
-                          {editingId === news.id ? '💾' : '✏️'}
-                        </button>
-
-                        {editingId === news.id && (
+                    <div className="action-bar">
+                      <div className="action-left">
+                        <div className="action-btns-row">
                           <button 
-                            className="edit-cancel-btn"
-                            onClick={() => setEditingId(null)}
-                            title="취소"
+                            className={`like-btn ${news.likes ? 'active' : ''}`} 
+                            onClick={(e) => toggleLike(e, news.id, news.likes)}
+                            title={news.likes ? '좋아요 취소' : '좋아요'}
+                            type="button"
                           >
-                            ✖️
+                            <span className={`like-icon ${news.likes ? 'active' : ''}`}>
+                              {news.likes ? '❤️' : '🤍'}
+                            </span>
+                            <span className="like-count">
+                              {news.likes ? 1 : 0}
+                            </span>
                           </button>
-                        )}
+                          
+                          <button 
+                            className={`edit-mode-btn ${editingId === news.id ? 'save-mode' : ''}`}
+                            onClick={() => editingId === news.id ? handleUpdateNews(news.id) : startEditing(news)}
+                            title={editingId === news.id ? '저장' : '수정'}
+                          >
+                            {editingId === news.id ? '💾' : '✏️'}
+                          </button>
+
+                          {editingId === news.id && (
+                            <button 
+                              className="edit-cancel-btn"
+                              onClick={() => setEditingId(null)}
+                              title="취소"
+                            >
+                              ✖️
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <span className="ai-source-info">
-                        {news.engine && news.engine.includes('(수동)') ? 
-                          `${news.engine.replace('(수동)', '').trim()}가 요약 (사용자 직접 등록)` : 
-                          news.engine && news.engine !== 'User' ? `${news.engine}가 요약` : 
-                          news.engine === 'User' ? '사용자 직접 등록' : ''}
-                      </span>
+                      
+                      <div className="action-right-info">
+                        <span className="ai-combined-info">
+                          {news.engine && news.engine.includes('(수동)') ? 
+                            `${news.engine.replace('(수동)', '').trim()}가 요약` : 
+                            news.engine && news.engine !== 'User' ? `${news.engine}가 요약` : 
+                            news.engine === 'User' ? '사용자 직접 등록' : ''}
+                          
+                          {news.created_at && (
+                            <span className="info-date-text">
+                              {(() => {
+                                const val = news.created_at;
+                                const dateStr = (val.includes('Z') || val.includes('+')) ? val : (val.includes(' ') ? val.replace(' ', 'T') + 'Z' : val + 'Z');
+                                const formatted = new Date(dateStr).toLocaleString('ko-KR', {
+                                  year: 'numeric',
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: false
+                                }).replace(/(\d{4}). (\d{2}). (\d{2})./, '$1.$2.$3.');
+                                return ` (${formatted})`;
+                              })()}
+                            </span>
+                          )}
+                        </span>
+                      </div>
                     </div>
-                    <div className="published-date">
-                      {news.created_at ? (() => {
-                        const val = news.created_at;
-                        const dateStr = (val.includes('Z') || val.includes('+')) ? val : (val.includes(' ') ? val.replace(' ', 'T') + 'Z' : val + 'Z');
-                        return new Date(dateStr).toLocaleString('ko-KR', {
-                          year: 'numeric',
-                          month: '2-digit',
-                          day: '2-digit',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          hour12: false // 24시간제로 변경
-                        }).replace(/(\d{4}). (\d{2}). (\d{2})./, '$1.$2.$3.');
-                      })() : ''}
-                    </div>
-                  </div>
                 </div>
               </div>
             ))
