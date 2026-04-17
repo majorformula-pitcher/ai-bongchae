@@ -879,15 +879,16 @@ function App() {
                           onClick={() => editingId === news.id ? handleUpdateNews(news.id) : startEditing(news)}
                           title={editingId === news.id ? '저장' : '수정'}
                         >
-                          {editingId === news.id ? '💾 저장' : '✏️ 수정'}
+                          {editingId === news.id ? '💾' : '✏️'}
                         </button>
 
                         {editingId === news.id && (
                           <button 
                             className="edit-cancel-btn"
                             onClick={() => setEditingId(null)}
+                            title="취소"
                           >
-                            취소
+                            ✖️
                           </button>
                         )}
                       </div>

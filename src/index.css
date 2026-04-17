@@ -515,18 +515,17 @@ body::before {
 
 .edit-mode-btn {
   height: 36px;
+  width: 38px; /* 폭을 고정하여 정사각형 느낌 부여 */
   background: rgba(99, 102, 241, 0.15);
   border: 1px solid rgba(99, 102, 241, 0.3);
   color: #a5b4fc;
-  padding: 0 14px;
   border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 500;
+  font-size: 1rem; /* 아이콘 크기 약간 키움 */
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
   align-items: center;
-  gap: 6px;
+  justify-content: center; /* 아이콘 중앙 정렬 */
 }
 
 .edit-mode-btn:hover {
@@ -550,14 +549,17 @@ body::before {
 
 .edit-cancel-btn {
   height: 36px;
+  width: 38px; /* 폭 고정 */
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #94a3b8;
-  padding: 0 12px;
   border-radius: 8px;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .edit-cancel-btn:hover {
