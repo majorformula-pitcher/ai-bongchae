@@ -983,6 +983,49 @@ app.get('/api/proxy-image', async (req, res) => {
   }
 });
 
+// [API] 뉴스 카드 정보 수정 (제목, 요약)
+app.put('/api/news/:id', async (req, res) => {
+  const { id } = req.params;
+  const { title, summary } = req.body;
+
+  if (!title || !summary) {
+    return res.status(400).json({ success: false, error: '제목과 요약은 필수입니다.' });
+  }
+
+  try {
+    if (USE_LOCAL_DB) {
+      // 로컬 SQLite 업데이트
+      const statement = localDb.prepare(`
+        UPDATE "${TABLE_NAME}" 
+        SET title = ?, summary = ? 
+        WHERE id = ?
+      `);
+      const info = statement.run(title, summary, id);
+      
+      if (info.changes === 0) {
+        return res.status(404).json({ success: false, error: '해당 뉴스를 찾을 수 없습니다.' });
+      }
+      
+      console.log(`[DB] News updated (SQLite): ID ${id}`);
+      res.json({ success: true, message: '뉴스가 성공적으로 수정되었습니다.' });
+    } else {
+      // Supabase 업데이트
+      const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .update({ title, summary })
+        .eq('id', id);
+
+      if (error) throw error;
+      
+      console.log(`[DB] News updated (Supabase): ID ${id}`);
+      res.json({ success: true, data });
+    }
+  } catch (error) {
+    console.error('[Update Error]', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.post('/api/send-email', async (req, res) => {
   const { newsList, images } = req.body; 
   
