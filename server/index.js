@@ -66,7 +66,6 @@ const RSS_FEEDS = [
   { name: "한국경제-IT", url: "https://www.hankyung.com/feed/it" },
   { name: "Bloter", url: "https://www.bloter.net/rss/allArticle.xml" },
   { name: "AI타임스", url: "https://www.aitimes.com/rss/allArticle.xml" },
-  { name: "한겨레 IT-과학", url: "https://www.hani.co.kr/rss/science/" },
   { name: "ZDNet Korea", url: "https://zdnet.co.kr/feed" },
   { name: "더밀크", url: "https://news.google.com/rss/search?q=when:24h+site:themiilk.com&hl=ko&gl=KR&ceid=KR:ko" },
   { name: "TechCrunch", url: "https://techcrunch.com/category/artificial-intelligence/feed/" },
