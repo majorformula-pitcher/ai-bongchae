@@ -479,8 +479,8 @@ function App() {
               const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(news.image)}`;
               slide.addImage({ 
                 path: proxyUrl, 
-                x: 6.2, y: 1.2, w: 3.5, h: 2.6,
-                sizing: { type: 'contain', w: 3.5, h: 2.6 }
+                x: 7.2, y: 1.8, w: 1.75, h: 1.3,
+                sizing: { type: 'contain', w: 1.75, h: 1.3 }
               });
             } catch (imgErr) {
               console.warn('Image skip due to error:', imgErr);
