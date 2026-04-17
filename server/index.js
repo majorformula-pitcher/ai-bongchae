@@ -153,7 +153,7 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
     
     {
       "title": "${isEnglish ? "한국어 번역 제목" : "핵심 헤드라인"}",
-      "category": "AI, Robot, 보안, IT, 기타 중 하나 선택",
+      "category": "AI, Robot, Security, Data, Display, IT, 기타 중 하나 선택",
       "summary": [
         "첫 번째 핵심 문장 (반드시 번호 없이 문장만 작성)",
         "두 번째 핵심 문장",
@@ -165,7 +165,7 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
     
     주의사항:
     - title: 기사 제목이 영어라면 반드시 한국어로 번역하세요. 매체명은 삭제하세요.
-    - category: 반드시 제시된 [AI, Robot, 보안, IT, 기타] 중 하나만 단어로 출력하세요. 지시문을 포함하지 마세요.
+    - category: 반드시 제시된 [AI, Robot, Security, Data, Display, IT, 기타] 중 하나만 단어로 출력하세요. 지시문을 포함하지 마세요.
     - summary: 4개의 핵심 문장을 배열 형식으로 작성하세요. 1., 2. 같은 숫자를 문장 안에 절대 넣지 마세요. "~이다" 체를 사용하세요.
     - 기사 발행일 힌트: "${publishedAt || '날짜 정보 없음'}" 를 참고하세요.
 
@@ -228,7 +228,7 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
     let sumLines = Array.isArray(summaryRaw) ? summaryRaw : String(summaryRaw).split('\n');
     
     // 카테고리 필드 정제 로직 복구
-    const validCategories = ['AI', 'Robot', '보안', 'IT', '기타'];
+    const validCategories = ['AI', 'Robot', 'Security', 'Data', 'Display', 'IT', '기타'];
     let finalCategory = aiData.category || '기타';
     if (!validCategories.includes(finalCategory)) {
       finalCategory = validCategories.find(c => finalCategory.toUpperCase().includes(c.toUpperCase())) || '기타';
