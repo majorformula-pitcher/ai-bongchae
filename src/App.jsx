@@ -773,8 +773,10 @@ function App() {
                   <option value="">카테고리 선택 (필수)</option>
                   <option value="AI">AI</option>
                   <option value="Robot">Robot</option>
+                  <option value="Security">Security</option>
+                  <option value="Data">Data</option>
+                  <option value="Display">Display</option>
                   <option value="IT">IT</option>
-                  <option value="보안">보안</option>
                   <option value="기타">기타</option>
                 </select>
                 <button 
