@@ -1008,7 +1008,9 @@ app.post('/api/send-email', async (req, res) => {
   }
 
   try {
-    const to = process.env.RESEND_TO || 'srtechinsight@gmail.com';
+    const rawTo = process.env.RESEND_TO || 'srtechinsight@gmail.com';
+    // 쉼표로 구분된 이메일 주소들을 배열로 변환 (공백 제거 포함)
+    const to = rawTo.includes(',') ? rawTo.split(',').map(e => e.trim()) : rawTo;
     const from = process.env.RESEND_FROM || 'onboarding@resend.dev';
     
     // Gmail 스레드 묶임 및 트림 방지를 위해 현재 시간 정보를 제목에 포함합니다.
