@@ -6,7 +6,7 @@ import html2canvas from 'html2canvas';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Compass, List, Plus, X, ChevronUp, 
-  RefreshCw, Zap, ExternalLink, CheckCircle2 
+  RefreshCw, Zap, ExternalLink, CheckCircle2, Copy 
 } from 'lucide-react';
 import './index.css';
 
@@ -612,6 +612,18 @@ function App() {
     }
   };
 
+  const handleCopy = (news) => {
+    const textToCopy = `${news.title}\n\n${news.summary}\n\n출처: ${news.url}`;
+    navigator.clipboard.writeText(textToCopy)
+      .then(() => {
+        alert('뉴스 내용이 클립보드에 복사되었습니다. (제목+요약+URL)');
+      })
+      .catch(err => {
+        console.error('Copy failed:', err);
+        alert('복사 중 오류가 발생했습니다.');
+      });
+  };
+
   const startEditing = (news) => {
     setEditingId(news.id);
     setEditTitle(news.title);
@@ -865,12 +877,7 @@ function App() {
                       </ul>
                     )}
                   </div>
-                  <div className="news-url-container">
-                    <a href={news.url} target="_blank" rel="noopener noreferrer" className="news-url-link">
-                      {news.url}
-                    </a>
-                  </div>
-                    <div className="action-bar">
+                  <div className="action-bar">
                       <div className="action-left">
                         <div className="action-btns-row">
                           <button 
@@ -904,6 +911,15 @@ function App() {
                               ✖️
                             </button>
                           )}
+
+                          <button 
+                            className="copy-btn" 
+                            onClick={() => handleCopy(news)}
+                            title="내용 복사하기"
+                            type="button"
+                          >
+                            <Copy size={18} />
+                          </button>
                         </div>
                       </div>
                       
