@@ -614,14 +614,47 @@ function App() {
 
   const handleCopy = (news) => {
     const textToCopy = `${news.title}\n\n${news.summary}\n\n출처: ${news.url}`;
-    navigator.clipboard.writeText(textToCopy)
-      .then(() => {
-        alert('뉴스 내용이 클립보드에 복사되었습니다. (제목+요약+URL)');
-      })
-      .catch(err => {
-        console.error('Copy failed:', err);
-        alert('복사 중 오류가 발생했습니다.');
-      });
+    
+    // 1. 최신 navigator.clipboard API 시도 (보안 컨텍스트 필요)
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(textToCopy)
+        .then(() => alert('뉴스 내용이 클립보드에 복사되었습니다. (제목+요약+URL)'))
+        .catch(err => {
+          console.warn('Modern copy failed, trying fallback...', err);
+          fallbackCopyTextToClipboard(textToCopy);
+        });
+    } else {
+      // 2. 비보안 환경(HTTP 등)을 위한 fallback 방식 실행
+      fallbackCopyTextToClipboard(textToCopy);
+    }
+  };
+
+  const fallbackCopyTextToClipboard = (text) => {
+    try {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      
+      // 화면 밖으로 숨기기
+      textArea.style.position = "fixed";
+      textArea.style.left = "-9999px";
+      textArea.style.top = "0";
+      document.body.appendChild(textArea);
+      
+      textArea.focus();
+      textArea.select();
+      
+      const successful = document.execCommand('copy');
+      document.body.removeChild(textArea);
+      
+      if (successful) {
+        alert('뉴스 내용이 클립보드에 복사되었습니다. (호환 모드)');
+      } else {
+        throw new Error('Copy command failed');
+      }
+    } catch (err) {
+      console.error('Fallback copy failed:', err);
+      alert('복사 중 오류가 발생했습니다. 브라우저 설정을 확인해주세요.');
+    }
   };
 
   const startEditing = (news) => {
