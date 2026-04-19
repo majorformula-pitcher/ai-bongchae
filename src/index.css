@@ -1217,27 +1217,34 @@ body::before {
 
 
 /* ���� ī�� URL �� ��Ÿ�� */
-.news-url-container {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-}
 
-.news-url-link {
-  font-size: 0.8rem;
-  color: #818cf8;
-  text-decoration: none;
-  word-break: break-all;
+
+
+
+.copy-btn {
+  height: 36px;
+  width: 38px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
   display: flex;
   align-items: center;
-  gap: 4px;
-  opacity: 0.7;
-  transition: opacity 0.2s;
+  justify-content: center;
 }
 
-.news-url-link:hover {
-  opacity: 1;
-  text-decoration: underline;
+.copy-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #a5b4fc;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
 }
 
-
+.copy-btn:active {
+  transform: scale(0.95);
+  background: rgba(99, 102, 241, 0.2);
+}
