@@ -119,6 +119,7 @@ function App() {
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [editSummary, setEditSummary] = useState('');
+  const [copiedId, setCopiedId] = useState(null); // 복사 피드백 상태 추가
 
   // DB에서 뉴스 읽어오기 (서버 API 경유)
   const fetchNews = async () => {
@@ -613,28 +614,33 @@ function App() {
   };
 
   const handleCopy = (news) => {
-    const textToCopy = `${news.title}\n\n${news.summary}\n\n출처: ${news.url}`;
+    // '출처: ' 라벨 제거
+    const textToCopy = `${news.title}\n\n${news.summary}\n\n${news.url}`;
     
+    const showSuccess = () => {
+      setCopiedId(news.id);
+      setTimeout(() => setCopiedId(null), 2000); // 2초 후 초기화
+    };
+
     // 1. 최신 navigator.clipboard API 시도 (보안 컨텍스트 필요)
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(textToCopy)
-        .then(() => alert('뉴스 내용이 클립보드에 복사되었습니다. (제목+요약+URL)'))
+        .then(() => showSuccess())
         .catch(err => {
           console.warn('Modern copy failed, trying fallback...', err);
-          fallbackCopyTextToClipboard(textToCopy);
+          fallbackCopyTextToClipboard(textToCopy, showSuccess);
         });
     } else {
       // 2. 비보안 환경(HTTP 등)을 위한 fallback 방식 실행
-      fallbackCopyTextToClipboard(textToCopy);
+      fallbackCopyTextToClipboard(textToCopy, showSuccess);
     }
   };
 
-  const fallbackCopyTextToClipboard = (text) => {
+  const fallbackCopyTextToClipboard = (text, callback) => {
     try {
       const textArea = document.createElement("textarea");
       textArea.value = text;
       
-      // 화면 밖으로 숨기기
       textArea.style.position = "fixed";
       textArea.style.left = "-9999px";
       textArea.style.top = "0";
@@ -647,7 +653,7 @@ function App() {
       document.body.removeChild(textArea);
       
       if (successful) {
-        alert('뉴스 내용이 클립보드에 복사되었습니다. (호환 모드)');
+        if (callback) callback();
       } else {
         throw new Error('Copy command failed');
       }
@@ -946,12 +952,16 @@ function App() {
                           )}
 
                           <button 
-                            className="copy-btn" 
+                            className={`copy-btn ${copiedId === news.id ? 'copied' : ''}`} 
                             onClick={() => handleCopy(news)}
-                            title="내용 복사하기"
+                            title={copiedId === news.id ? '복사 완료' : '내용 복사하기'}
                             type="button"
                           >
-                            <Copy size={18} />
+                            {copiedId === news.id ? (
+                              <CheckCircle2 size={18} style={{ color: '#10b981' }} />
+                            ) : (
+                              <Copy size={18} />
+                            )}
                           </button>
                         </div>
                       </div>
