@@ -153,20 +153,26 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
     
     {
       "title": "${isEnglish ? "한국어 번역 제목" : "핵심 헤드라인"}",
-      "category": "AI, Robot, Security, Data, Display, IT, 기타 중 하나 선택",
+      "category": "분류 결과",
       "summary": [
-        "핵심 문장 1 (필요한 경우에만 작성)",
-        "핵심 문장 2 (필요한 경우에만 작성)",
-        "핵심 문장 3 (필요한 경우에만 작성)",
-        "핵심 문장 4 (필요한 경우에만 작성)"
+        "핵심 문장 1",
+        "핵심 문장 2",
+        "핵심 문장 3",
+        "핵심 문장 4"
       ],
       "published_at": "${publishedAt || new Date().toISOString().split('T')[0]}"
     }
     
     주의사항:
     - title: 기사 제목이 영어라면 반드시 한국어로 번역하세요. 매체명은 삭제하세요.
-    - category: 반드시 제시된 [AI, Robot, Security, Data, Display, IT, 기타] 중 하나만 단어로 출력하세요. 지시문을 포함하지 마세요.
-    - summary: 핵심 내용을 요약하여 최대 4개의 문장을 배열 형식으로 작성하세요. 본문이 짧아 요약할 내용이 적다면 1~3개만 작성해도 좋습니다. 1., 2. 같은 숫자를 문장 안에 절대 넣지 마세요. "~이다" 체를 사용하세요.
+    - category: 아래 가이드를 참고하여 [AI, Robot, Security, Data, Display, IT, 기타] 중 하나만 선택하세요.
+      * AI: 생성형 AI, LLM, 머신러닝, 딥러닝, AI 에이전트 관련 뉴스 (최우선 분류)
+      * Robot: 휴머노이드, 자율주행 기기, 로보틱스 하드웨어 관련
+      * Security: 보안 사고, 해킹, 사이버 보안, 방화벽 관련
+      * Data: 빅데이터, DB, 데이터 처리 기술 관련
+      * Display: OLED, 반도체 패널, 디스플레이 신기술 관련
+      * IT: 위 카테고리에 속하지 않는 일반 소프트웨어, 인터넷 서비스, 가전, 통신 관련
+    - summary: 핵심 내용을 요약하여 최대 4개의 문장을 배열 형식으로 작성하세요. 본문이 짧으면 1~3개만 작성해도 좋습니다. 1., 2. 같은 숫자를 문장 안에 절대 넣지 마세요. "~이다" 체를 사용하세요.
     - 기사 발행일 힌트: "${publishedAt || '날짜 정보 없음'}" 를 참고하세요.
 
     뉴스 본문:
