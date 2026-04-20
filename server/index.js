@@ -142,7 +142,8 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
 
     const systemPrompt = `너는 뉴스 핵심 요약 전문가이다. 
     반드시 한국어만 사용하며, 오직 JSON 데이터만 출력하라.
-    요약(summary)은 반드시 3~4개의 문장으로 구성하며, 각 문장 사이에는 줄바꿈(\\n)을 넣어라.
+    뉴스 내용을 분석하여 핵심 요약을 작성하되, **최대 4개의 문장**으로 구성하라. (본문이 짧으면 1~3개도 가능)
+    각 문장 사이에는 줄바꿈(\\n)을 넣어라.
     각 문장의 끝은 반드시 ~임, ~함, ~했음, ~함과 같이 명사형 또는 종결어미로 짧게 끊어라.
     문장 앞에 숫자(1.)나 기호(-, •)를 절대 넣지 마라.`;
 
@@ -154,10 +155,10 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
       "title": "${isEnglish ? "한국어 번역 제목" : "핵심 헤드라인"}",
       "category": "AI, Robot, Security, Data, Display, IT, 기타 중 하나 선택",
       "summary": [
-        "첫 번째 핵심 문장 (반드시 번호 없이 문장만 작성)",
-        "두 번째 핵심 문장",
-        "세 번째 핵심 문장",
-        "네 번째 핵심 문장"
+        "핵심 문장 1 (필요한 경우에만 작성)",
+        "핵심 문장 2 (필요한 경우에만 작성)",
+        "핵심 문장 3 (필요한 경우에만 작성)",
+        "핵심 문장 4 (필요한 경우에만 작성)"
       ],
       "published_at": "${publishedAt || new Date().toISOString().split('T')[0]}"
     }
@@ -165,7 +166,7 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
     주의사항:
     - title: 기사 제목이 영어라면 반드시 한국어로 번역하세요. 매체명은 삭제하세요.
     - category: 반드시 제시된 [AI, Robot, Security, Data, Display, IT, 기타] 중 하나만 단어로 출력하세요. 지시문을 포함하지 마세요.
-    - summary: 4개의 핵심 문장을 배열 형식으로 작성하세요. 1., 2. 같은 숫자를 문장 안에 절대 넣지 마세요. "~이다" 체를 사용하세요.
+    - summary: 핵심 내용을 요약하여 최대 4개의 문장을 배열 형식으로 작성하세요. 본문이 짧아 요약할 내용이 적다면 1~3개만 작성해도 좋습니다. 1., 2. 같은 숫자를 문장 안에 절대 넣지 마세요. "~이다" 체를 사용하세요.
     - 기사 발행일 힌트: "${publishedAt || '날짜 정보 없음'}" 를 참고하세요.
 
     뉴스 본문:
@@ -266,12 +267,12 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
     
     {
       "title": "${isEnglish ? "기사 제목의 한국어 번역" : "기사 제목 (매체명이나 사이트 이름은 반드시 제거하고 핵심 헤드라인만 명확하게 보강)"}",
-      "category": "AI, Robot, 보안, IT, 기타 중 하나를 가장 적절한 것으로 선택",
+      "category": "AI, Robot, Security, Data, Display, IT, 기타 중 하나를 가장 적절한 것으로 선택",
       "summary": [
         "첫 번째 핵심 요약 문장",
-        "두 번째 핵심 요약 문장",
-        "세 번째 핵심 요약 문장",
-        "네 번째 핵심 요약 문장"
+        "두 번째 핵심 요약 문장 (필요한 경우)",
+        "세 번째 핵심 요약 문장 (필요한 경우)",
+        "네 번째 핵심 요약 문장 (필요한 경우)"
       ],
       "published_at": "${publishedAt || new Date().toISOString().split('T')[0]}"
     }
@@ -282,7 +283,7 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
     ${bodyText}
     
     주의사항:
-    - 요약(summary)은 반드시 숫자를 붙이지 말고 4개의 문장을 포함하는 JSON 배열([]) 형식으로 작성하세요.
+    - 요약(summary)은 반드시 숫자를 붙이지 말고 **최대 4개**의 문장을 포함하는 JSON 배열([]) 형식으로 작성하세요. 본문이 짧으면 1~3개도 허용됩니다.
   `;
 
   const API_KEY = process.env.GEMINI_API_KEY;
@@ -324,7 +325,7 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
       let jsonStr = responseText.substring(startIdx, endIdx + 1);
       let aiData = JSON.parse(jsonStr);
       
-      const validCategories = ['AI', 'Robot', '보안', 'IT', '기타'];
+      const validCategories = ['AI', 'Robot', 'Security', 'Data', 'Display', 'IT', '기타'];
       let finalCategory = aiData.category || '기타';
       if (!validCategories.includes(finalCategory)) {
         finalCategory = validCategories.find(c => finalCategory.toUpperCase().includes(c.toUpperCase())) || '기타';
@@ -371,32 +372,25 @@ async function summarizeWithClaude(bodyText, title, publishedAt) {
 
 형식:
 제목: <기사 제목을 한국어로 번역한 한 줄 (신문사 이름 등 접미사 절대 금지)>
-카테고리: <AI, Robot, 보안, IT, 기타 중 가장 적절한 하나 선택>
-<핵심 요약 첫 번째 문장 (한국어)>
-<핵심 요약 두 번째 문장 (한국어)>
-<핵심 요약 세 번째 문장 (한국어)>
-<핵심 요약 네 번째 문장 (한국어)>
+카테고리: <AI, Robot, Security, Data, Display, IT, 기타 중 가장 적절한 하나 선택>
+<핵심 요약 문장 (최소 1개 ~ 최대 4개 작성)>
 
 주의사항:
-- 반드시 '제목:'으로 시작하는 한국어 번역 제목 1줄과 숫자가 없는 4개의 핵심 문장으로 작성하세요.
+- 반드시 '제목:'으로 시작하는 한국어 번역 제목 1줄과 숫자가 없는 **최대 4개**의 핵심 문장으로 작성하세요. 본문이 짧으면 4개보다 적게 작성해도 됩니다.
 - 마크다운 문법을 절대 사용하지 마세요. 1., 2. 같은 숫자를 붙이지 마세요.
 
   기사 제목: ${title}
   기사 발행일 힌트: ${publishedAt || '발행일 정보 없음'}
   기사 본문: ${bodyText}`
     : `다음 뉴스 기사를 읽고 아래 형식에 정확히 맞춰 4줄의 핵심 요약으로 한국어로 요약해 주세요.
- 
- 형식:
- <요약 문장 1>
- <요약 문장 2>
- <요약 문장 3>
- <요약 문장 4>
- 카테고리: <AI, Robot, 보안, IT, 기타 중 하나 선택>
- 
- 주의사항:
- - 반드시 각 문장 뒤에 줄바꿈(\\n)을 넣어 4개의 별도 문장으로 구성하세요.
- - 1., 2. 같은 숫자나 불렛 기호(-, *)를 절대 붙이지 마세요.
- - 서론과 결론 없이 오직 4줄의 요약 내용만 출력하세요.
+  형식:
+  <요약 문장 (최대 4개)>
+  카테고리: <AI, Robot, Security, Data, Display, IT, 기타 중 하나 선택>
+  
+  주의사항:
+  - 반드시 각 문장 뒤에 줄바꿈(\n)을 넣어 별도의 문장으로 구성하세요. (최대 4개)
+  - 1., 2. 같은 숫자나 불렛 기호(-, *)를 절대 붙이지 마세요.
+  - 서론과 결론 없이 오직 핵심 요약 내용만 출력하세요. (본문이 짧으면 4개보다 적게 작성 가능)
  
  기사 제목: ${title}
  기사 발행일 힌트: ${publishedAt || '발행일 정보 없음'}
