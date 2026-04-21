@@ -73,6 +73,7 @@ const RSS_FEEDS = [
   { name: "The Verge", url: "https://www.theverge.com/rss/index.xml" },
   { name: "Wired", url: "https://www.wired.com/feed/category/business/latest/rss" },
   { name: "CNET", url: "https://www.cnet.com/rss/all/" },
+  { name: "DigitalTrends", url: "https://www.digitaltrends.com/feed/" },
   { name: "VentureBeat", url: "https://venturebeat.com/feed" },
   { name: "Techmeme", url: "https://www.techmeme.com/feed.xml" },
   { name: "Hugging Face", url: "https://huggingface.co/blog/feed.xml" },
