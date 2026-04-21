@@ -74,6 +74,7 @@ const RSS_FEEDS = [
   { name: "Wired", url: "https://www.wired.com/feed/category/business/latest/rss" },
   { name: "CNET", url: "https://www.cnet.com/rss/all/" },
   { name: "DigitalTrends", url: "https://www.digitaltrends.com/feed/" },
+  { name: "The Guardian", url: "https://www.theguardian.com/uk/technology/rss" },
   { name: "VentureBeat", url: "https://venturebeat.com/feed" },
   { name: "Techmeme", url: "https://www.techmeme.com/feed.xml" },
   { name: "Hugging Face", url: "https://huggingface.co/blog/feed.xml" },
