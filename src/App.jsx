@@ -614,8 +614,8 @@ function App() {
   };
 
   const handleCopy = (news) => {
-    // '출처: ' 라벨 제거
-    const textToCopy = `${news.title}\n\n${news.summary}\n\n${news.url}`;
+    // '[카테고리] 제목' 형식으로 변경
+    const textToCopy = `[${news.category || '기타'}] ${news.title}\n\n${news.summary}\n\n${news.url}`;
     
     const showSuccess = () => {
       setCopiedId(news.id);
