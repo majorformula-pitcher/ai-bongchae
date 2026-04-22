@@ -8,6 +8,9 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import Anthropic from '@anthropic-ai/sdk';
+import iconv from 'iconv-lite';
+import jschardet from 'jschardet';
+
 
 import { createClient } from '@supabase/supabase-js';
 import Parser from 'rss-parser';
@@ -454,8 +457,51 @@ async function summarizeWithClaude(bodyText, title, publishedAt) {
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../dist')));
+ 
+// [신규 API] 이미지 프록시 (Hotlinking 차단 우회용 - Base64 지원)
+app.get('/api/proxy-image', async (req, res) => {
+  let imageUrl = req.query.url;
+  if (!imageUrl) return res.status(400).send('Image URL is required');
+
+  try {
+    // Hex(16진수) 인코딩 인지 확인 (http로 시작하지 않고 0-9, a-f로만 구성됨)
+    if (!imageUrl.startsWith('http')) {
+      try {
+        // Hex 디코딩 시도
+        imageUrl = Buffer.from(imageUrl, 'hex').toString('utf8');
+        console.log(`[Proxy] Successfully decoded Hex URL: ${imageUrl}`);
+      } catch (e) {
+        console.error('[Proxy] Hex decoding failed:', e.message);
+        return res.status(400).send('Invalid encoded URL');
+      }
+    }
+
+    // 최종 주소 검증
+    if (!imageUrl.startsWith('http')) {
+      return res.status(400).send('Absolute URL is required');
+    }
+
+    const referer = imageUrl.includes('nate.com') ? 'https://news.nate.com/' : 'https://www.google.com/';
+    const response = await axios.get(imageUrl, {
+      responseType: 'stream',
+      timeout: 10000,
+      headers: {
+        'Referer': referer,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36'
+      }
+    });
+
+    res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400'); // 1일 캐싱
+    response.data.pipe(res);
+  } catch (error) {
+    console.error(`[Proxy] Image fetch failed for URL [${imageUrl}]:`, error.message);
+    res.status(500).send('Failed to proxy image');
+  }
+});
 
 app.post('/api/extract', async (req, res) => {
+
   const { url } = req.body;
   if (!url) return res.status(400).json({ success: false, error: 'URL is required' });
 
@@ -497,10 +543,45 @@ app.post('/api/extract', async (req, res) => {
       }
     }
 
-    const response = await axios.get(url, { headers, timeout: 15000, validateStatus: (status) => status < 500 });
-    const html = response.data;
+    const response = await axios.get(url, { 
+      headers, 
+      timeout: 15000, 
+      responseType: 'arraybuffer', // 인코딩 처리를 위해 raw 버퍼로 받습니다.
+      validateStatus: (status) => status < 500 
+    });
+    
+    const buffer = response.data;
     const status = response.status;
-    const $ = cheerio.load(html);
+    
+    // [인코딩 감지 및 변환]
+    let charset = 'utf-8';
+    
+    // 1. 헤더에서 감지
+    const contentType = response.headers['content-type'] || '';
+    const headerMatch = contentType.match(/charset=([\w\-]+)/i);
+    if (headerMatch) {
+      charset = headerMatch[1].toLowerCase();
+    } else {
+      // 2. jschardet으로 내용물 분석
+      const detected = jschardet.detect(buffer);
+      if (detected && detected.confidence > 0.8) {
+        charset = detected.encoding.toLowerCase();
+      }
+    }
+
+    // 네이트 등 특수 인코딩 처리
+    let html = iconv.decode(buffer, charset);
+    
+    // 만약 깨짐이 남아있다면 meta 태그 분석 후 재디코딩 시도
+    let $ = cheerio.load(html);
+    const metaCharset = $('meta[charset]').attr('charset') || 
+                        $('meta[http-equiv="Content-Type"]').attr('content')?.match(/charset=([\w\-]+)/i)?.[1];
+    
+    if (metaCharset && metaCharset.toLowerCase() !== charset) {
+      charset = metaCharset.toLowerCase();
+      html = iconv.decode(buffer, charset);
+      $ = cheerio.load(html);
+    }
 
     if (status >= 400) {
       console.warn(`[Crawler] Low-level block detected (HTTP ${status}). Trying OG fallback.`);
@@ -513,7 +594,12 @@ app.post('/api/extract', async (req, res) => {
       throw new Error(`HTTP ${status} — 접근 제한 (사이트에서 직접 차단함)`);
     }
 
-    let title = $('meta[property="og:title"]').attr('content') || $('title').text().trim() || "제목 없음";
+    let title = $('meta[property="og:title"]').attr('content') || 
+                $('.articleSubecjt').text().trim() || // Nate 전용 (오타 포함)
+                $('h1.articleSubecjt').text().trim() ||
+                $('title').text().trim() || 
+                "제목 없음";
+
     
     // [제목 세척 고도화] 매체명 접미사 제거 ( - , | , : , / 등 및 특정 매체명 직접 제거)
     title = title.replace(/\s*[-|:|/]\s*(더밀크\s*\|\s*The\s*Miilk|더밀크|Bloomberg\.com|Bloomberg|CNBC|The Verge|NYT|Reuters|Financial Times|FT|TechCrunch|VentureBeat|CNET|Wired).*$/i, '').trim();
@@ -525,7 +611,57 @@ app.post('/api/extract', async (req, res) => {
     
     title = title.trim();
     
-    let imageUrl = $('meta[property="og:image"]').attr('content') || "";
+    let imageUrl = "";
+    
+    // 네이트 뉴스의 경우 메타 태그(og:image)가 저화질이거나 작동하지 않는 경우가 많아 본문 이미지 우선 탐색
+    if (url.includes('nate.com')) {
+      imageUrl = $('#realArtcContents img').first().attr('src') || 
+                 $('.img_area img').first().attr('src') || 
+                 $('meta[property="og:image"]').attr('content') || "";
+    } else {
+      imageUrl = $('meta[property="og:image"]').attr('content') || 
+                 $('#realArtcContents img').first().attr('src') || 
+                 $('.img_area img').first().attr('src') || 
+                 $('article img').first().attr('src') || "";
+    }
+
+    // [이미지 추출 고도화] 여전히 비어있거나 불량인 경우 fallback
+    if (!imageUrl || imageUrl.includes('blank.gif') || imageUrl.includes('default_image')) {
+      imageUrl = $('article img').first().attr('src') || imageUrl;
+    }
+
+    // [이미지 주소 정제] 네이트 등에서 발생하는 /// 및 상대 경로 처리
+    if (imageUrl) {
+      imageUrl = imageUrl.trim();
+      
+      // 상대 경로 해결
+      if (imageUrl.startsWith('/')) {
+        if (imageUrl.startsWith('//')) {
+          imageUrl = 'https:' + imageUrl;
+        } else {
+          // 절대 경로가 아닌 경우 현재 URL의 도메인 결합
+          try {
+            const urlObj = new URL(url);
+            imageUrl = `${urlObj.protocol}//${urlObj.host}${imageUrl}`;
+          } catch (e) {
+            console.error('[Crawler] Failed to resolve relative image URL:', e.message);
+          }
+        }
+      }
+
+      // 네이트 특유의 중복 슬래시 해결
+      // 1. 프로토콜 부분은 그대로 두고 나머지의 중복 슬래시를 합침
+      if (imageUrl.startsWith('https://')) {
+        imageUrl = 'https://' + imageUrl.substring(8).replace(/\/+/g, '/');
+      } else if (imageUrl.startsWith('http://')) {
+        imageUrl = 'http://' + imageUrl.substring(7).replace(/\/+/g, '/');
+      } else {
+        // 프로토콜이 없는 경우 등
+        imageUrl = imageUrl.replace(/\/+/g, '/');
+        if (imageUrl.startsWith('https:/')) imageUrl = imageUrl.replace('https:/', 'https://');
+        else if (imageUrl.startsWith('http:/')) imageUrl = imageUrl.replace('http:/', 'http://');
+      }
+    }
     
     // [날짜 추출 고도화] 여러 메타 태그와 네이버 전용 선택자 뒤지기
     let rawDate = $('meta[name="news-article-recently-created"]').attr('content') || 
@@ -583,10 +719,12 @@ app.post('/api/extract', async (req, res) => {
 
     // 진일보한 본문 셀렉터 (해외 매체 대응 포함)
     const bodySelectors = [
+      '#realArtcContents', '#articleContetns', // Nate 전용 (오타 포함)
       'div.article-content', 'div.post-content', 'div.content-lock-content', 
       'div.article_txt', 'div.article_body', 'div#articleBody', 
       'article', 'main', '.entry-content', '.story-content', 'div.article-body-content'
     ];
+
     let bodyText = "";
 
     // [Method 1] JSON-LD ArticleBody 추출 (가장 강력한 차단 우회법)
@@ -657,53 +795,43 @@ app.post('/api/extract', async (req, res) => {
       .slice(0, 8000);
 
     let extractedData = { title, category: "기타", summary: "", published_at: publishedAt || new Date().toISOString().split('T')[0] };
+    // [AI 요약 연동] 엔진별 시도 (Ollama -> Gemini -> Claude 순서)
     let geminiErrorMsg = "";
     let ollamaErrorMsg = "";
+    let claudeErrorMsg = "";
     let engine = "";
 
-    // [Step 1] Ollama (Local AI) 시도 - 로컬 환경에서만 우선 시도
-    let ollamaAttempted = false;
-    if (USE_LOCAL_DB || process.env.ENABLE_OLLAMA === 'true') {
-      ollamaAttempted = true;
-      try {
-        console.log('[AI] Attempting Local Ollama (Qwen 2.5)...');
-        // 로컬 AI 부하 경감을 위해 본문 길이를 4,000자로 제한
-        const liteBodyText = bodyText.slice(0, 4000);
-        const ollamaResult = await summarizeWithOllama(liteBodyText, title, publishedAt);
-        extractedData = { ...extractedData, ...ollamaResult };
-        engine = ollamaResult.engine;
-      } catch (ollamaErr) {
-        console.warn('[AI] Local AI failed:', ollamaErr.message);
-        ollamaErrorMsg = ollamaErr.message;
+    // [Step 1] Ollama (Local AI) 시도 - 로컬 환경 최우선
+    try {
+      console.log('[AI] Attempting Local Ollama (Qwen 2.5)...');
+      const liteBodyText = bodyText.slice(0, 4000);
+      const ollamaResult = await summarizeWithOllama(liteBodyText, title, publishedAt);
+      extractedData = { ...extractedData, ...ollamaResult };
+      engine = ollamaResult.engine;
+    } catch (ollamaErr) {
+      console.warn('[AI] Local AI failed, switching to Gemini fallback:', ollamaErr.message);
+      ollamaErrorMsg = ollamaErr.message;
 
-        // 로컬 전용 모드일 경우 여기서 중단
-        if (USE_LOCAL_DB) {
-          throw new Error(`로컬 Qwen 요약 실패: ${ollamaErr.message} (로컬 전용 모드 활성 중)`);
-        }
-      }
-    }
-
-    // [Step 2 & 3] 외부 API (Gemini/Claude) 시도 - Ollama 실패했거나 결과를 받지 못했을 경우
-    if (!engine) {
+      // [Step 2] Gemini 시도
       try {
-        // ... (Gemini/Claude 로직)
+        console.log('[AI] Attempting Gemini for Text Summary...');
         const geminiResult = await summarizeWithGemini(bodyText, title, publishedAt);
         extractedData = { ...extractedData, ...geminiResult };
         engine = "Gemini";
       } catch (geminiError) {
-        console.error('Gemini Failed, switching to Claude fallback:', geminiError.message);
+        console.warn('Gemini Failed, switching to Claude fallback:', geminiError.message);
         geminiErrorMsg = geminiError.message;
         
         // [Step 3] Claude 시도
         try {
+          console.log('[AI] Attempting Claude for Text Summary...');
           const claudeResult = await summarizeWithClaude(bodyText, title, publishedAt);
           extractedData = { ...extractedData, ...claudeResult };
           engine = "Claude";
-          // 실패 사유 기록
-          extractedData.summary += `\n\n[Diagnosis: Local(${ollamaErrorMsg.slice(0,30)}) / Gemini(${geminiErrorMsg.slice(0,30)})]`;
         } catch (claudeError) {
           console.error('All AI engines failed:', claudeError.message);
-          extractedData.summary = `⚠️ AI 요약 시스템 긴급 점검 중\n- Local: ${ollamaErrorMsg}\n- Gemini: ${geminiErrorMsg}\n- Claude: ${claudeError.message}`;
+          claudeErrorMsg = claudeError.message;
+          extractedData.summary = `⚠️ AI 요약 시스템 긴급 점검 중\n- Local: ${ollamaErrorMsg}\n- Gemini: ${geminiErrorMsg}\n- Claude: ${claudeErrorMsg}`;
           engine = "Error";
         }
       }
@@ -713,9 +841,10 @@ app.post('/api/extract', async (req, res) => {
       success: true, 
       ...extractedData,
       engine,
-      image: imageUrl,
+      image: imageUrl, // 프론트엔드에서 프록시 처리를 하므로 여기서는 순수 URL만 반환
       url: url 
     });
+
   } catch (error) {
     console.error('Extraction engine error:', error);
     // 에러 발생 시에도 추출된 제목이 있다면 프론트엔드 수동 입력을 위해 전달합니다.
@@ -743,16 +872,12 @@ app.post('/api/summarize-text', express.json({ limit: '10mb' }), async (req, res
       result = await summarizeWithOllama(text, targetTitle);
       engine = result.engine;
     } catch (ollamaErr) {
-      console.warn('[API] Local AI failed:', ollamaErr.message);
-      
-      if (USE_LOCAL_DB) {
-        throw new Error(`로컬 요약 실패: ${ollamaErr.message}`);
-      }
-
+      console.warn('[API] Local AI failed, trying Gemini:', ollamaErr.message);
       try {
         result = await summarizeWithGemini(text, targetTitle);
+        engine = "Gemini";
       } catch (geminiError) {
-        console.warn('[API] Gemini text summarize failed, trying Claude:', geminiError.message);
+        console.warn('[API] Gemini failed, trying Claude:', geminiError.message);
         result = await summarizeWithClaude(text, targetTitle);
         engine = "Claude";
       }

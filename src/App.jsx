@@ -976,17 +976,27 @@ function App() {
                           {news.created_at && (
                             <span className="info-date-text">
                               {(() => {
-                                const val = news.created_at;
-                                const dateStr = (val.includes('Z') || val.includes('+')) ? val : (val.includes(' ') ? val.replace(' ', 'T') + 'Z' : val + 'Z');
-                                const formatted = new Date(dateStr).toLocaleString('ko-KR', {
-                                  year: 'numeric',
-                                  month: '2-digit',
-                                  day: '2-digit',
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                  hour12: false
-                                }).replace(/(\d{4}). (\d{2}). (\d{2})./, '$1.$2.$3.');
-                                return ` (${formatted})`;
+                                try {
+                                  const val = news.created_at;
+                                  // ISO 형식이 아닐 경우 보정
+                                  const dateStr = (val.includes('Z') || val.includes('+')) ? val : (val.includes(' ') ? val.replace(' ', 'T') + 'Z' : val + 'Z');
+                                  const dateObj = new Date(dateStr);
+                                  
+                                  // 한국 시간(KST)으로 강제 변환하여 포맷팅 (AWS 스타일: YYYY.MM.DD. HH:mm)
+                                  const formatted = new Intl.DateTimeFormat('ko-KR', {
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    hour12: false, // 24시간제로 변경 (AWS와 동일하게)
+                                    timeZone: 'Asia/Seoul'
+                                  }).format(dateObj).replace(/\. /g, '.').replace(/\.$/, '');
+                                  
+                                  return ` (${formatted})`;
+                                } catch (e) {
+                                  return ` (${news.created_at})`;
+                                }
                               })()}
                             </span>
                           )}
