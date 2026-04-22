@@ -837,6 +837,13 @@ app.post('/api/extract', async (req, res) => {
       }
     }
 
+    // [Step 3] 최종 요약문에 진단 정보 추가 (이전 엔진 실패 시)
+    if (engine === "Claude" || (engine === "Gemini" && ollamaErrorMsg)) {
+      const diagLocal = ollamaErrorMsg ? `Local(${ollamaErrorMsg.slice(0, 30)})` : "Local(OK)";
+      const diagGemini = engine === "Claude" ? `Gemini(${geminiErrorMsg ? geminiErrorMsg.slice(0, 30) : "Skipped"})` : "Gemini(OK)";
+      extractedData.summary += `\n\n- [Diagnosis: ${diagLocal} / ${diagGemini}]`;
+    }
+
     res.json({ 
       success: true, 
       ...extractedData,
