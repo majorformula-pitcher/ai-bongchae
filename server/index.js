@@ -23,6 +23,21 @@ dotenv.config();
 const USE_LOCAL_DB = process.env.USE_LOCAL_DB === 'true';
 const TABLE_NAME = process.env.TABLE_NAME || 'ai-bongchae';
 
+// [Utility] URL 정규화 (중복 방지용)
+function normalizeUrl(url) {
+  if (!url) return url;
+  try {
+    let clean = url.trim();
+    // 1. 프로토콜 통일 (http -> https)
+    clean = clean.replace(/^http:\/\//i, 'https://');
+    // 2. 끝 슬래시 제거
+    clean = clean.replace(/\/+$/, '');
+    return clean;
+  } catch (e) {
+    return url;
+  }
+}
+
 // [DB 초기화] 로컬 SQLite 설정
 let localDb;
 if (USE_LOCAL_DB) {
@@ -498,10 +513,20 @@ app.get('/api/proxy-image', async (req, res) => {
 
 app.post('/api/extract', async (req, res) => {
 
-  const { url } = req.body;
-  if (!url) return res.status(400).json({ success: false, error: 'URL is required' });
+  const { url: rawUrl } = req.body;
+  if (!rawUrl) return res.status(400).json({ success: false, error: 'URL is required' });
+
+  const url = normalizeUrl(rawUrl);
 
   try {
+    // [중복 체크] 이미 등록된 뉴스라면 추출 과정 생략 (성능 및 비용 최적화)
+    if (USE_LOCAL_DB) {
+      const existing = localDb.prepare(`SELECT id FROM "${TABLE_NAME}" WHERE url = ?`).get(url);
+      if (existing) return res.status(400).json({ success: false, error: '이미 등록된 뉴스입니다.' });
+    } else {
+      const { data: existing } = await supabase.from(TABLE_NAME).select('id').eq('url', url).maybeSingle();
+      if (existing) return res.status(400).json({ success: false, error: '이미 등록된 뉴스입니다.' });
+    }
     const headers = { 
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
       "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -917,7 +942,8 @@ app.get('/api/news', async (req, res) => {
 
 // [신규 API] 뉴스 추가 (서버에서 DB 직접 입력)
 app.post('/api/news', async (req, res) => {
-  const newsData = req.body;
+  const newsData = { ...req.body };
+  newsData.url = normalizeUrl(newsData.url);
   try {
     if (USE_LOCAL_DB) {
       // 1. 중복 체크 (UNIQUE 제약 조건 위반 방지)
@@ -1067,7 +1093,7 @@ app.get('/api/rss/:id', async (req, res) => {
     });
 
     // DB 중복 체크
-    const urls = items.map(it => it.link);
+    const urls = items.map(it => normalizeUrl(it.link));
     let existingUrls = new Set();
 
     if (USE_LOCAL_DB) {
