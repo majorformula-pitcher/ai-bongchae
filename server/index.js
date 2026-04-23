@@ -280,21 +280,21 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
       "title": "${isEnglish ? "기사 제목의 한국어 번역" : "기사 제목 (매체명이나 사이트 이름은 반드시 제거하고 핵심 헤드라인만 명확하게 보강)"}",
       "category": "AI, Robot, Security, Data, Display, IT, 기타 중 하나를 가장 적절한 것으로 선택",
       "summary": [
-        "첫 번째 핵심 요약 문장",
-        "두 번째 핵심 요약 문장 (필요한 경우)",
-        "세 번째 핵심 요약 문장 (필요한 경우)",
-        "네 번째 핵심 요약 문장 (필요한 경우)"
+        "첫 번째 핵심 요약 명사형 문장",
+        "두 번째 핵심 요약 명사형 문장",
+        "세 번째 핵심 요약 명사형 문장",
+        "네 번째 핵심 요약 명사형 문장"
       ],
       "published_at": "${publishedAt || new Date().toISOString().split('T')[0]}"
     }
-    
-    주의: 기사 발행일 힌트가 "${publishedAt || '날짜 정보 없음'}" 이므로, 이를 우선적으로 참고하세요.
     
     뉴스 본문:
     ${bodyText}
     
     주의사항:
-    - 요약(summary)은 반드시 숫자를 붙이지 말고 **최대 4개**의 문장을 포함하는 JSON 배열([]) 형식으로 작성하세요. 본문이 짧으면 1~3개도 허용됩니다.
+    - 요약(summary)은 반드시 숫자를 붙이지 말고 **최대 4개**의 문장을 포함하는 JSON 배열([]) 형식으로 작성하세요. 
+    - 각 문장의 끝은 반드시 '~함', '~했음', '~입니다' 대신에 '체결', '제공', '추진', '완료', '예정' 등과 같이 **명사 그 자체로 종결**하세요.
+    - 기사 발행일 힌트: "${publishedAt || '날짜 정보 없음'}"
   `;
 
   const API_KEY = process.env.GEMINI_API_KEY;
