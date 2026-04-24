@@ -536,7 +536,7 @@ function App() {
         
         const element = document.getElementById('email-capture-template');
         if (element) {
-          // 3. AWS 최적화 고해상도 캡처 (용량 최소화 버전: scale 1.2)
+          // 3. AWS 최적화 고해상도 캡처 (테스트 1단계: 품질 우선 상향)
           const canvas = await html2canvas(element, {
             useCORS: true,
             allowTaint: true,
@@ -545,7 +545,7 @@ function App() {
             logging: false
           });
           
-          images.push(canvas.toDataURL('image/jpeg', 0.6));
+          images.push(canvas.toDataURL('image/jpeg', 0.8));
         }
       }
 
