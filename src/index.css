@@ -1119,9 +1119,9 @@ body::before {
   position: fixed;
   left: -9999px; /* 화면 밖에서 렌더링 */
   top: 0;
-  width: 600px;
+  width: 750px;
   background: white;
-  padding: 25px;
+  padding: 35px;
   font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
   -webkit-font-smoothing: antialiased; /* 텍스트 선명도 보강 */
   -moz-osx-font-smoothing: grayscale;
@@ -1140,7 +1140,7 @@ body::before {
 }
 
 .slide-capture-title {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 800;
   color: #004085;
   line-height: 1.35;
@@ -1169,9 +1169,9 @@ body::before {
 .slide-capture-bullet-item {
   position: relative;
   padding-left: 20px;
-  margin-bottom: 8px;
-  font-size: 15px; 
-  line-height: 1.4;
+  margin-bottom: 12px;
+  font-size: 18px; 
+  line-height: 1.6;
   color: #333;
   word-break: keep-all;
 }
