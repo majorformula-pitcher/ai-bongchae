@@ -75,13 +75,6 @@ const rssParser = new Parser({
   }
 });
 
-// [테스트용] 이메일 발송 차단 목록
-const BLOCKED_EMAILS = [
-  'bckim@samsung.com',
-  'youjin.nam@samsung.com',
-  'minjung978.kim@samsung.com'
-];
-
 const RSS_FEEDS = [
   { name: "로봇신문", url: "https://www.irobotnews.com/rss/allArticle.xml" },
   { name: "전자신문-AI", url: "http://rss.etnews.com/04046.xml" },
@@ -1234,11 +1227,25 @@ app.post('/api/send-email', async (req, res) => {
   }
 
   try {
-    // [테스트를 위한 단일 계정 고정] 다중 계정 로직 일시 중단
-    const accounts = [{
-      key: process.env.RESEND_ACCOUNT_2_KEY,
-      to: 'jwook.bang@samsung.com'
-    }];
+    // [멀티 계정 수집] RESEND_ACCOUNT_N_KEY/TO 패턴의 모든 계정 수집
+    const accounts = [];
+    let i = 1;
+    while (process.env[`RESEND_ACCOUNT_${i}_KEY`]) {
+      accounts.push({
+        key: process.env[`RESEND_ACCOUNT_${i}_KEY`],
+        to: process.env[`RESEND_ACCOUNT_${i}_TO`] || 'srtechinsight@gmail.com'
+      });
+      i++;
+    }
+
+    // 등록된 계정이 없으면 기존 단일 변수 백업 사용
+    if (accounts.length === 0) {
+      const rawTo = process.env.RESEND_TO || 'srtechinsight@gmail.com';
+      accounts.push({
+        key: process.env.RESEND_API_KEY,
+        to: rawTo.includes(',') ? rawTo.split(',').map(e => e.trim()) : rawTo
+      });
+    }
 
     const from = process.env.RESEND_FROM || 'onboarding@resend.dev';
     const now = new Date();
@@ -1283,26 +1290,10 @@ app.post('/api/send-email', async (req, res) => {
            continue;
         }
 
-        // [차단 목록 필터링] 테스트 주소 제외
-        let finalTo = account.to;
-        if (Array.isArray(finalTo)) {
-          finalTo = finalTo.filter(email => !BLOCKED_EMAILS.includes(email));
-        } else if (BLOCKED_EMAILS.includes(finalTo)) {
-          console.warn(`  🚫 Blocked for testing: ${finalTo}`);
-          results.push({ to: finalTo, success: true, blocked: true, message: '테스트를 위해 차단된 주소입니다.' });
-          continue;
-        }
-
-        if (Array.isArray(finalTo) && finalTo.length === 0) {
-          console.warn(`  🚫 All recipients blocked for this account: ${account.to}`);
-          results.push({ to: account.to, success: true, blocked: true, message: '모든 수신자가 테스트를 위해 차단되었습니다.' });
-          continue;
-        }
-
         const resendInstance = new Resend(account.key);
         const sendResult = await resendInstance.emails.send({
           from: from,
-          to: finalTo,
+          to: account.to,
           subject: subject,
           html: htmlContent,
           attachments: attachments
@@ -1321,16 +1312,15 @@ app.post('/api/send-email', async (req, res) => {
       }
     }
 
-    const actualSuccessCount = results.filter(r => r.success && !r.blocked).length;
-    const blockedCount = results.filter(r => r.blocked).length;
+    const successCount = results.filter(r => r.success).length;
     
-    console.log(`[Batch Send End] ${actualSuccessCount} succeeded, ${blockedCount} blocked for testing.\n`);
+    console.log(`[Batch Send End] ${successCount}/${accounts.length} succeeded.\n`);
 
     res.json({ 
       success: true, 
       total: accounts.length,
-      successCount: actualSuccessCount + blockedCount, // 화면 표시용 (성공+차단 합산)
-      message: `총 ${actualSuccessCount}명 발송 성공${blockedCount > 0 ? ` (${blockedCount}명은 테스트 차단됨)` : ''}`, 
+      successCount: successCount,
+      message: `총 ${accounts.length}명 중 ${successCount}명에게 리포트 발송 성공! ✉️🚀`, 
       results 
     });
 
