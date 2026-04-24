@@ -75,6 +75,13 @@ const rssParser = new Parser({
   }
 });
 
+// [테스트용] 이메일 발송 차단 목록
+const BLOCKED_EMAILS = [
+  'bckim@samsung.com',
+  'youjin.nam@samsung.com',
+  'minjung978.kim@samsung.com'
+];
+
 const RSS_FEEDS = [
   { name: "로봇신문", url: "https://www.irobotnews.com/rss/allArticle.xml" },
   { name: "전자신문-AI", url: "http://rss.etnews.com/04046.xml" },
@@ -1290,10 +1297,26 @@ app.post('/api/send-email', async (req, res) => {
            continue;
         }
 
+        // [차단 목록 필터링] 테스트 주소 제외
+        let finalTo = account.to;
+        if (Array.isArray(finalTo)) {
+          finalTo = finalTo.filter(email => !BLOCKED_EMAILS.includes(email));
+        } else if (BLOCKED_EMAILS.includes(finalTo)) {
+          console.warn(`  🚫 Blocked for testing: ${finalTo}`);
+          results.push({ to: finalTo, success: true, message: '테스트를 위해 차단된 주소입니다.' });
+          continue;
+        }
+
+        if (Array.isArray(finalTo) && finalTo.length === 0) {
+          console.warn(`  🚫 All recipients blocked for this account: ${account.to}`);
+          results.push({ to: account.to, success: true, message: '모든 수신자가 테스트를 위해 차단되었습니다.' });
+          continue;
+        }
+
         const resendInstance = new Resend(account.key);
         const sendResult = await resendInstance.emails.send({
           from: from,
-          to: account.to,
+          to: finalTo,
           subject: subject,
           html: htmlContent,
           attachments: attachments
