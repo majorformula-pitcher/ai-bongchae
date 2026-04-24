@@ -443,9 +443,9 @@ function App() {
             fill: { color: 'F2F2F2' }
           });
 
-          // 제목 - SamsungOneKorean 700, 14pt, #022CB2, 밑줄
+          // 제목 - SamsungOneKorean 700, 14pt, #022CB2, 밑줄 (x=3cm=1.18in)
           slide.addText(news.title, { 
-            x: 0.3, y: 0.38, w: 4.0, h: 0.40,
+            x: 1.18, y: 0.38, w: 3.0, h: 0.40,
             fontSize: 14, bold: false, color: '022CB2',
             underline: { style: 'sng' },
             fontFace: 'SamsungOneKorean 700',
@@ -468,24 +468,18 @@ function App() {
             }));
 
           slide.addText(summaryLines, { 
-            x: 0.3, y: 0.85, w: 3.8, h: 1.1, 
+            x: 1.18, y: 0.85, w: 2.9, h: 1.1, 
             valign: 'top'
           });
 
-          // 이미지 - 둥근 모서리 (roundRect shape + image fill)
+          // 이미지 - 직사각형 (원본과 동일)
           if (news.image) {
             try {
               const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(news.image)}`;
-              slide.addShape(pres.ShapeType.roundRect, {
-                x: 4.25, y: 0.87, w: 1.07, h: 1.02,
-                rectRadius: 0.1,
-                fill: { type: 'solid', color: 'FFFFFF' }
-              });
               slide.addImage({ 
                 path: proxyUrl, 
                 x: 4.25, y: 0.87, w: 1.07, h: 1.02,
-                sizing: { type: 'cover', w: 1.07, h: 1.02 },
-                rounding: true
+                sizing: { type: 'cover', w: 1.07, h: 1.02 }
               });
             } catch (imgErr) {
               console.warn('Image skip:', imgErr);
