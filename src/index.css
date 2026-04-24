@@ -1140,10 +1140,10 @@ body::before {
 }
 
 .slide-capture-title {
-  font-size: 26px;
+  font-size: 20px;
   font-weight: 800;
   color: #004085;
-  line-height: 1.35;
+  line-height: 1.3;
   word-break: keep-all;
   margin: 0;
 }
@@ -1169,9 +1169,9 @@ body::before {
 .slide-capture-bullet-item {
   position: relative;
   padding-left: 20px;
-  margin-bottom: 12px;
-  font-size: 18px; 
-  line-height: 1.6;
+  margin-bottom: 6px;
+  font-size: 14px; 
+  line-height: 1.3;
   color: #333;
   word-break: keep-all;
 }
