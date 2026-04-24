@@ -1121,7 +1121,7 @@ body::before {
   top: 0;
   width: 600px;
   background: white;
-  padding: 35px;
+  padding: 25px;
   font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
   -webkit-font-smoothing: antialiased; /* 텍스트 선명도 보강 */
   -moz-osx-font-smoothing: grayscale;
@@ -1136,11 +1136,11 @@ body::before {
 .slide-capture-header {
   border-bottom: 3px solid #0056b3; /* 상단 포인트 파란선 */
   padding-bottom: 12px;
-  margin-bottom: 25px;
+  margin-bottom: 20px;
 }
 
 .slide-capture-title {
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 800;
   color: #004085;
   line-height: 1.35;
@@ -1169,9 +1169,9 @@ body::before {
 .slide-capture-bullet-item {
   position: relative;
   padding-left: 20px;
-  margin-bottom: 12px;
-  font-size: 17px; /* 폰트도 조금 더 키워 가독성 확보 */
-  line-height: 1.6;
+  margin-bottom: 8px;
+  font-size: 15px; 
+  line-height: 1.4;
   color: #333;
   word-break: keep-all;
 }
