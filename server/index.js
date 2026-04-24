@@ -1303,13 +1303,13 @@ app.post('/api/send-email', async (req, res) => {
           finalTo = finalTo.filter(email => !BLOCKED_EMAILS.includes(email));
         } else if (BLOCKED_EMAILS.includes(finalTo)) {
           console.warn(`  🚫 Blocked for testing: ${finalTo}`);
-          results.push({ to: finalTo, success: true, message: '테스트를 위해 차단된 주소입니다.' });
+          results.push({ to: finalTo, success: true, blocked: true, message: '테스트를 위해 차단된 주소입니다.' });
           continue;
         }
 
         if (Array.isArray(finalTo) && finalTo.length === 0) {
           console.warn(`  🚫 All recipients blocked for this account: ${account.to}`);
-          results.push({ to: account.to, success: true, message: '모든 수신자가 테스트를 위해 차단되었습니다.' });
+          results.push({ to: account.to, success: true, blocked: true, message: '모든 수신자가 테스트를 위해 차단되었습니다.' });
           continue;
         }
 
@@ -1335,14 +1335,15 @@ app.post('/api/send-email', async (req, res) => {
       }
     }
 
-    const successCount = results.filter(r => r.success).length;
-    console.log(`[Batch Send End] ${successCount}/${accounts.length} accounts succeeded.\n`);
+    const successCount = results.filter(r => r.success && !r.blocked).length;
+    const blockedCount = results.filter(r => r.blocked).length;
+    
+    console.log(`[Batch Send End] ${successCount} succeeded, ${blockedCount} blocked for testing.\n`);
 
     res.json({ 
-      success: successCount > 0, 
-      total: accounts.length,
-      successCount: successCount,
-      results: results 
+      success: true, 
+      message: `총 ${successCount}명 발송 성공${blockedCount > 0 ? ` (${blockedCount}명은 테스트 차단됨)` : ''}`, 
+      results 
     });
 
   } catch (error) {
