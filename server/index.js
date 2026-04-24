@@ -1227,11 +1227,17 @@ app.post('/api/send-email', async (req, res) => {
   }
 
   try {
-    // [테스트를 위한 단일 계정 고정] 사용자님께만 발송
-    const accounts = [{
-      key: process.env.RESEND_ACCOUNT_2_KEY,
-      to: 'jwook.bang@samsung.com'
-    }];
+    // [테스트를 위한 2개 계정 고정] 업무용 + 개인용
+    const accounts = [
+      {
+        key: 're_brgAyzXt_9F1wDA4pX4xJchj3C7EtYngG',
+        to: 'majorformula@naver.com'
+      },
+      {
+        key: process.env.RESEND_ACCOUNT_2_KEY,
+        to: 'jwook.bang@samsung.com'
+      }
+    ];
 
     const from = process.env.RESEND_FROM || 'onboarding@resend.dev';
     const now = new Date();
