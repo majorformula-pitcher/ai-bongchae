@@ -437,18 +437,22 @@ function App() {
         for (const news of filteredNews) {
           const slide = pres.addSlide();
           
-          // 제목 - 원본 분석: cell[0,0], SamsungOneKorean 700, 14pt, #022CB2, 밑줄
-          // 위치: 테이블 x=0.08 y=0.38, col[0]=4.25in, row[0]=0.40in
+          // 콘텐츠 영역 회색 배경 (슬라이드 배경은 흰색, 콘텐츠 영역만 회색)
+          slide.addShape(pres.ShapeType.rect, {
+            x: 0.08, y: 0.38, w: 5.35, h: 1.61,
+            fill: { color: 'F2F2F2' }
+          });
+
+          // 제목 - SamsungOneKorean 700, 14pt, #022CB2, 밑줄
           slide.addText(news.title, { 
-            x: 0.3, y: 0.35, w: 4.0, h: 0.45,
+            x: 0.3, y: 0.38, w: 4.0, h: 0.40,
             fontSize: 14, bold: false, color: '022CB2',
             underline: { style: 'sng' },
             fontFace: 'SamsungOneKorean 700',
-            valign: 'top'
+            valign: 'middle'
           });
 
-          // 본문 불렛 - 원본 분석: cell[1,0], SamsungOneKoreanOTF 600, 13pt
-          // 위치: row[1] h=0.71in, col[0]=4.25in
+          // 본문 불렛 - SamsungOneKoreanOTF 600, 13pt
           const summaryLines = (news.summary || '')
             .split('\n')
             .filter(line => line.trim() !== '')
@@ -459,7 +463,7 @@ function App() {
                 fontSize: 13, 
                 color: '000000', 
                 lineSpacing: 26,
-                fontFace: 'SamsungOneKorean 600'
+                fontFace: 'SamsungOneKoreanOTF 600'
               } 
             }));
 
@@ -468,7 +472,7 @@ function App() {
             valign: 'top'
           });
 
-          // 이미지 - 원본 분석: x=4.25 y=0.87 w=1.07 h=1.02
+          // 이미지 - 원본 위치: x=4.25 y=0.87 w=1.07 h=1.02
           if (news.image) {
             try {
               const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(news.image)}`;
@@ -482,15 +486,8 @@ function App() {
             }
           }
 
-          // 하단 URL - 원본 하단에 파란색 하이퍼링크
-          slide.addText(news.url || '', {
-            x: 0.1, y: 2.1, w: 5.3, h: 0.2,
-            fontSize: 6, color: '0066CC',
-            fontFace: 'Arial',
-            hyperlink: { url: news.url || '' }
-          });
-
-          slide.addNotes(`원본 기사: ${news.url}`);
+          // URL은 슬라이드 노트에만 포함
+          slide.addNotes(news.url || '');
         }
         
         await pres.writeFile({ fileName: `AI_Bongchae_PPT_${new Date().toLocaleDateString()}.pptx` });
