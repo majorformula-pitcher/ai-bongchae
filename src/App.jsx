@@ -430,63 +430,62 @@ function App() {
       const pres = new pptxgen();
       pres.layout = 'LAYOUT_16x9';
 
-      const totalNews = filteredNews.length;
-      let processedCount = 0;
-
-      // 이미지를 안전하게 가져오기 위한 헬퍼 함수
-      const getSafeImage = async (url) => {
-        try {
-          const resp = await fetch(url, { mode: 'no-cors' }); 
-          // 'no-cors'는 이미지를 직접 읽을 순 없지만 브라우저 캐시에는 넣을 수 있음. 
-          // 하지만 pptxgenjs는 내부적으로 fetch(url)을 다시 할 것이므로 큰 의미는 없음.
-          // 대신, 특정 이미지 서버가 CORS를 허용하는지 미리 체크하거나, 실패 시 null 반환
-          const checkResp = await fetch(url, { method: 'HEAD' }).catch(() => ({ ok: false }));
-          return checkResp.ok ? url : null;
-        } catch {
-          return null;
-        }
-      };
-
-      // 순차적으로 슬라이드 생성 (이미지 체크 대기)
+      // 순차적으로 슬라이드 생성
       const generateSlides = async () => {
         for (const news of filteredNews) {
           const slide = pres.addSlide();
           
-          // 제목 배치 (상단)
+          // SRA 태그 (우측 상단)
+          slide.addText('SRA', { 
+            x: 8.5, y: 0.3, w: 1.0, h: 0.4,
+            fontSize: 14, bold: true, color: '0055FF',
+            border: { type: 'solid', color: '0055FF', pt: 1.5 },
+            align: 'center', valign: 'middle'
+          });
+
+          // 제목 (파란색 + 밑줄)
           slide.addText(news.title, { 
-            x: 0.5, y: 0.3, w: '90%', 
-            fontSize: 16, bold: true, color: '0066CC',
+            x: 0.5, y: 0.3, w: '75%', 
+            fontSize: 20, bold: true, color: '0033AA',
             underline: { style: 'sng' }
           });
 
-          // 요약 내용 (좌측)
+          // 요약 내용 (좌측, 불렛 포인트)
           const summaryLines = (news.summary || '')
             .split('\n')
             .filter(line => line.trim() !== '')
             .map(line => ({ 
               text: line.replace(/^[•\-\*]\s*/, ''), 
-              options: { bullet: true, fontSize: 12, color: '333333', lineSpacing: 28 } 
+              options: { bullet: true, fontSize: 14, color: '000000', lineSpacing: 32, bold: true } 
             }));
 
           slide.addText(summaryLines, { 
-            x: 0.5, y: 1.2, w: '55%', h: '70%', 
-            valign: 'top' 
+            x: 0.5, y: 1.3, w: '55%', h: '55%', 
+            valign: 'top',
+            fontFace: 'Malgun Gothic'
           });
 
-          // 이미지 (우측) - 에러 발생 시 건너뜀
+          // 이미지 (우측)
           if (news.image) {
             try {
-              // CORS 문제를 해결하기 위해 백엔드 프록시 주소 사용
               const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(news.image)}`;
               slide.addImage({ 
                 path: proxyUrl, 
-                x: 7.2, y: 1.8, w: 1.75, h: 1.3,
-                sizing: { type: 'contain', w: 1.75, h: 1.3 }
+                x: 7.0, y: 1.3, w: 2.5, h: 2.0,
+                sizing: { type: 'cover', w: 2.5, h: 2.0 },
+                rounding: true
               });
             } catch (imgErr) {
               console.warn('Image skip due to error:', imgErr);
             }
           }
+
+          // 하단 URL (좌측)
+          slide.addText(news.url || '', {
+            x: 0.5, y: 5.0, w: '90%',
+            fontSize: 8, color: '888888',
+            fontFace: 'Arial'
+          });
 
           // 슬라이드 노트에 원본 URL 추가
           slide.addNotes(`원본 기사 링크: ${news.url}`);
@@ -1091,30 +1090,25 @@ function App() {
         {/* 캡처용 가상 슬라이드 템플릿 (숨겨짐) */}
         {captureItem && (
           <div id="email-capture-template" className="slide-capture-area">
-            <div className="slide-capture-header">
-              <h1 className="slide-capture-title">{captureItem.title}</h1>
+            <div className="sra-tag">SRA</div>
+            <h1 className="slide-capture-title">{captureItem.title}</h1>
+            <div className="slide-content-container">
+              <ul className="slide-capture-bullets">
+                {(captureItem.summary || '').split('\n').filter(l => l.trim()).map((line, idx) => (
+                  <li key={idx} className="slide-capture-bullet-item">{line}</li>
+                ))}
+              </ul>
+              {captureItem.image && (
+                <img 
+                  src={`/api/proxy-image?url=${encodeURIComponent(captureItem.image)}`} 
+                  className="slide-capture-image" 
+                  crossOrigin="anonymous" 
+                />
+              )}
             </div>
-            <div className="slide-capture-body">
-              <div className="slide-capture-content">
-                <ul className="slide-capture-bullet-list">
-                  {(captureItem.summary || '').split('\n').filter(l => l.trim()).map((line, idx) => (
-                    <li key={idx} className="slide-capture-bullet-item">{line}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="slide-capture-image-box">
-                {captureItem.image && (
-                  <img 
-                    src={`/api/proxy-image?url=${encodeURIComponent(captureItem.image)}`} 
-                    className="slide-capture-img" 
-                    crossOrigin="anonymous" 
-                  />
-                )}
-              </div>
-            </div>
-            <div className="slide-capture-footer">
-              <span className="slide-capture-source">Source: {captureItem.engine || 'AI Bongchae'}</span>
-              <span className="slide-capture-date">{new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' })}. News Report</span>
+            <div className="slide-footer">
+              <span className="slide-footer-url">{captureItem.url}</span>
+              <span className="slide-footer-date">{new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '. ')}. News Report</span>
             </div>
           </div>
         )}

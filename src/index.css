@@ -1137,16 +1137,20 @@ body::before {
 
 /* [SLIDE STYLE] Professional PPT Format (Fixed Layout) */
 .slide-capture-area {
+  position: fixed !important;
+  left: -9999px !important;
+  top: 0 !important;
   width: 900px !important;
   background-color: #f2f2f2 !important;
   padding: 50px 60px !important;
   box-sizing: border-box !important;
-  position: relative !important;
   border: 1px solid #d1d1d1 !important;
-  margin: 0 auto !important;
   font-family: 'SamsungOneKorean', 'Malgun Gothic', sans-serif !important;
   min-height: 480px !important;
   display: block !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .sra-tag {
