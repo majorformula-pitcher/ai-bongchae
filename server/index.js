@@ -1227,25 +1227,11 @@ app.post('/api/send-email', async (req, res) => {
   }
 
   try {
-    // [멀티 계정 수집] RESEND_ACCOUNT_N_KEY/TO 패턴의 모든 계정 수집
-    const accounts = [];
-    let i = 1;
-    while (process.env[`RESEND_ACCOUNT_${i}_KEY`]) {
-      accounts.push({
-        key: process.env[`RESEND_ACCOUNT_${i}_KEY`],
-        to: process.env[`RESEND_ACCOUNT_${i}_TO`] || 'srtechinsight@gmail.com'
-      });
-      i++;
-    }
-
-    // 등록된 계정이 없으면 기존 단일 변수 백업 사용
-    if (accounts.length === 0) {
-      const rawTo = process.env.RESEND_TO || 'srtechinsight@gmail.com';
-      accounts.push({
-        key: process.env.RESEND_API_KEY,
-        to: rawTo.includes(',') ? rawTo.split(',').map(e => e.trim()) : rawTo
-      });
-    }
+    // [테스트를 위한 단일 계정 고정] 사용자님께만 발송
+    const accounts = [{
+      key: process.env.RESEND_ACCOUNT_2_KEY,
+      to: 'jwook.bang@samsung.com'
+    }];
 
     const from = process.env.RESEND_FROM || 'onboarding@resend.dev';
     const now = new Date();
