@@ -430,65 +430,70 @@ function App() {
       const pres = new pptxgen();
       pres.layout = 'LAYOUT_16x9';
 
-      // 순차적으로 슬라이드 생성
       const generateSlides = async () => {
         for (const news of filteredNews) {
           const slide = pres.addSlide();
           
-          // SRA 태그 (우측 상단)
+          // SRA 태그 (우측 상단) - 원본 PPT의 Group 요소 위치 재현
           slide.addText('SRA', { 
-            x: 8.5, y: 0.3, w: 1.0, h: 0.4,
-            fontSize: 14, bold: true, color: '0055FF',
-            border: { type: 'solid', color: '0055FF', pt: 1.5 },
-            align: 'center', valign: 'middle'
+            x: 8.6, y: 0.3, w: 0.8, h: 0.35,
+            fontSize: 12, bold: true, color: '022CB2',
+            border: { type: 'solid', color: '022CB2', pt: 1.5 },
+            align: 'center', valign: 'middle',
+            fontFace: 'Samsung Sharp Sans Bold'
           });
 
-          // 제목 (파란색 + 밑줄)
+          // 제목 - 원본: SamsungOneKorean 700, 14pt, #022CB2, 밑줄
           slide.addText(news.title, { 
-            x: 0.5, y: 0.3, w: '75%', 
-            fontSize: 20, bold: true, color: '0033AA',
-            underline: { style: 'sng' }
+            x: 0.5, y: 0.4, w: '75%', 
+            fontSize: 20, bold: true, color: '022CB2',
+            underline: { style: 'sng' },
+            fontFace: 'SamsungOneKorean 700'
           });
 
-          // 요약 내용 (좌측, 불렛 포인트)
+          // 본문 불렛 - 원본: SamsungOneKoreanOTF 600, 13pt
           const summaryLines = (news.summary || '')
             .split('\n')
             .filter(line => line.trim() !== '')
             .map(line => ({ 
               text: line.replace(/^[•\-\*]\s*/, ''), 
-              options: { bullet: true, fontSize: 14, color: '000000', lineSpacing: 32, bold: true } 
+              options: { 
+                bullet: true, 
+                fontSize: 14, 
+                color: '000000', 
+                lineSpacing: 30,
+                fontFace: 'SamsungOneKorean 600'
+              } 
             }));
 
           slide.addText(summaryLines, { 
-            x: 0.5, y: 1.3, w: '55%', h: '55%', 
-            valign: 'top',
-            fontFace: 'Malgun Gothic'
+            x: 0.5, y: 1.3, w: '58%', h: '55%', 
+            valign: 'top'
           });
 
-          // 이미지 (우측)
+          // 이미지 - 원본: x=4.25 y=0.87 w=1.07 h=1.02 (비례 확대)
           if (news.image) {
             try {
               const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(news.image)}`;
               slide.addImage({ 
                 path: proxyUrl, 
-                x: 7.0, y: 1.3, w: 2.5, h: 2.0,
-                sizing: { type: 'cover', w: 2.5, h: 2.0 },
+                x: 7.2, y: 1.5, w: 2.0, h: 1.8,
+                sizing: { type: 'cover', w: 2.0, h: 1.8 },
                 rounding: true
               });
             } catch (imgErr) {
-              console.warn('Image skip due to error:', imgErr);
+              console.warn('Image skip:', imgErr);
             }
           }
 
-          // 하단 URL (좌측)
+          // 하단 URL - 원본 하단 텍스트 재현
           slide.addText(news.url || '', {
-            x: 0.5, y: 5.0, w: '90%',
+            x: 0.3, y: 4.9, w: '90%',
             fontSize: 8, color: '888888',
             fontFace: 'Arial'
           });
 
-          // 슬라이드 노트에 원본 URL 추가
-          slide.addNotes(`원본 기사 링크: ${news.url}`);
+          slide.addNotes(`원본 기사: ${news.url}`);
         }
         
         await pres.writeFile({ fileName: `AI_Bongchae_PPT_${new Date().toLocaleDateString()}.pptx` });
