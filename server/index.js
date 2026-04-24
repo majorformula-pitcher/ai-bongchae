@@ -1335,14 +1335,16 @@ app.post('/api/send-email', async (req, res) => {
       }
     }
 
-    const successCount = results.filter(r => r.success && !r.blocked).length;
+    const actualSuccessCount = results.filter(r => r.success && !r.blocked).length;
     const blockedCount = results.filter(r => r.blocked).length;
     
-    console.log(`[Batch Send End] ${successCount} succeeded, ${blockedCount} blocked for testing.\n`);
+    console.log(`[Batch Send End] ${actualSuccessCount} succeeded, ${blockedCount} blocked for testing.\n`);
 
     res.json({ 
       success: true, 
-      message: `총 ${successCount}명 발송 성공${blockedCount > 0 ? ` (${blockedCount}명은 테스트 차단됨)` : ''}`, 
+      total: accounts.length,
+      successCount: actualSuccessCount + blockedCount, // 화면 표시용 (성공+차단 합산)
+      message: `총 ${actualSuccessCount}명 발송 성공${blockedCount > 0 ? ` (${blockedCount}명은 테스트 차단됨)` : ''}`, 
       results 
     });
 
