@@ -459,7 +459,7 @@ function App() {
             .map(line => ({ 
               text: line.replace(/^[•\-\*]\s*/, ''), 
               options: { 
-                bullet: true, 
+                bullet: { indent: 18 }, 
                 fontSize: 13, 
                 color: '000000', 
                 lineSpacing: 26,
@@ -472,14 +472,20 @@ function App() {
             valign: 'top'
           });
 
-          // 이미지 - 원본 위치: x=4.25 y=0.87 w=1.07 h=1.02
+          // 이미지 - 둥근 모서리 (roundRect shape + image fill)
           if (news.image) {
             try {
               const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(news.image)}`;
+              slide.addShape(pres.ShapeType.roundRect, {
+                x: 4.25, y: 0.87, w: 1.07, h: 1.02,
+                rectRadius: 0.1,
+                fill: { type: 'solid', color: 'FFFFFF' }
+              });
               slide.addImage({ 
                 path: proxyUrl, 
                 x: 4.25, y: 0.87, w: 1.07, h: 1.02,
-                sizing: { type: 'cover', w: 1.07, h: 1.02 }
+                sizing: { type: 'cover', w: 1.07, h: 1.02 },
+                rounding: true
               });
             } catch (imgErr) {
               console.warn('Image skip:', imgErr);
