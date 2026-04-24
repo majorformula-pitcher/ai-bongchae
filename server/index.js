@@ -1227,17 +1227,25 @@ app.post('/api/send-email', async (req, res) => {
   }
 
   try {
-    // [테스트를 위한 2개 계정 고정] 업무용 + 개인용
-    const accounts = [
-      {
-        key: 're_brgAyzXt_9F1wDA4pX4xJchj3C7EtYngG',
-        to: 'majorformula@naver.com'
-      },
-      {
-        key: process.env.RESEND_ACCOUNT_2_KEY,
-        to: 'jwook.bang@samsung.com'
-      }
-    ];
+    // [멀티 계정 수집] RESEND_ACCOUNT_N_KEY/TO 패턴의 모든 계정 수집
+    const accounts = [];
+    let i = 1;
+    while (process.env[`RESEND_ACCOUNT_${i}_KEY`]) {
+      accounts.push({
+        key: process.env[`RESEND_ACCOUNT_${i}_KEY`],
+        to: process.env[`RESEND_ACCOUNT_${i}_TO`] || 'srtechinsight@gmail.com'
+      });
+      i++;
+    }
+
+    // 등록된 계정이 없으면 기존 단일 변수 백업 사용
+    if (accounts.length === 0) {
+      const rawTo = process.env.RESEND_TO || 'srtechinsight@gmail.com';
+      accounts.push({
+        key: process.env.RESEND_API_KEY,
+        to: rawTo.includes(',') ? rawTo.split(',').map(e => e.trim()) : rawTo
+      });
+    }
 
     const from = process.env.RESEND_FROM || 'onboarding@resend.dev';
     const now = new Date();
