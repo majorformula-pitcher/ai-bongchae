@@ -1227,15 +1227,16 @@ app.post('/api/send-email', async (req, res) => {
   }
 
   try {
-    // [멀티 계정 수집] RESEND_ACCOUNT_N_KEY/TO 패턴의 모든 계정 수집
+    // [멀티 계정 수집] 중간에 번호가 비어 있어도 최대 10번까지 확인
     const accounts = [];
-    let i = 1;
-    while (process.env[`RESEND_ACCOUNT_${i}_KEY`]) {
-      accounts.push({
-        key: process.env[`RESEND_ACCOUNT_${i}_KEY`],
-        to: process.env[`RESEND_ACCOUNT_${i}_TO`] || 'srtechinsight@gmail.com'
-      });
-      i++;
+    for (let i = 1; i <= 10; i++) {
+      const key = process.env[`RESEND_ACCOUNT_${i}_KEY`];
+      if (key) {
+        accounts.push({
+          key: key,
+          to: process.env[`RESEND_ACCOUNT_${i}_TO`] || 'srtechinsight@gmail.com'
+        });
+      }
     }
 
     // 등록된 계정이 없으면 기존 단일 변수 백업 사용
