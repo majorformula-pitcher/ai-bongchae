@@ -536,11 +536,11 @@ function App() {
         
         const element = document.getElementById('email-capture-template');
         if (element) {
-          // 3. AWS 최적화 고해상도 캡처 (가로 폭 600px 유지 + 해상도 1.4 하향)
+          // 3. AWS 최적화 고해상도 캡처 (가로 폭 600px 유지 + 해상도 1.2 최소 사양)
           const canvas = await html2canvas(element, {
             useCORS: true,
             allowTaint: true,
-            scale: 1.4, 
+            scale: 1.2, 
             backgroundColor: '#ffffff',
             logging: false
           });
