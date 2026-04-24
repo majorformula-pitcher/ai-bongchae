@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   --primary: #8b5cf6;
   --primary-hover: #7c3aed;
   --bg: #030712;
@@ -78,8 +78,8 @@ body::before {
 
 .header-content {
   width: 100%;
-  max-width: 100%; /* ?덈퉬 ?쒗븳???꾩쟾???댁젣?섏뿬 紐⑤뱺 ?붾㈃?먯꽌 ?앷퉴吏 ?쇱퀜吏寃???*/
-  padding: 0 24px; /* ?ъ씠?쒕컮 ?대? ?섏묠諛??꾩씠肄?24px)怨??섏쭅 ?뺣젹??留욎땄 */
+  max-width: 100%; /* 너비 제한을 완전히 해제하여 모든 화면에서 끝까지 펼쳐지게 함 */
+  padding: 0 24px; /* 사이드바 내부 나침반 아이콘(24px)과 수직 정렬을 맞춤 */
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -95,7 +95,7 @@ body::before {
 }
 
 .logo {
-  font-size: 1.5rem; /* ?ㅼ떆 ?⑥젙???ш린濡??먮났 */
+  font-size: 1.5rem; /* 다시 단정한 크기로 원복 */
   font-weight: 800;
   background: linear-gradient(to right, #a78bfa, #34d399);
   background-clip: text;
@@ -170,7 +170,7 @@ body::before {
 }
 
 .date-input::-webkit-calendar-picker-indicator {
-  filter: invert(1); /* ?щ젰 ?꾩씠肄섏쓣 ?곗깋?쇰줈 蹂寃?*/
+  filter: invert(1); /* 달력 아이콘을 흰색으로 변경 */
   cursor: pointer;
   opacity: 0.6;
   transition: opacity 0.2s;
@@ -248,12 +248,12 @@ body::before {
 @media (min-width: 768px) {
   .news-feed {
     display: grid;
-    /* ????붾㈃(32?몄튂 ???먯꽌 ?щ갚??以꾩씠湲??꾪빐 移대뱶 ?덈퉬瑜????ㅼ? (湲곗〈 420px -> 460px) */
+    /* 대형 화면(32인치 등)에서 여백을 줄이기 위해 카드 너비를 더 키움 (기존 420px -> 460px) */
     grid-template-columns: repeat(auto-fill, minmax(460px, 1fr));
     gap: 24px;
     justify-content: center;
     width: 100%;
-    max-width: 2100px; /* ????붾㈃?먯꽌 ???볤쾶 ?뺤옣?섎룄濡??곹뼢 */
+    max-width: 2100px; /* 대형 화면에서 더 넓게 확장되도록 상향 */
     margin: 0 auto;
     box-sizing: border-box;
   }
@@ -366,7 +366,7 @@ body::before {
   z-index: 10;
   transition: all 0.2s;
   padding: 0;
-  padding-bottom: 2px; /* 횞 ?쇳꽣留?蹂댁젙 */
+  padding-bottom: 2px; /* × 센터링 보정 */
 }
 
 .delete-btn:hover {
@@ -376,7 +376,7 @@ body::before {
 }
 
 .news-content {
-  padding: 20px 12px 24px; /* 醫뚯슦 ?щ갚???덈컲(12px)?쇰줈 以꾩뿬 媛濡????뺣낫 諛??몃줈 湲몄씠 異뺤냼 */
+  padding: 20px 12px 24px; /* 좌우 여백을 절반(12px)으로 줄여 가로 폭 확보 및 세로 길이 축소 */
 }
 
 .news-title {
@@ -404,7 +404,7 @@ body::before {
 }
 
 .news-summary li::before {
-  content: "??;
+  content: "2";
   position: absolute;
   left: 0;
   color: var(--primary);
@@ -502,15 +502,15 @@ body::before {
   100% { transform: scale(1); }
 }
 
-/* ?댁뒪 移대뱶 ?몄쭛 紐⑤뱶 ?ㅽ???由щえ?몃쭅 */
+/* 뉴스 카드 편집 모드 스타일 리모델링 */
 .action-btns-row {
   display: flex;
   gap: 12px;
   align-items: center;
-  margin-right: 15px; /* ?명꽣 臾멸뎄? 嫄곕━ ?뺣낫 */
+  margin-right: 15px; /* 푸터 문구와 거리 확보 */
 }
 
-/* ?쇱씠??踰꾪듉 ?ㅽ???蹂닿컯 (?ъ씠利??듭씪媛? */
+/* 라이크 버튼 스타일 보강 (사이즈 통일감) */
 .like-btn {
   height: 36px;
   padding: 0 12px;
@@ -526,17 +526,17 @@ body::before {
 
 .edit-mode-btn {
   height: 36px;
-  width: 38px; /* ??쓣 怨좎젙?섏뿬 ?뺤궗媛곹삎 ?먮굦 遺??*/
+  width: 38px; /* 폭을 고정하여 정사각형 느낌 부여 */
   background: rgba(99, 102, 241, 0.15);
   border: 1px solid rgba(99, 102, 241, 0.3);
   color: #a5b4fc;
   border-radius: 8px;
-  font-size: 1rem; /* ?꾩씠肄??ш린 ?쎄컙 ?ㅼ? */
+  font-size: 1rem; /* 아이콘 크기 약간 키움 */
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
   align-items: center;
-  justify-content: center; /* ?꾩씠肄?以묒븰 ?뺣젹 */
+  justify-content: center; /* 아이콘 중앙 정렬 */
 }
 
 .edit-mode-btn:hover {
@@ -560,7 +560,7 @@ body::before {
 
 .edit-cancel-btn {
   height: 36px;
-  width: 38px; /* ??怨좎젙 */
+  width: 38px; /* 폭 고정 */
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   color: #94a3b8;
@@ -578,7 +578,7 @@ body::before {
   color: #f1f5f9;
 }
 
-/* ?낅젰李??꾨━誘몄뾼 ?ㅽ???*/
+/* 입력창 프리미엄 스타일 */
 .edit-title-input {
   width: 100%;
   box-sizing: border-box;
@@ -612,7 +612,7 @@ body::before {
   line-height: 1.7;
   font-family: inherit;
   resize: vertical;
-  min-height: 200px; /* ?믪씠 ????뺤옣 */
+  min-height: 200px; /* 높이 대폭 확장 */
   outline: none;
   margin-bottom: 20px;
 }
@@ -622,15 +622,15 @@ body::before {
   background: rgba(30, 41, 59, 0.8);
 }
 
-/* ?붿빟 臾멸뎄 ?꾩튂 議곗젙 */
+/* 요약 문구 위치 조정 */
 .ai-source-info {
-  margin-left: 10px; /* ?ㅻⅨ履쎌쑝濡??댁쭩 諛湲?*/
+  margin-left: 10px; /* 오른쪽으로 살짝 밀기 */
   opacity: 0.8;
   font-size: 0.85rem;
   white-space: nowrap;
 }
 
-/* ?고듃 ?덊떚?⑤━?댁떛 諛??좊챸??媛뺥솕 */
+/* 폰트 안티앨리어싱 및 선명도 강화 */
 * {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -819,7 +819,16 @@ body::before {
   gap: 10px;
 }
 
-.manual-select { flex: 1; cursor: pointer; appearance: none; background-color: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; color: #fff; font-size: 0.95rem; }
+.manual-select {
+  flex: 1;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  padding-right: 40px;
+}
 
 .manual-btn {
   white-space: nowrap;
@@ -872,13 +881,13 @@ body::before {
     flex-direction: column;
     align-items: center;
     min-height: 100vh;
-    overflow-x: hidden; /* ?곸뿭 諛뽰쑝濡??섍???肄섑뀗痢?媛뺤젣 李⑤떒 */
+    overflow-x: hidden; /* 영역 밖으로 나가는 콘텐츠 강제 차단 */
     box-sizing: border-box;
   }
 }
 
 .app-content {
-  padding: 100px 20px; /* 紐⑤컮??湲곕낯 ?⑤뵫 */
+  padding: 100px 20px; /* 모바일 기본 패딩 */
   padding-bottom: 100px;
   width: 100%;
   min-height: 100vh;
@@ -1104,129 +1113,9 @@ body::before {
   100% { transform: scale(0.1) translate(500px, -500px); opacity: 0; }
 }
 
+/* ---------------------------------------------------- */
 
-/* [SLIDE STYLE] Samsung Professional PPT Format */
-.slide-capture-area {
-  width: 750px;
-  background-color: #ffffff;
-  padding: 45px 55px;
-  box-sizing: border-box;
-  position: relative;
-  border: 1px solid #e0e0e0;
-  margin: 0 auto;
-  font-family: 'SamsungOne', 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
-  min-height: 420px;
-  display: block !important;
-}
-
-.sra-tag {
-  position: absolute;
-  top: 45px;
-  right: 55px;
-  border: 2px solid #0055ff;
-  color: #0055ff;
-  padding: 3px 14px;
-  font-weight: bold;
-  font-size: 18px;
-  letter-spacing: 1px;
-}
-
-.slide-capture-title {
-  color: #0033aa !important;
-  font-size: 34px !important;
-  font-weight: 800 !important;
-  margin-top: 0 !important;
-  margin-bottom: 35px !important;
-  text-decoration: underline !important;
-  text-underline-offset: 10px !important;
-  line-height: 1.3 !important;
-  width: 82% !important; 
-  word-break: keep-all !important;
-  text-align: left !important;
-}
-
-.slide-content-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 35px;
-  margin-bottom: 45px;
-}
-
-.slide-capture-bullets {
-  flex: 1.8;
-  padding-left: 25px;
-  margin: 0;
-  list-style-type: disc;
-}
-
-.slide-capture-bullet-item {
-  color: #000000 !important;
-  font-size: 22px !important;
-  font-weight: 800 !important;
-  line-height: 1.6 !important;
-  margin-bottom: 22px !important;
-  word-break: keep-all !important;
-  text-align: left !important;
-}
-
-.slide-capture-image {
-  width: 280px !important;
-  height: 220px !important;
-  object-fit: cover !important;
-  border-radius: 25px !important;
-  box-shadow: 0 5px 20px rgba(0,0,0,0.12) !important;
-  flex: 1;
-}
-
-.slide-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-top: 1px solid #e0e0e0;
-  padding-top: 18px;
-  margin-top: 25px;
-}
-
-.slide-footer-url {
-  color: #888888;
-  font-size: 13px;
-  font-family: Arial, sans-serif;
-  max-width: 75%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.slide-footer-date {
-  color: #888888;
-  font-size: 13px;
-}
-
-.copy-btn {
-  height: 36px;
-  width: 38px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #94a3b8;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.copy-btn:hover {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(99, 102, 241, 0.3);
-  color: #a5b4fc;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
-}
-
-/* [FONTS] Samsung Professional Fonts Registration */
+/* [FONTS] Samsung Professional Fonts */
 @font-face {
   font-family: 'SamsungOneKorean';
   src: url('/fonts/SamsungOneKorean-700.otf') format('opentype');
@@ -1246,7 +1135,7 @@ body::before {
   font-style: normal;
 }
 
-/* [SLIDE STYLE] Samsung Professional PPT Format */
+/* [SLIDE STYLE] Professional PPT Format */
 .slide-capture-area {
   width: 750px;
   background-color: #ffffff;
@@ -1346,5 +1235,3 @@ body::before {
   color: #888888;
   font-size: 13px;
 }
-
-
