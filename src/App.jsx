@@ -428,30 +428,27 @@ function App() {
       }
 
       const pres = new pptxgen();
-      pres.layout = 'LAYOUT_16x9';
+      
+      // 원본 PPTX와 동일한 커스텀 슬라이드 크기 (5.51 x 2.36 인치)
+      pres.defineLayout({ name: 'SR_NEWS', width: 5.51, height: 2.36 });
+      pres.layout = 'SR_NEWS';
 
       const generateSlides = async () => {
         for (const news of filteredNews) {
           const slide = pres.addSlide();
           
-          // SRA 태그 (우측 상단) - 원본 PPT의 Group 요소 위치 재현
-          slide.addText('SRA', { 
-            x: 8.6, y: 0.3, w: 0.8, h: 0.35,
-            fontSize: 12, bold: true, color: '022CB2',
-            border: { type: 'solid', color: '022CB2', pt: 1.5 },
-            align: 'center', valign: 'middle',
-            fontFace: 'Samsung Sharp Sans Bold'
-          });
-
-          // 제목 - 원본: SamsungOneKorean 700, 14pt, #022CB2, 밑줄
+          // 제목 - 원본 분석: cell[0,0], SamsungOneKorean 700, 14pt, #022CB2, 밑줄
+          // 위치: 테이블 x=0.08 y=0.38, col[0]=4.25in, row[0]=0.40in
           slide.addText(news.title, { 
-            x: 0.5, y: 0.4, w: '75%', 
-            fontSize: 20, bold: true, color: '022CB2',
+            x: 0.3, y: 0.35, w: 4.0, h: 0.45,
+            fontSize: 14, bold: false, color: '022CB2',
             underline: { style: 'sng' },
-            fontFace: 'SamsungOneKorean 700'
+            fontFace: 'SamsungOneKorean 700',
+            valign: 'top'
           });
 
-          // 본문 불렛 - 원본: SamsungOneKoreanOTF 600, 13pt
+          // 본문 불렛 - 원본 분석: cell[1,0], SamsungOneKoreanOTF 600, 13pt
+          // 위치: row[1] h=0.71in, col[0]=4.25in
           const summaryLines = (news.summary || '')
             .split('\n')
             .filter(line => line.trim() !== '')
@@ -459,38 +456,38 @@ function App() {
               text: line.replace(/^[•\-\*]\s*/, ''), 
               options: { 
                 bullet: true, 
-                fontSize: 14, 
+                fontSize: 13, 
                 color: '000000', 
-                lineSpacing: 30,
+                lineSpacing: 26,
                 fontFace: 'SamsungOneKorean 600'
               } 
             }));
 
           slide.addText(summaryLines, { 
-            x: 0.5, y: 1.3, w: '58%', h: '55%', 
+            x: 0.3, y: 0.85, w: 3.8, h: 1.1, 
             valign: 'top'
           });
 
-          // 이미지 - 원본: x=4.25 y=0.87 w=1.07 h=1.02 (비례 확대)
+          // 이미지 - 원본 분석: x=4.25 y=0.87 w=1.07 h=1.02
           if (news.image) {
             try {
               const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(news.image)}`;
               slide.addImage({ 
                 path: proxyUrl, 
-                x: 7.2, y: 1.5, w: 2.0, h: 1.8,
-                sizing: { type: 'cover', w: 2.0, h: 1.8 },
-                rounding: true
+                x: 4.25, y: 0.87, w: 1.07, h: 1.02,
+                sizing: { type: 'cover', w: 1.07, h: 1.02 }
               });
             } catch (imgErr) {
               console.warn('Image skip:', imgErr);
             }
           }
 
-          // 하단 URL - 원본 하단 텍스트 재현
+          // 하단 URL - 원본 하단에 파란색 하이퍼링크
           slide.addText(news.url || '', {
-            x: 0.3, y: 4.9, w: '90%',
-            fontSize: 8, color: '888888',
-            fontFace: 'Arial'
+            x: 0.1, y: 2.1, w: 5.3, h: 0.2,
+            fontSize: 6, color: '0066CC',
+            fontFace: 'Arial',
+            hyperlink: { url: news.url || '' }
           });
 
           slide.addNotes(`원본 기사: ${news.url}`);
