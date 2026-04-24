@@ -404,7 +404,7 @@ body::before {
 }
 
 .news-summary li::before {
-  content: "2";
+  content: "•";
   position: absolute;
   left: 0;
   color: var(--primary);
@@ -576,6 +576,31 @@ body::before {
 .edit-cancel-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   color: #f1f5f9;
+}
+
+.copy-btn {
+  height: 36px;
+  width: 38px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.copy-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  transform: translateY(-1px);
+}
+
+.copy-btn.copied {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
 }
 
 /* 입력창 프리미엄 스타일 */
