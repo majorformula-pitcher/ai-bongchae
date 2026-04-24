@@ -536,13 +536,15 @@ function App() {
         
         const element = document.getElementById('email-capture-template');
         if (element) {
-          // 3. 환경별 해상도 자동 최적화 (로컬/내부망: 극한의 4.0 / AWS 외부망: 안정성 1.6)
+          // 3. 환경별 해상도 자동 최적화 (로컬/내부망/Tailscale: 극한의 4.0 / AWS 외부망: 안정성 1.6)
           const hostname = window.location.hostname;
           const isLocal = hostname === 'localhost' || 
                           hostname === '127.0.0.1' || 
                           hostname.startsWith('192.168.') || 
                           hostname.startsWith('10.') || 
-                          hostname.startsWith('172.');
+                          hostname.startsWith('172.') ||
+                          hostname.endsWith('.ts.net') ||
+                          hostname.endsWith('.local');
           
           const targetScale = isLocal ? 4.0 : 1.6;
           
