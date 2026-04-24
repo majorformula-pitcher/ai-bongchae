@@ -560,10 +560,10 @@ function App() {
       });
 
       if (response.data.success) {
-        const { total, successCount, results } = response.data;
-        const failed = results?.filter(r => !r.success) || [];
+        const { total, successCount, results, message } = response.data;
+        const failed = results?.filter(r => !r.success && !r.blocked) || [];
         
-        let msg = `총 ${total}명 중 ${successCount}명에게 리포트 발송 성공! ✉️🚀`;
+        let msg = message || `총 ${total}명 중 ${successCount}명에게 리포트 발송 성공! ✉️🚀`;
         if (failed.length > 0) {
           msg += `\n\n⚠️ 일부 실패 (${failed.length}건):\n` + failed.map(f => `- ${f.to}: ${f.error}`).join('\n');
         }
