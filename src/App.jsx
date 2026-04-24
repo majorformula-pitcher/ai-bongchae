@@ -443,9 +443,9 @@ function App() {
             fill: { color: 'F2F2F2' }
           });
 
-          // 제목 - SamsungOneKorean 700, 14pt, #022CB2, 밑줄 (x=눈금자 6의 절반 ≈ 0.59in)
+          // 제목 - SamsungOneKorean 700, 14pt, #022CB2, 밑줄 (x=화살표 위치 ≈ 0.2in)
           slide.addText(news.title, { 
-            x: 0.59, y: 0.38, w: 3.6, h: 0.40,
+            x: 0.2, y: 0.38, w: 4.0, h: 0.40,
             fontSize: 14, bold: false, color: '022CB2',
             underline: { style: 'sng' },
             fontFace: 'SamsungOneKorean 700',
@@ -468,7 +468,7 @@ function App() {
             }));
 
           slide.addText(summaryLines, { 
-            x: 0.59, y: 0.85, w: 3.5, h: 1.1, 
+            x: 0.2, y: 0.85, w: 3.9, h: 1.1, 
             valign: 'top'
           });
 
