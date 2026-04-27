@@ -150,6 +150,25 @@ const enqueueOllama = (requestFn) => {
   });
 };
 
+// 원본 뉴스 제목에서 불필요한 꼬리표(매체명 등)를 안전하게 정제하는 함수
+function cleanExtractedTitle(title) {
+  if (!title) return '';
+  // 1. 특정 패턴 (예: " < 모빌리티 < 기사본문 - 로봇신문") 꼬리 자르기
+  let cleaned = title.replace(/\s*<[^<]+<\s*기사본문\s*-\s*[가-힣]+/, '');
+  // 2. 일반적인 매체명 꼬리 (명시적인 단어가 포함된 경우만 안전하게 자르기)
+  cleaned = cleaned.replace(/\s*[-|]\s*([^-|]+)$/, (match, p1) => {
+    if (/(신문|일보|경제|뉴스|미디어|데일리|통신|타임즈|기자|Korea|Herald|닷컴|투데이|ZDNet|블로터|테크|Tech|지디넷|이데일리|뉴시스|머니투데이|OSEN|디스패치|인벤|루리웹|포모스)/i.test(p1)) {
+      return '';
+    }
+    // 길이가 6글자 이하이면서 띄어쓰기가 없으면 매체명일 확률이 높음 (예: - 로봇신문, - 연합뉴스)
+    if (p1.length <= 6 && !p1.includes(' ')) {
+      return '';
+    }
+    return match;
+  });
+  return cleaned.trim();
+}
+
 async function summarizeWithOllama(bodyText, title, publishedAt) {
   return enqueueOllama(() => _summarizeWithOllamaInternal(bodyText, title, publishedAt));
 }
@@ -266,8 +285,10 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
       .slice(0, 4)
       .join('\n');
 
+    let finalTitle = isEnglish ? (aiData.title || title) : cleanExtractedTitle(title);
+
     return {
-      title: aiData.title || title,
+      title: finalTitle,
       category: finalCategory,
       summary: cleanSummary,
       published_at: aiData.published_at || new Date().toISOString().split('T')[0],
@@ -373,8 +394,10 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
         finalDate = new Date().toISOString().split('T')[0];
       }
 
+      let finalTitle = isEnglish ? (aiData.title || title) : cleanExtractedTitle(title);
+
       return {
-        title: aiData.title || title,
+        title: finalTitle,
         category: finalCategory,
         summary: cleanSummary,
         published_at: finalDate
@@ -467,8 +490,10 @@ async function summarizeWithClaude(bodyText, title, publishedAt) {
   const summaryLines = finalLines.slice(0, 4);
 
   if (summaryLines.length > 0) {
+    let finalTitleToUse = isEnglish ? finalTitle : cleanExtractedTitle(title);
+
     return {
-      title: finalTitle,
+      title: finalTitleToUse,
       category: finalCategory,
       summary: summaryLines.slice(0, 4).join('\n'),
       published_at: publishedAt || new Date().toISOString().split('T')[0]
