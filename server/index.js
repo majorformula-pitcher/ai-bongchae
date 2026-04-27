@@ -155,17 +155,22 @@ function cleanExtractedTitle(title) {
   if (!title) return '';
   // 1. 특정 패턴 (예: " < 모빌리티 < 기사본문 - 로봇신문") 꼬리 자르기
   let cleaned = title.replace(/\s*<[^<]+<\s*기사본문\s*-\s*[가-힣]+/, '');
-  // 2. 일반적인 매체명 꼬리 (명시적인 단어가 포함된 경우만 안전하게 자르기)
-  cleaned = cleaned.replace(/\s*[-|]\s*([^-|]+)$/, (match, p1) => {
-    if (/(신문|일보|경제|뉴스|미디어|데일리|통신|타임즈|기자|Korea|Herald|닷컴|투데이|ZDNet|블로터|테크|Tech|지디넷|이데일리|뉴시스|머니투데이|OSEN|디스패치|인벤|루리웹|포모스)/i.test(p1)) {
+  // 2. 마지막에 위치한 " - 매체명" 또는 " | 매체명" 제거
+  let pattern = /\s*[-|]\s*([^-|]+)$/;
+  let replacer = (match, p1) => {
+    if (/(신문|일보|경제|뉴스|미디어|데일리|통신|타임즈|기자|Korea|Herald|닷컴|투데이|ZDNet|블로터|테크|Tech|지디넷|이데일리|뉴시스|머니투데이|OSEN|디스패치|인벤|루리웹|포모스|The Miilk|더밀크)/i.test(p1)) {
       return '';
     }
-    // 길이가 6글자 이하이면서 띄어쓰기가 없으면 매체명일 확률이 높음 (예: - 로봇신문, - 연합뉴스)
     if (p1.length <= 6 && !p1.includes(' ')) {
       return '';
     }
     return match;
-  });
+  };
+
+  cleaned = cleaned.replace(pattern, replacer);
+  // 만약 꼬리가 여러개 붙어있는 경우 (- 더밀크 | The Miilk 처럼) 한 번 더 실행
+  cleaned = cleaned.replace(pattern, replacer);
+
   return cleaned.trim();
 }
 
@@ -1126,7 +1131,7 @@ app.get('/api/rss/:id', async (req, res) => {
       }
 
       return {
-        title: item.title,
+        title: cleanExtractedTitle(item.title),
         link: link,
         pubDate: item.pubDate || item['dc:date'] || item.isoDate || feed.lastBuildDate || new Date().toISOString(),
         summary: item.contentSnippet || item.description || "",
