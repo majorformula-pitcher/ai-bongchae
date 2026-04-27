@@ -202,7 +202,7 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
       format: "json", // Ollama에서 JSON 출력을 강제함
       options: {
         temperature: 0.1,
-        num_predict: 500 // 불필요한 수다 방지를 위해 출력 길이 제한
+        num_predict: 1500 // 불필요한 수다 방지를 위해 출력 길이 제한 (충분히 늘림)
       }
     }, { timeout: 90000 }); // 90초 타임아웃 설정
 
