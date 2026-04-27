@@ -195,8 +195,7 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
     다음 뉴스 본문을 분석해서 아래 형식의 순수 JSON으로만 응답해줘. 
     
     {
-      "title": "${isEnglish ? "한국어 번역 제목" : "원본 제목 (매체명/사이트명 삭제)"}",
-      "category": "AI, Robot, Security, Data, Display, IT, 기타 중 하나 선택",
+      ${isEnglish ? '"title": "한국어 번역 제목",\n      ' : ''}"category": "AI, Robot, Security, Data, Display, IT, 기타 중 하나 선택",
       "summary": [
         "첫 번째 문장 (~입니다 체)",
         "두 번째 문장 (~입니다 체)",
@@ -207,8 +206,7 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
     }
     
     주의사항:
-    - title: 원본 제목("${title}")이 한국어라면 **단 한 글자도 임의로 수정하지 마세요**. 특히 한자(伊, 美 등)를 한글로 변환하거나 단어를 윤문(다듬기)하는 것을 절대 금지합니다. 오직 제목 끝의 매체명(예: - 로봇신문, | IT기사 등)만 삭제하고 원문을 100% 똑같이 복사하세요. 영어라면 반드시 한국어로 번역하세요.
-    - category: [AI, Robot, Security, Data, Display, IT, 기타] 중 하나 선택.
+    ${isEnglish ? '- title: 원본 영어 제목을 반드시 한국어로 번역하세요.\n    ' : ''}- category: [AI, Robot, Security, Data, Display, IT, 기타] 중 하나 선택.
     - summary: 기사 본문에 나오는 구체적인 수치, 고유명사, 핵심 결과 및 의미 등을 풍부하게 포함하여 **정확히 4개의 상세한 문장**으로 요약하세요. 단순하고 뻔한 요약 대신 구체적인 팩트를 전달해야 합니다.
     - 모든 문장의 끝은 반드시 **"~입니다", "~했습니다"**와 같은 자연스러운 평어체로 종결해야 합니다. 명사형 종결은 절대 금지합니다.
     - 기사 발행일 힌트: "${publishedAt || '날짜 정보 없음'}" 를 참고하세요.
@@ -314,8 +312,7 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
     설명이나 마크다운 코드 블록(예: \`\`\`json)은 절대 포함하지 마.
     
     {
-      "title": "${isEnglish ? "기사 제목의 한국어 번역" : "원본 기사 제목 (매체명이나 사이트 이름만 제거하고 원문 유지)"}",
-      "category": "AI, Robot, Security, Data, Display, IT, 기타 중 하나를 가장 적절한 것으로 선택",
+      ${isEnglish ? '"title": "기사 제목의 한국어 번역",\n      ' : ''}"category": "AI, Robot, Security, Data, Display, IT, 기타 중 하나를 가장 적절한 것으로 선택",
       "summary": [
         "첫 번째 구체적이고 상세한 핵심 요약 문장 (~입니다 체)",
         "두 번째 구체적이고 상세한 핵심 요약 문장 (~입니다 체)",
@@ -332,8 +329,7 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
     ${bodyText}
     
     주의사항:
-    - title: 원본 제목이 한국어("${title}")인 경우, **절대 자의적으로 수정하지 말고 원문을 토씨 하나 틀리지 않게 그대로 유지**하세요. 단, 제목 뒤에 붙는 매체명(예: - 뉴스엔, | IT타임즈 등)만 깔끔하게 제거하세요.
-    - 요약(summary)은 반드시 숫자를 붙이지 말고 **4개**의 문장을 포함하는 JSON 배열([]) 형식으로 작성하세요. 
+    ${isEnglish ? '- title: 원본 영어 제목을 반드시 한국어로 번역하세요.\n    ' : ''}- 요약(summary)은 반드시 숫자를 붙이지 말고 **4개**의 문장을 포함하는 JSON 배열([]) 형식으로 작성하세요. 
     - 요약 문장에는 기사 본문의 구체적인 수치, 고유명사, 성과 및 기대효과 등을 풍부하게 포함하여 정보량이 많고 구체적인 내용으로 작성하세요. 단순한 수박 겉핥기식 요약은 피하세요.
     - 각 문장의 끝은 반드시 ~함, ~임 대신에 **"~입니다", "~했습니다"**와 같은 **자연스러운 평어체**로 종결하세요.
     - 기사 발행일 힌트: "${publishedAt || '날짜 정보 없음'}" 이므로, 이를 우선적으로 참고하세요.
@@ -447,8 +443,7 @@ async function summarizeWithClaude(bodyText, title, publishedAt) {
   카테고리: <AI, Robot, Security, Data, Display, IT, 기타 중 하나 선택>
   
   주의사항:
-  - title: 원본 제목("${title}")이 한국어인 경우 **절대 임의로 내용을 수정하거나 다듬지 말고 원문을 그대로 유지**하세요. 오직 제목 끝의 매체명/사이트명만 제거하세요. 영어인 경우에만 한국어로 번역하세요.
-  - 반드시 각 문장 뒤에 줄바꿈(\n)을 넣어 **4개**의 별도 문장으로 구성하세요.
+  - 반드시 각 문장 뒤에 줄바꿈(\\n)을 넣어 **4개**의 별도 문장으로 구성하세요.
   - 각 문장의 끝은 반드시 **"~입니다", "~했습니다"**와 같은 **자연스러운 평어체**로 종결하세요.
   - 요약 문장에는 기사의 구체적인 수치, 고유명사, 연구결과 및 의미 등을 풍부하게 포함하여 상세하게 작성하세요. 단순하고 뻔한 요약은 피해야 합니다.
   - 1., 2. 같은 숫자나 불렛 기호(-, *)를 절대 붙이지 마세요.
