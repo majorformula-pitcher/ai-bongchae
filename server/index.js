@@ -296,6 +296,9 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
       "published_at": "${publishedAt || new Date().toISOString().split('T')[0]}"
     }
     
+    원본 기사 제목: ${title}
+    기사 발행일 힌트: ${publishedAt || '날짜 정보 없음'}
+
     뉴스 본문:
     ${bodyText}
     
