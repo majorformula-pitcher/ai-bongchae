@@ -821,24 +821,28 @@ app.post('/api/extract', async (req, res) => {
       .slice(0, 8000);
 
     let extractedData = { title, category: "기타", summary: "", published_at: publishedAt || new Date().toISOString().split('T')[0] };
-    // [AI 요약 연동] 엔진별 시도 (Ollama -> Gemini -> Claude 순서)
+    // [AI 요약 연동] 환경별 분기 (로컬: Qwen 단독, AWS: Gemini -> Claude)
     let geminiErrorMsg = "";
     let ollamaErrorMsg = "";
     let claudeErrorMsg = "";
     let engine = "";
 
-    // [Step 1] Ollama (Local AI) 시도 - 로컬 환경 최우선
-    try {
-      console.log('[AI] Attempting Local Ollama (Qwen 2.5)...');
-      const liteBodyText = bodyText.slice(0, 4000);
-      const ollamaResult = await summarizeWithOllama(liteBodyText, title, publishedAt);
-      extractedData = { ...extractedData, ...ollamaResult };
-      engine = ollamaResult.engine;
-    } catch (ollamaErr) {
-      console.warn('[AI] Local AI failed, switching to Gemini fallback:', ollamaErr.message);
-      ollamaErrorMsg = ollamaErr.message;
-
-      // [Step 2] Gemini 시도
+    if (USE_LOCAL_DB) {
+      // 로컬 환경: Ollama (Qwen)만 사용
+      try {
+        console.log('[AI] Attempting Local Ollama (Qwen)...');
+        const liteBodyText = bodyText.slice(0, 4000);
+        const ollamaResult = await summarizeWithOllama(liteBodyText, title, publishedAt);
+        extractedData = { ...extractedData, ...ollamaResult };
+        engine = ollamaResult.engine;
+      } catch (ollamaErr) {
+        console.error('[AI] Local AI failed:', ollamaErr.message);
+        ollamaErrorMsg = ollamaErr.message;
+        extractedData.summary = `⚠️ 로컬 AI(Qwen) 요약 중 오류가 발생했습니다.\n상세: ${ollamaErrorMsg}`;
+        engine = "Error";
+      }
+    } else {
+      // AWS 환경: Gemini -> Claude
       try {
         console.log('[AI] Attempting Gemini for Text Summary...');
         const geminiResult = await summarizeWithGemini(bodyText, title, publishedAt);
@@ -848,7 +852,6 @@ app.post('/api/extract', async (req, res) => {
         console.warn('Gemini Failed, switching to Claude fallback:', geminiError.message);
         geminiErrorMsg = geminiError.message;
         
-        // [Step 3] Claude 시도
         try {
           console.log('[AI] Attempting Claude for Text Summary...');
           const claudeResult = await summarizeWithClaude(bodyText, title, publishedAt);
@@ -857,17 +860,15 @@ app.post('/api/extract', async (req, res) => {
         } catch (claudeError) {
           console.error('All AI engines failed:', claudeError.message);
           claudeErrorMsg = claudeError.message;
-          extractedData.summary = `⚠️ AI 요약 시스템 긴급 점검 중\n- Local: ${ollamaErrorMsg}\n- Gemini: ${geminiErrorMsg}\n- Claude: ${claudeErrorMsg}`;
+          extractedData.summary = `⚠️ AI 요약 시스템 긴급 점검 중\n- Gemini: ${geminiErrorMsg}\n- Claude: ${claudeErrorMsg}`;
           engine = "Error";
         }
       }
     }
 
-    // [Step 3] 최종 요약문에 진단 정보 추가 (이전 엔진 실패 시)
-    if (engine === "Claude" || (engine === "Gemini" && ollamaErrorMsg)) {
-      const diagLocal = ollamaErrorMsg ? `Local(${ollamaErrorMsg.slice(0, 30)})` : "Local(OK)";
-      const diagGemini = engine === "Claude" ? `Gemini(${geminiErrorMsg ? geminiErrorMsg.slice(0, 30) : "Skipped"})` : "Gemini(OK)";
-      extractedData.summary += `\n\n- [Diagnosis: ${diagLocal} / ${diagGemini}]`;
+    // 진단 정보 추가 (AWS 환경에서 Claude로 폴백된 경우)
+    if (!USE_LOCAL_DB && engine === "Claude" && geminiErrorMsg) {
+      extractedData.summary += `\n\n- [Diagnosis: Gemini(${geminiErrorMsg.slice(0, 30)})]`;
     }
 
     res.json({ 
@@ -901,19 +902,23 @@ app.post('/api/summarize-text', express.json({ limit: '10mb' }), async (req, res
     const targetTitle = title || '직접 입력한 뉴스';
     
     try {
-      console.log('[API] Attempting Local Ollama for Text Summary...');
-      result = await summarizeWithOllama(text, targetTitle);
-      engine = result.engine;
-    } catch (ollamaErr) {
-      console.warn('[API] Local AI failed, trying Gemini:', ollamaErr.message);
-      try {
-        result = await summarizeWithGemini(text, targetTitle);
-        engine = "Gemini";
-      } catch (geminiError) {
-        console.warn('[API] Gemini failed, trying Claude:', geminiError.message);
-        result = await summarizeWithClaude(text, targetTitle);
-        engine = "Claude";
+      if (USE_LOCAL_DB) {
+        console.log('[API] Attempting Local Ollama for Text Summary...');
+        result = await summarizeWithOllama(text, targetTitle);
+        engine = result.engine;
+      } else {
+        try {
+          console.log('[API] Attempting Gemini for Text Summary...');
+          result = await summarizeWithGemini(text, targetTitle);
+          engine = "Gemini";
+        } catch (geminiError) {
+          console.warn('[API] Gemini failed, trying Claude:', geminiError.message);
+          result = await summarizeWithClaude(text, targetTitle);
+          engine = "Claude";
+        }
       }
+    } catch (err) {
+      throw new Error(`AI 요약 중 오류가 발생했습니다: ${err.message}`);
     }
     
     res.json({ success: true, ...result, engine });
