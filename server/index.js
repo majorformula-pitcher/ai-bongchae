@@ -199,7 +199,6 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
       system: systemPrompt,
       prompt: userPrompt,
       stream: false,
-      format: "json", // Ollama에서 JSON 출력을 강제함
       options: {
         temperature: 0.1,
         num_predict: 1500 // 불필요한 수다 방지를 위해 출력 길이 제한 (충분히 늘림)
