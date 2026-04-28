@@ -1161,19 +1161,21 @@ body::before {
 }
 
 /* [SLIDE] Exact replica of SR Tech News Daily PPTX 
-   Original: 5.51in x 2.36in = 529x227px @96dpi
-   Scaled up 1.7x for email readability: 900x386px */
+   Original: 13.6cm x 4.08cm = 5.35in x 1.61in
+   Scaled up for email readability: 900x270px */
 .slide-capture-area {
   position: fixed !important;
   left: -9999px !important;
   top: 0 !important;
   width: 900px !important;
-  height: 386px !important;
-  background-color: #ffffff !important;
+  height: 270px !important;
+  background-color: #F2F2F2 !important;
   padding: 0 !important;
   box-sizing: border-box !important;
   font-family: 'SamsungOneKorean', 'Malgun Gothic', sans-serif !important;
-  display: block !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-start !important;
   overflow: hidden !important;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -1181,18 +1183,7 @@ body::before {
 
 /* SRA tag - top right corner */
 .sra-tag {
-  position: absolute !important;
-  top: 12px !important;
-  right: 14px !important;
-  border: 2px solid #022CB2 !important;
-  color: #022CB2 !important;
-  background: #ffffff !important;
-  padding: 2px 14px !important;
-  font-weight: 700 !important;
-  font-size: 14px !important;
-  font-family: 'SamsungSharpSans', sans-serif !important;
-  letter-spacing: 1px !important;
-  z-index: 10 !important;
+  display: none !important;
 }
 
 /* Title row - blue underlined */
@@ -1201,14 +1192,15 @@ body::before {
   font-family: 'SamsungOneKorean', sans-serif !important;
   font-size: 28px !important;
   font-weight: 700 !important;
-  margin: 30px 30px 0 30px !important;
-  padding-bottom: 14px !important;
+  margin: 18px 24px 0 24px !important;
+  padding-bottom: 6px !important;
   text-decoration: underline !important;
-  text-underline-offset: 8px !important;
-  line-height: 1.25 !important;
-  width: 75% !important;
+  text-underline-offset: 6px !important;
+  line-height: 1.2 !important;
+  width: calc(100% - 48px) !important;
   word-break: keep-all !important;
   text-align: left !important;
+  flex-shrink: 0 !important;
 }
 
 /* Body: 2-column layout (text left, image right) */
@@ -1216,15 +1208,16 @@ body::before {
   display: flex !important;
   flex-direction: row !important;
   align-items: flex-start !important;
-  margin: 20px 30px 0 30px !important;
-  gap: 20px !important;
-  width: calc(100% - 60px) !important;
+  margin: 14px 24px 0 24px !important;
+  gap: 16px !important;
+  width: calc(100% - 48px) !important;
+  height: 186px !important;
 }
 
 /* Bullet list */
 .slide-capture-bullets {
   flex: 1 !important;
-  padding-left: 24px !important;
+  padding-left: 20px !important;
   margin: 0 !important;
   list-style-type: disc !important;
 }
@@ -1232,9 +1225,9 @@ body::before {
 .slide-capture-bullet-item {
   color: #000000 !important;
   font-family: 'SamsungOneKorean', sans-serif !important;
-  font-size: 18px !important;
+  font-size: 22px !important;
   font-weight: 600 !important;
-  line-height: 1.55 !important;
+  line-height: 1.5 !important;
   margin-bottom: 12px !important;
   word-break: keep-all !important;
   text-align: left !important;
@@ -1242,35 +1235,9 @@ body::before {
 
 /* Image - right column, matching PPTX ratio */
 .slide-capture-image {
-  width: 180px !important;
-  height: 170px !important;
+  width: 200px !important;
+  height: 186px !important;
   object-fit: cover !important;
   border-radius: 8px !important;
   flex-shrink: 0 !important;
-}
-
-/* Footer with URL */
-.slide-footer {
-  position: absolute !important;
-  bottom: 10px !important;
-  left: 30px !important;
-  right: 30px !important;
-  display: flex !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-}
-
-.slide-footer-url {
-  color: #888888 !important;
-  font-size: 10px !important;
-  font-family: Arial, sans-serif !important;
-  max-width: 70% !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-}
-
-.slide-footer-date {
-  color: #888888 !important;
-  font-size: 10px !important;
 }
