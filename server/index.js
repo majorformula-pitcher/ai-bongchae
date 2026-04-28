@@ -353,6 +353,7 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
     generationConfig: {
       temperature: 0.1,
       maxOutputTokens: 2048,
+      responseMimeType: "application/json"
     }
   };
 
