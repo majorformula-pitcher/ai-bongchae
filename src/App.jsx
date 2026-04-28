@@ -437,48 +437,79 @@ function App() {
         for (const news of filteredNews) {
           const slide = pres.addSlide();
           
-          // 콘텐츠 영역 회색 배경 (슬라이드 배경은 흰색, 콘텐츠 영역만 회색)
-          slide.addShape(pres.ShapeType.rect, {
-            x: 0.08, y: 0.38, w: 5.35, h: 1.61,
-            fill: { color: 'F2F2F2' }
-          });
-
-          // 제목 - SamsungOneKorean 700, 14pt, #022CB2, 밑줄 (x=회색 영역 시작점과 일치 ≈ 0.08in)
-          slide.addText(news.title, { 
-            x: 0.08, y: 0.38, w: 4.12, h: 0.40,
-            fontSize: 14, bold: false, color: '022CB2',
-            underline: { style: 'sng' },
-            fontFace: 'SamsungOneKorean 700',
-            valign: 'middle'
-          });
-
-          // 본문 불렛 - SamsungOneKoreanOTF 600, 13pt
+          // 요약 본문 2줄 제한
           const summaryLines = (news.summary || '')
             .split('\n')
             .filter(line => line.trim() !== '')
-            .map(line => ({ 
-              text: line.replace(/^[•\-\*]\s*/, ''), 
-              options: { 
-                bullet: { indent: 18 }, 
-                fontSize: 13, 
-                color: '000000', 
-                lineSpacing: 26,
-                fontFace: 'SamsungOneKoreanOTF 600'
-              } 
-            }));
+            .slice(0, 2)
+            .map(line => line.replace(/^[•\-\*]\s*/, ''));
 
-          slide.addText(summaryLines, { 
-            x: 0.08, y: 0.85, w: 4.0, h: 1.1, 
-            valign: 'top'
+          // 3x2 Table 데이터 구성
+          // 1행: 열 병합 (colspan: 2), 뉴스 제목
+          // 2행: 1열 요약 1줄, 2열 빈칸 (이미지가 올라갈 공간, rowspan: 2)
+          // 3행: 1열 요약 2줄
+          const tableRows = [
+            [
+              { 
+                text: news.title, 
+                options: { 
+                  colspan: 2, 
+                  fontSize: 14, 
+                  color: '022CB2', 
+                  fontFace: 'SamsungOneKorean 700', 
+                  underline: { style: 'sng' }, 
+                  valign: 'middle',
+                  margin: [0.05, 0.1, 0, 0.1]
+                } 
+              }
+            ],
+            [
+              { 
+                text: summaryLines[0] ? `• ${summaryLines[0]}` : '', 
+                options: { 
+                  fontSize: 13, 
+                  color: '000000', 
+                  fontFace: 'SamsungOneKoreanOTF 600', 
+                  valign: 'top',
+                  margin: [0, 0.1, 0, 0.2]
+                } 
+              },
+              { 
+                text: '', 
+                options: { rowspan: 2 } 
+              }
+            ],
+            [
+              { 
+                text: summaryLines[1] ? `• ${summaryLines[1]}` : '', 
+                options: { 
+                  fontSize: 13, 
+                  color: '000000', 
+                  fontFace: 'SamsungOneKoreanOTF 600', 
+                  valign: 'top',
+                  margin: [0, 0.1, 0, 0.2]
+                } 
+              }
+            ]
+          ];
+
+          // 표(Table) 추가: 너비 13.6cm (5.35in), 높이 4.08cm (1.61in)
+          slide.addTable(tableRows, {
+            x: 0.08, y: 0.38,
+            w: 5.35, h: 1.61,
+            colW: [4.15, 1.20],
+            rowH: [0.5, 0.55, 0.56],
+            fill: { color: 'F2F2F2' },
+            border: { type: 'none' }
           });
 
-          // 이미지 - 직사각형 (원본과 동일)
+          // 이미지 - 병합된 2열 위치에 정확히 덧씌우기
           if (news.image) {
             try {
               const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(news.image)}`;
               slide.addImage({ 
                 path: proxyUrl, 
-                x: 4.25, y: 0.87, w: 1.07, h: 1.02,
+                x: 4.25, y: 0.90, w: 1.07, h: 1.02,
                 sizing: { type: 'cover', w: 1.07, h: 1.02 }
               });
             } catch (imgErr) {
@@ -1089,12 +1120,15 @@ function App() {
         {/* 캡처용 가상 슬라이드 템플릿 (숨겨짐) */}
         {captureItem && (
           <div id="email-capture-template" className="slide-capture-area">
-            <div className="sra-tag">SRA</div>
             <h1 className="slide-capture-title">{captureItem.title}</h1>
             <div className="slide-content-container">
               <ul className="slide-capture-bullets">
-                {(captureItem.summary || '').split('\n').filter(l => l.trim()).map((line, idx) => (
-                  <li key={idx} className="slide-capture-bullet-item">{line}</li>
+                {(captureItem.summary || '')
+                  .split('\n')
+                  .filter(l => l.trim())
+                  .slice(0, 2)
+                  .map((line, idx) => (
+                    <li key={idx} className="slide-capture-bullet-item">{line.replace(/^[•\-\*]\s*/, '')}</li>
                 ))}
               </ul>
               {captureItem.image && (
@@ -1104,10 +1138,6 @@ function App() {
                   crossOrigin="anonymous" 
                 />
               )}
-            </div>
-            <div className="slide-footer">
-              <span className="slide-footer-url">{captureItem.url}</span>
-              <span className="slide-footer-date">{new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: '2-digit', day: '2-digit' }).replace(/\//g, '. ')}. News Report</span>
             </div>
           </div>
         )}
