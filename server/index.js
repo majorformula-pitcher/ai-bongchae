@@ -901,7 +901,7 @@ app.post('/api/extract', async (req, res) => {
 
     // 진단 정보 추가 (AWS 환경에서 Claude로 폴백된 경우)
     if (!USE_LOCAL_DB && engine === "Claude" && geminiErrorMsg) {
-      extractedData.summary += `\n\n- [Diagnosis: Gemini(${geminiErrorMsg.slice(0, 30)})]`;
+      extractedData.summary += `\n\n- [Diagnosis: Gemini(${geminiErrorMsg.slice(0, 150)})]`;
     }
 
     res.json({ 
