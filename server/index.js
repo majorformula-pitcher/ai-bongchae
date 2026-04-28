@@ -330,9 +330,10 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
     
     주의사항:
     ${isEnglish ? '- title: 원본 영어 제목을 반드시 한국어로 번역하세요.\n    ' : ''}- 요약(summary)은 반드시 숫자를 붙이지 말고 **4개**의 문장을 포함하는 JSON 배열([]) 형식으로 작성하세요. 
-    - 요약 문장에는 기사 본문의 구체적인 수치, 고유명사, 성과 및 기대효과 등을 풍부하게 포함하여 정보량이 많고 구체적인 내용으로 작성하세요. 단순한 수박 겉핥기식 요약은 피하세요.
+    - 요약 문장에는 기사 본문의 구체적인 수치, 고유명사, 성과 및 기대효과 등을 풍부하게 포함하여 정보량이 많고 구체적인 내용으로 작성하세요.
+    - 본문이 너무 짧거나 정보가 부족하더라도 절대 거절(예: "요약할 수 없습니다")하지 마세요. 대신 본문의 핵심 문장을 활용하여 어떻게든 4줄의 구체적인 문장(JSON 배열)을 만들어내야 합니다.
+    - 어떤 상황에서도 서론이나 설명 등 평문을 덧붙이지 말고, 오직 중괄호 '{' 로 시작하는 순수 JSON 형식으로만 응답하세요.
     - 각 문장의 끝은 반드시 ~함, ~임 대신에 **"~입니다", "~했습니다"**와 같은 **자연스러운 평어체**로 종결하세요.
-    - 기사 발행일 힌트: "${publishedAt || '날짜 정보 없음'}" 이므로, 이를 우선적으로 참고하세요.
   `;
 
   const API_KEY = process.env.GEMINI_API_KEY;
@@ -352,8 +353,7 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
     ],
     generationConfig: {
       temperature: 0.1,
-      maxOutputTokens: 2048,
-      responseMimeType: "application/json"
+      maxOutputTokens: 2048
     }
   };
 
