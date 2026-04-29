@@ -12,6 +12,7 @@ import iconv from 'iconv-lite';
 import jschardet from 'jschardet';
 
 
+import sharp from 'sharp';
 import { createClient } from '@supabase/supabase-js';
 import Parser from 'rss-parser';
 import Database from 'better-sqlite3';
@@ -59,6 +60,31 @@ if (USE_LOCAL_DB) {
       likes INTEGER DEFAULT 0
     )
   `).run();
+
+  localDb.prepare(`
+    CREATE TABLE IF NOT EXISTS "ai_news_publish" (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      url TEXT UNIQUE,
+      title_ko TEXT,
+      summary_ko TEXT,
+      title_eng TEXT,
+      summary_eng TEXT,
+      engine TEXT
+    )
+  `).run();
+
+  try {
+    localDb.prepare(`ALTER TABLE "ai_news_publish" ADD COLUMN engine TEXT`).run();
+  } catch (alterErr) {
+    // 이미 컬럼이 존재할 경우 에러가 나므로 무시합니다.
+  }
+
+  try {
+    localDb.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS "idx_ai_news_publish_url" ON "ai_news_publish" (url)`).run();
+  } catch (idxErr) {
+    console.warn('[DB] Unique index on ai_news_publish failed (duplicates may exist):', idxErr.message);
+  }
 }
 
 let supabase = null;
@@ -532,7 +558,7 @@ app.get('/api/proxy-image', async (req, res) => {
 
     const referer = imageUrl.includes('nate.com') ? 'https://news.nate.com/' : 'https://www.google.com/';
     const response = await axios.get(imageUrl, {
-      responseType: 'stream',
+      responseType: 'arraybuffer',
       timeout: 10000,
       headers: {
         'Referer': referer,
@@ -540,9 +566,28 @@ app.get('/api/proxy-image', async (req, res) => {
       }
     });
 
-    res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
+    let imageBuffer = Buffer.from(response.data);
+
+    if (req.query.round === 'true') {
+      imageBuffer = await sharp(imageBuffer)
+        .resize(400, 400, { fit: 'cover' })
+        .composite([
+          {
+            input: Buffer.from(
+              `<svg><rect x="0" y="0" width="400" height="400" rx="30" ry="30" fill="#fff" /></svg>`
+            ),
+            blend: 'dest-in'
+          }
+        ])
+        .png()
+        .toBuffer();
+      res.setHeader('Content-Type', 'image/png');
+    } else {
+      res.setHeader('Content-Type', response.headers['content-type'] || 'image/jpeg');
+    }
+
     res.setHeader('Cache-Control', 'public, max-age=86400'); // 1일 캐싱
-    response.data.pipe(res);
+    res.send(imageBuffer);
   } catch (error) {
     console.error(`[Proxy] Image fetch failed for URL [${imageUrl}]:`, error.message);
     res.status(500).send('Failed to proxy image');
@@ -957,6 +1002,303 @@ app.post('/api/summarize-text', express.json({ limit: '10mb' }), async (req, res
     res.json({ success: true, ...result, engine });
   } catch (error) {
     console.error('[API] Text summarization error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// PPT 발행용 요약 헬퍼 함수
+async function summarizeForPublish(title, summary) {
+  const isKorean = /[가-힣]/.test(title);
+  if (!isKorean) {
+    // 한글이 아니면 기본 25자 자르기 및 2줄 슬라이싱 처리
+    return {
+      title_ko: title.length > 25 ? title.substring(0, 25) : title,
+      summary_eng: summary.split('\n').slice(0, 2).join('\n')
+    };
+  }
+
+  const prompt = `
+  당신은 뉴스 요약 전문가입니다.
+  주어진 한국어 뉴스 카드 정보를 바탕으로 PPT 슬라이드에 들어갈 핵심 요약본을 작성해야 합니다.
+  
+  [핵심 제약 조건 - 절대 엄수]
+  1. 글자 수 제한:
+     - "title_ko": 공백 포함 **25자 이상 30자 이내**로 요약된 풍성하고 직관적인 제목.
+     - "summary_ko": 공백 포함 **각각 50자 이상 60자 이내**의 완성된 문장 2개를 담은 배열. (절대 60자를 넘지 말 것)
+  2. 말투 및 형식:
+     - 모든 요약 문장은 **명사 및 명사형(ex: 출시, 제공, 활용, 성공 등)** 혹은 **'~했음', '~있음', '~기록함' 같은 음/기 종결 형태**로 끝마치세요.
+     - "~입니다", "~했습니다" 같은 구어체 종결어미는 **절대 사용하지 마세요.**
+  3. 출력 형식:
+     - 오직 아래 구조의 순수 JSON 데이터만 출력하세요. 다른 텍스트나 \`\`\`json 마크다운은 절대 금지합니다.
+
+  [작성 예시 - 반드시 이 정도 분량과 형태로 풍성하게 작성할 것]
+  {
+    "title_ko": "지멘스와 영국 휴머노이드사의 에를랑엔 공장 로봇 테스트 완료",
+    "summary_ko": [
+      "독일 지멘스가 영국 휴머노이드사와 협력하여 공장 내 물류 효율화를 위한 바퀴형 로봇 주행 테스트 성공",
+      "인공지능 인프라와 첨단 시뮬레이션 도구를 적극 활용하여 실제 공장 환경에서의 자율 주행 성능 최적화"
+    ]
+  }
+
+  [분량 늘리기 팁 - 절대 엄수]
+  - 문장이 너무 짧으면 절대 안 됩니다. 뉴스에 나오는 **'이유', '배경', '목적', '향후 계획'** 등 세부적인 내용을 살로 붙이세요.
+  - 수식어구(ex: ~을 도모하기 위해, ~의 기술력을 바탕으로, ~의 성과를 이끌어내며 등)를 적극적으로 활용하여 무조건 한 줄당 공백 포함 **50자~60자 사이의 긴 문맥**을 형성하세요.
+
+  [제약 조건 엄수 요청]
+  - "title_ko": 공백 포함 **반드시 25자 이상 30자 이내** (25자 미만 금지)
+  - "summary_ko": 공백 포함 **각 문장당 반드시 50자 이상 60자 이내** (50자 미만 금지)
+
+  원본 제목: ${title}
+  원본 요약:
+  ${summary}
+  `;
+
+  // 1. Ollama 사용 (localhost 모드일 경우 강제)
+  if (USE_LOCAL_DB) {
+    try {
+      const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
+      const MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:3b';
+      
+      const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
+        model: MODEL,
+        prompt: prompt,
+        stream: false,
+        options: { temperature: 0.1 }
+      }, { timeout: 30000 });
+
+      let rawResponse = response.data.response;
+      console.log('[AI] Ollama raw response:', rawResponse);
+      let startIdx = rawResponse.indexOf('{');
+      let endIdx = rawResponse.lastIndexOf('}');
+      if (startIdx !== -1 && endIdx !== -1) {
+        let jsonStr = rawResponse.substring(startIdx, endIdx + 1);
+        let data = JSON.parse(jsonStr);
+        
+        let finalTitle = data.title_ko || data.title || title;
+        let finalSummary = data.summary_ko || data.summary_eng || data.summary;
+
+        // [제목 25~30자 맞춤용 패딩 로직]
+        if (finalTitle.length < 25) {
+          const paddings = [
+            '에 따른 향후 발전 방향과 전망',
+            '에 대한 세부 성과와 기대 효과',
+            '에 따른 물류 혁신 및 발전 기대',
+            '에 관한 심층적인 분석과 전망',
+            '에 대한 적극적인 추진 계획',
+            '에 따른 성과 분석과 전망',
+            '을 통한 비즈니스 가치 창출',
+            '에 따른 혁신적인 성과 기대'
+          ];
+          for (const pad of paddings) {
+            let candidate = finalTitle + pad;
+            if (candidate.length >= 25 && candidate.length <= 30) {
+              finalTitle = candidate;
+              break;
+            }
+          }
+          // 만약 조합으로도 25~30자가 안 만들어지면, 그냥 원본 제목을 30자로 자르거나 억지 패딩을 자름
+          if (finalTitle.length < 25) {
+            finalTitle = (finalTitle + '에 대한 세부 성과와 향후 전망 기대').substring(0, 30);
+          }
+        } else if (finalTitle.length > 30) {
+          finalTitle = finalTitle.substring(0, 30);
+        }
+
+        let processedSummary = '';
+        if (Array.isArray(finalSummary)) {
+          processedSummary = finalSummary
+            .slice(0, 2)
+            .join('\n');
+        } else {
+          processedSummary = (finalSummary || summary)
+            .split('\n')
+            .slice(0, 2)
+            .join('\n');
+        }
+
+        return {
+          title_ko: finalTitle,
+          summary_eng: processedSummary,
+          engine: "Ollama"
+        };
+      }
+    } catch (ollamaErr) {
+      console.warn('[AI] Local Ollama failed for publish:', ollamaErr.message);
+      console.error(ollamaErr);
+    }
+
+    // 최악의 경우 Fallback (단순 슬라이싱)
+    return {
+      title_ko: title.length > 30 ? title.substring(0, 30) : title,
+      summary_eng: summary.split('\n').slice(0, 2).map(line => line.length > 60 ? line.substring(0, 60) : line).join('\n'),
+      engine: "Fallback"
+    };
+  }
+
+  // 2. Gemini API 사용 (Fallback 또는 클라우드 배포 모드)
+  try {
+    const API_KEY = process.env.GEMINI_API_KEY;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+    const payload = {
+      contents: [{ parts: [{ text: prompt }] }],
+      generationConfig: { 
+        temperature: 0.1, 
+        maxOutputTokens: 1024,
+        response_mime_type: "application/json"
+      }
+    };
+
+    const response = await axios.post(url, payload, { headers: { 'Content-Type': 'application/json' }, timeout: 15000 });
+    
+    if (response.data.candidates && response.data.candidates.length > 0) {
+      const responseText = response.data.candidates[0].content.parts[0].text.trim();
+      let startIdx = responseText.indexOf('{');
+      let endIdx = responseText.lastIndexOf('}');
+      if (startIdx !== -1 && endIdx !== -1) {
+        let jsonStr = responseText.substring(startIdx, endIdx + 1);
+        let data = JSON.parse(jsonStr);
+        return {
+          title_ko: data.title_ko || (title.length > 25 ? title.substring(0, 25) : title),
+          summary_eng: Array.isArray(data.summary_ko) ? data.summary_ko.join('\n') : (data.summary_eng || summary.split('\n').slice(0, 2).join('\n')),
+          engine: "Gemini"
+        };
+      }
+    }
+  } catch (geminiErr) {
+    console.warn('[AI] Gemini failed for publish, trying Claude fallback:', geminiErr.message);
+  }
+
+  // 3. Gemini 실패 시 Claude API 시도
+  try {
+    const msg = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 1024,
+      system: "당신은 뉴스 요약 전문가입니다. JSON 출력만 허용합니다.",
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    let responseText = msg.content[0].text.trim();
+    let startIdx = responseText.indexOf('{');
+    let endIdx = responseText.lastIndexOf('}');
+    if (startIdx !== -1 && endIdx !== -1) {
+      let jsonStr = responseText.substring(startIdx, endIdx + 1);
+      let data = JSON.parse(jsonStr);
+      return {
+        title_ko: data.title_ko || (title.length > 25 ? title.substring(0, 25) : title),
+        summary_eng: Array.isArray(data.summary_ko) ? data.summary_ko.join('\n') : (data.summary_eng || summary.split('\n').slice(0, 2).join('\n')),
+        engine: "Claude"
+      };
+    }
+  } catch (claudeErr) {
+    console.error('[AI] Claude failed for publish:', claudeErr.message);
+  }
+
+  // 최악의 경우 Fallback (단순 슬라이싱)
+  return {
+    title_ko: title.length > 30 ? title.substring(0, 30) : title,
+    summary_eng: summary.split('\n').slice(0, 2).map(line => line.length > 60 ? line.substring(0, 60) : line).join('\n'),
+    engine: "Fallback"
+  };
+}
+
+// [신규 API] 뉴스 카드 PPT용 요약 및 DB 발행
+app.post('/api/publish-news', async (req, res) => {
+  const { newsList } = req.body;
+  if (!newsList || !Array.isArray(newsList)) {
+    return res.status(400).json({ success: false, error: '뉴스 목록이 필요합니다.' });
+  }
+
+  try {
+    const publishedData = [];
+
+    for (const item of newsList) {
+      let targetTitle = item.title;
+      let targetSummary = item.summary;
+
+      // 0. DB 조회 (ai-bongchae-dev의 news 테이블)
+      if (USE_LOCAL_DB) {
+        try {
+          const row = localDb.prepare(`SELECT title, summary FROM "${TABLE_NAME}" WHERE url = ?`).get(normalizeUrl(item.url));
+          if (row) {
+            targetTitle = row.title;
+            targetSummary = row.summary;
+          }
+        } catch (dbErr) {
+          console.warn('[API] news DB lookup failed:', dbErr.message);
+        }
+      }
+
+      // 0.5 ai_news_publish 테이블에 이미 해당 URL 요약본이 있는지 확인
+      let existingPublish = null;
+      if (USE_LOCAL_DB) {
+        try {
+          existingPublish = localDb.prepare(`SELECT title_ko, summary_ko FROM "ai_news_publish" WHERE url = ?`).get(normalizeUrl(item.url));
+        } catch (dbErr) {
+          console.warn('[API] ai_news_publish lookup failed:', dbErr.message);
+        }
+      } else {
+        try {
+          const { data, error } = await supabase
+            .from('ai_news_publish')
+            .select('title_ko, summary_ko')
+            .eq('url', normalizeUrl(item.url))
+            .maybeSingle();
+          if (!error && data) {
+            existingPublish = data;
+          }
+        } catch (supaErr) {
+          console.warn('[API] Supabase ai_news_publish lookup failed:', supaErr.message);
+        }
+      }
+
+      let finalTitleKo = '';
+      let finalSummaryKo = '';
+
+      if (existingPublish && existingPublish.title_ko && existingPublish.summary_ko) {
+        // 이미 요약본이 존재하면 AI 요약을 건너뜀
+        finalTitleKo = existingPublish.title_ko;
+        finalSummaryKo = existingPublish.summary_ko;
+      } else {
+        // 없으면 AI 요약 수행
+        const summaryResult = await summarizeForPublish(targetTitle, targetSummary);
+        finalTitleKo = summaryResult.title_ko;
+        finalSummaryKo = summaryResult.summary_eng;
+
+        const publishPayload = {
+          url: normalizeUrl(item.url),
+          title_ko: finalTitleKo,
+          summary_ko: finalSummaryKo,
+          summary_eng: null,
+          engine: summaryResult.engine || "Fallback"
+        };
+
+        // DB 저장
+        if (USE_LOCAL_DB) {
+          const stmt = localDb.prepare(`
+            INSERT INTO "ai_news_publish" (url, title_ko, summary_ko, summary_eng, engine)
+            VALUES (?, ?, ?, ?, ?)
+          `);
+          stmt.run(publishPayload.url, publishPayload.title_ko, publishPayload.summary_ko, publishPayload.summary_eng, publishPayload.engine);
+        } else {
+          const { error } = await supabase
+            .from('ai_news_publish')
+            .insert([publishPayload]);
+          if (error) {
+            console.error('[Supabase Publish Error]:', error.message);
+          }
+        }
+      }
+
+      publishedData.push({
+        ...item,
+        title_ko: finalTitleKo,
+        summary_ko: finalSummaryKo
+      });
+    }
+
+    res.json({ success: true, data: publishedData });
+  } catch (error) {
+    console.error('[API] Publish News Error:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });

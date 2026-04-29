@@ -99,6 +99,7 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [processingType, setProcessingType] = useState('news'); // 'news' or 'email'
+  const [isExportingPPT, setIsExportingPPT] = useState(false);
 
   const [manualMode, setManualMode] = useState(false);
   const [manualErrorMessage, setManualErrorMessage] = useState('');
@@ -373,9 +374,7 @@ function App() {
     e.stopPropagation();
     
     try {
-      // 회사 보안망 호환성을 위해 patch를 post로 변경
       const res = await axios.post(`/api/news/${id}/like`, { currentStatus });
-      
       if (res.data.success) {
         setNewsList(prevList => prevList.map(news => 
           news.id === id ? { ...news, likes: !currentStatus } : news
@@ -420,12 +419,34 @@ function App() {
     }
   };
 
-  const handleExportPPT = () => {
+  const handleExportPPT = async () => {
+    if (isExportingPPT) return;
+
     try {
-      if (filteredNews.length === 0) {
-        alert('추출할 뉴스가 없습니다.');
+      const likedNews = filteredNews.filter(n => n.likes).slice(0, 10);
+      
+      if (likedNews.length === 0) {
+        alert('PPT로 만들 좋아요 뉴스가 없습니다.');
         return;
       }
+
+      setIsExportingPPT(true);
+      setIsProcessing(false);
+      setLoadingProgress(0);
+
+      // 백엔드 발행 API 호출을 통해 30자 제목 & 60자 본문 2줄 요약 수행 및 DB 저장
+      const pubRes = await fetch('/api/publish-news', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newsList: likedNews })
+      });
+      const pubData = await pubRes.json();
+      
+      if (!pubData.success) {
+        throw new Error(pubData.error || '요약 발행 중 오류가 발생했습니다.');
+      }
+
+      const publishedNewsList = pubData.data;
 
       const pres = new pptxgen();
       
@@ -434,16 +455,17 @@ function App() {
       pres.layout = 'SR_NEWS';
 
       const generateSlides = async () => {
-        for (const news of filteredNews) {
+        for (const news of publishedNewsList) {
           const slide = pres.addSlide();
           
-          // 요약 본문 2줄 제한
-          const summaryLines = (news.summary || '')
+          // 요약 본문 2줄 제한 (한글 요약인 summary_ko 우선 사용)
+          const summaryLines = (news.summary_ko || news.summary_eng || news.summary || '')
             .split('\n')
             .filter(line => line.trim() !== '')
             .slice(0, 2)
             .map(line => line.replace(/^[•\-\*]\s*/, ''));
 
+          
           // 3x2 Table 데이터 구성
           // 1행: 열 병합 (colspan: 2), 뉴스 제목
           // 2행: 1열 요약 1줄, 2열 빈칸 (이미지가 올라갈 공간, rowspan: 2)
@@ -451,7 +473,7 @@ function App() {
           const tableRows = [
             [
               { 
-                text: news.title, 
+                text: news.title_ko || news.title, 
                 options: { 
                   colspan: 2, 
                   fontSize: 14, 
@@ -465,13 +487,22 @@ function App() {
             ],
             [
               { 
-                text: summaryLines[0] ? `• ${summaryLines[0]}` : '', 
+                text: [
+                  {
+                    text: summaryLines[0] || '',
+                    options: {
+                      bullet: { indent: 14 },
+                      fontSize: 13,
+                      color: '000000',
+                      fontFace: 'SamsungOneKoreanOTF 600',
+                      paraSpaceAfter: 6,
+                      lineSpacing: 16
+                    }
+                  }
+                ],
                 options: { 
-                  fontSize: 13, 
-                  color: '000000', 
-                  fontFace: 'SamsungOneKoreanOTF 600', 
                   valign: 'top',
-                  margin: [0, 0.1, 0, 0.2]
+                  margin: [0.05, 0.10, 0.05, 0.10]
                 } 
               },
               { 
@@ -481,24 +512,34 @@ function App() {
             ],
             [
               { 
-                text: summaryLines[1] ? `• ${summaryLines[1]}` : '', 
+                text: [
+                  {
+                    text: summaryLines[1] || '',
+                    options: {
+                      bullet: { indent: 14 },
+                      fontSize: 13,
+                      color: '000000',
+                      fontFace: 'SamsungOneKoreanOTF 600',
+                      paraSpaceAfter: 6,
+                      lineSpacing: 16
+                    }
+                  }
+                ],
                 options: { 
-                  fontSize: 13, 
-                  color: '000000', 
-                  fontFace: 'SamsungOneKoreanOTF 600', 
                   valign: 'top',
-                  margin: [0, 0.1, 0, 0.2]
+                  margin: [0.05, 0.10, 0.05, 0.10]
                 } 
               }
             ]
           ];
 
-          // 표(Table) 추가: 너비 13.6cm (5.35in), 높이 4.08cm (1.61in)
+          // 표(Table) 추가: 너비 13.6cm, 높이 4.08cm (인치 환산: cm / 2.54)
           slide.addTable(tableRows, {
             x: 0.08, y: 0.38,
-            w: 5.35, h: 1.61,
-            colW: [4.15, 1.20],
-            rowH: [0.5, 0.55, 0.56],
+            w: 13.6 / 2.54, 
+            h: 4.08 / 2.54,
+            colW: [10.54 / 2.54, 3.06 / 2.54],
+            rowH: [0.97 / 2.54, 1.555 / 2.54, 1.555 / 2.54],
             fill: { color: 'F2F2F2' },
             border: { type: 'none' }
           });
@@ -506,10 +547,10 @@ function App() {
           // 이미지 - 병합된 2열 위치에 정확히 덧씌우기
           if (news.image) {
             try {
-              const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(news.image)}`;
+              const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(news.image)}&round=true`;
               slide.addImage({ 
                 path: proxyUrl, 
-                x: 4.25, y: 0.90, w: 1.07, h: 1.02,
+                x: 4.25, y: 0.818, w: 1.07, h: 1.02,
                 sizing: { type: 'cover', w: 1.07, h: 1.02 }
               });
             } catch (imgErr) {
@@ -520,14 +561,22 @@ function App() {
           // URL은 슬라이드 노트에만 포함
           slide.addNotes(news.url || '');
         }
-        
-        await pres.writeFile({ fileName: `AI_Bongchae_PPT_${new Date().toLocaleDateString()}.pptx` });
       };
 
-      generateSlides();
+      await generateSlides();
+
+      // 1. 프로그레스 화면 먼저 완벽히 해제 (React 렌더링 스레드 확보)
+      setIsExportingPPT(false);
+
+      // 2. 브라우저가 화면을 새로 그릴 시간을 준 후 (0.5초), 다운로드 팝업 트리거
+      setTimeout(() => {
+        pres.writeFile({ fileName: `AI_Bongchae_PPT_${new Date().toLocaleDateString()}.pptx` });
+      }, 500);
+
     } catch (err) {
       console.error('PPT Export Error:', err);
-      alert('PPT 생성 중 오류가 발생했습니다.');
+      alert('PPT 생성 중 오류가 발생했습니다: ' + err.message);
+      setIsExportingPPT(false);
     }
   };
 
@@ -550,11 +599,23 @@ function App() {
       setProcessingType('email');
       setLoadingProgress(5);
       
+      // 0. ai_news_publish의 최신 요약 데이터(title_ko, summary_ko) 동기화
+      const pubRes = await fetch('/api/publish-news', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newsList: filteredNews })
+      });
+      const pubData = await pubRes.json();
+      if (!pubData.success) {
+        throw new Error(pubData.error || '발행 요약을 가져오지 못했습니다.');
+      }
+      const emailNewsList = pubData.data;
+
       const images = [];
 
       // 순차적으로 가상 슬라이드 캡처
-      for (let i = 0; i < filteredNews.length; i++) {
-        const news = filteredNews[i];
+      for (let i = 0; i < emailNewsList.length; i++) {
+        const news = emailNewsList[i];
         
         // 1. 캡처용 데이터 주입
         setCaptureItem(news);
@@ -593,7 +654,7 @@ function App() {
 
       // 4. 백엔드로 데이터 전송 (초고화질 대용량 처리를 위해 600초 타임아웃 설정)
       const response = await axios.post('/api/send-email', {
-        newsList: filteredNews,
+        newsList: emailNewsList,
         images: images
       }, {
         timeout: 600000 // 600초 대기
@@ -821,7 +882,7 @@ function App() {
               <span>{isProcessing ? '⚡ 처리 중' : '뉴스 추가'}</span>
             </button>
           </div>
-          {isProcessing && (
+          {isProcessing && !isExportingPPT && (
             <>
               <div className="loading-bar-container">
                 <div className="loading-bar" style={{width: `${loadingProgress || 30}%`}}></div>
@@ -1100,8 +1161,8 @@ function App() {
             </motion.div>
           </>
         )}
-        {/* 캡처 로딩 오버레이 */}
-        {isProcessing && loadingProgress > 0 && (
+        {/* PPT 생성 전용 로딩 오버레이 */}
+        {isExportingPPT && (
           <div style={{
             position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
             background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex',
@@ -1109,21 +1170,68 @@ function App() {
           }}>
             <RefreshCw className="animate-spin text-primary mb-4" size={48} />
             <div style={{color: 'white', fontSize: '1.2rem', fontWeight: 'bold'}}>
-              {processingType === 'email' ? 'PPT 슬라이드 캡처 및 발송 중...' : 'AI 분석 및 뉴스 카드 생성 중...'} ({loadingProgress}%)
+              PPT 만드는 중
+            </div>
+            <div style={{width: '300px', height: '8px', background: '#334155', borderRadius: '4px', marginTop: '20px', overflow: 'hidden'}}>
+              <div style={{width: `50%`, height: '100%', background: '#8b5cf6', transition: 'width 0.3s ease'}} />
+            </div>
+
+            {/* 비상 탈출용 수동 닫기 버튼 */}
+            <button 
+              onClick={() => {
+                setIsExportingPPT(false);
+              }}
+              style={{
+                marginTop: '30px', padding: '10px 20px', background: '#e11d48', color: 'white',
+                borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', border: 'none',
+                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+              }}
+            >
+              로딩 창 닫기
+            </button>
+          </div>
+        )}
+
+        {/* 캡처 로딩 오버레이 */}
+        {isProcessing && loadingProgress > 0 && !isExportingPPT && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+            background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex',
+            flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <RefreshCw className="animate-spin text-primary mb-4" size={48} />
+            <div style={{color: 'white', fontSize: '1.2rem', fontWeight: 'bold'}}>
+              {processingType === 'email' ? 'PPT 슬라이드 캡처 및 발송 중...' : processingType === 'ppt' ? 'PPT 만드는 중' : 'AI 분석 및 뉴스 카드 생성 중...'} ({loadingProgress}%)
             </div>
             <div style={{width: '300px', height: '8px', background: '#334155', borderRadius: '4px', marginTop: '20px', overflow: 'hidden'}}>
               <div style={{width: `${loadingProgress}%`, height: '100%', background: '#8b5cf6', transition: 'width 0.3s ease'}} />
             </div>
+            
+            {/* 비상 탈출용 수동 닫기 버튼 */}
+            <button 
+              onClick={() => {
+                setIsProcessing(false);
+                setLoadingProgress(0);
+                setProcessingType('');
+              }}
+              style={{
+                marginTop: '30px', padding: '10px 20px', background: '#e11d48', color: 'white',
+                borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', border: 'none',
+                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+              }}
+            >
+              로딩 창 닫기
+            </button>
           </div>
         )}
 
         {/* 캡처용 가상 슬라이드 템플릿 (숨겨짐) */}
         {captureItem && (
           <div id="email-capture-template" className="slide-capture-area">
-            <h1 className="slide-capture-title">{captureItem.title}</h1>
+            <h1 className="slide-capture-title">{captureItem.title_ko || captureItem.title}</h1>
             <div className="slide-content-container">
               <ul className="slide-capture-bullets">
-                {(captureItem.summary || '')
+                {(captureItem.summary_ko || captureItem.summary || '')
                   .split('\n')
                   .filter(l => l.trim())
                   .slice(0, 2)
