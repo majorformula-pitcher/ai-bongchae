@@ -1586,6 +1586,32 @@ app.put('/api/news/:id', async (req, res) => {
   }
 });
 
+const TEMP_DIR = path.join(__dirname, '../temp_captures');
+if (!fs.existsSync(TEMP_DIR)) {
+  fs.mkdirSync(TEMP_DIR, { recursive: true });
+}
+
+app.post('/api/upload-capture', async (req, res) => {
+  try {
+    const { id, image } = req.body;
+    if (id === undefined || !image) {
+      return res.status(400).json({ success: false, error: 'id 또는 image 데이터가 누락되었습니다.' });
+    }
+
+    const base64Data = image.includes(',') ? image.split(',')[1] : image;
+    const buffer = Buffer.from(base64Data, 'base64');
+    
+    const filePath = path.join(TEMP_DIR, `slide_${id}.jpg`);
+    await fs.promises.writeFile(filePath, buffer);
+
+    console.log(`[Upload] Temp capture saved: slide_${id}.jpg`);
+    res.json({ success: true, path: `/temp_captures/slide_${id}.jpg` });
+  } catch (error) {
+    console.error('[Upload Error]', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.post('/api/test-email', async (req, res) => {
   try {
     const accounts = [];
