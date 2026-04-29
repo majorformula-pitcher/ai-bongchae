@@ -1586,6 +1586,73 @@ app.put('/api/news/:id', async (req, res) => {
   }
 });
 
+app.post('/api/test-email', async (req, res) => {
+  try {
+    const accounts = [];
+    for (let i = 1; i <= 10; i++) {
+      const key = process.env[`RESEND_ACCOUNT_${i}_KEY`];
+      if (key) {
+        accounts.push({
+          key: key,
+          to: process.env[`RESEND_ACCOUNT_${i}_TO`] || 'srtechinsight@gmail.com'
+        });
+      }
+    }
+
+    if (accounts.length === 0) {
+      const rawTo = process.env.RESEND_TO || 'srtechinsight@gmail.com';
+      accounts.push({
+        key: process.env.RESEND_API_KEY,
+        to: rawTo.includes(',') ? rawTo.split(',').map(e => e.trim()) : rawTo
+      });
+    }
+
+    const from = process.env.RESEND_FROM || 'onboarding@resend.dev';
+    const now = new Date();
+    const subject = `[AI Bongchae] 발송 테스트 (${now.toLocaleDateString()} ${now.toLocaleTimeString()})`;
+
+    const results = [];
+    
+    await Promise.all(accounts.map(async (account) => {
+      try {
+        if (!account.key) {
+           results.push({ to: account.to, success: false, error: 'API Key가 없습니다.' });
+           return;
+        }
+
+        const resendInstance = new Resend(account.key);
+        const sendResult = await resendInstance.emails.send({
+          from: from,
+          to: account.to,
+          subject: subject,
+          html: '<p>이메일 발송 기능 연동 테스트입니다. 이미지 없이 본문 텍스트만 정상적으로 발송되었습니다.</p>'
+        });
+
+        if (sendResult.error) {
+          results.push({ to: account.to, success: false, error: sendResult.error });
+        } else {
+          results.push({ to: account.to, success: true, id: sendResult.data.id });
+        }
+      } catch (innerErr) {
+        results.push({ to: account.to, success: false, error: innerErr.message });
+      }
+    }));
+
+    const successCount = results.filter(r => r.success).length;
+
+    res.json({ 
+      success: true, 
+      total: accounts.length,
+      successCount: successCount,
+      message: `테스트 발송 결과: 총 ${accounts.length}명 중 ${successCount}명 성공`,
+      results 
+    });
+
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.post('/api/send-email', async (req, res) => {
   const { newsList, images } = req.body; 
   

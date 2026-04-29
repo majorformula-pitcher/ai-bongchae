@@ -694,6 +694,35 @@ function App() {
     }
   };
 
+  const handleSendTestEmail = async () => {
+    try {
+      setIsProcessing(true);
+      setProcessingType('email');
+      setLoadingProgress(10);
+      
+      const response = await axios.post('/api/test-email', {}, { timeout: 30000 });
+      
+      if (response.data.success) {
+        alert(response.data.message);
+      } else {
+        alert('테스트 메일 발송 실패: ' + response.data.error);
+      }
+    } catch (err) {
+      console.error('Test Email Error:', err);
+      let detailedMsg = err.message;
+      if (err.response) {
+        detailedMsg = `[서버 상태 코드: ${err.response.status}] ${JSON.stringify(err.response.data || '상세 정보 없음')}`;
+      } else if (err.request) {
+        detailedMsg = `서버 응답 없음 (Timeout 또는 방화벽 문제)`;
+      }
+      alert(`테스트 발송 오류 발생:\n\n${detailedMsg}`);
+    } finally {
+      setIsProcessing(false);
+      setProcessingType('');
+      setLoadingProgress(0);
+    }
+  };
+
   // [뉴스 수정] 제목과 요약을 DB에 업데이트합니다.
   const handleUpdateNews = async (id) => {
     try {
@@ -828,13 +857,23 @@ function App() {
               {showOnlyLiked ? '📊 PPT 만들기' : '📊 엑셀 Export'}
             </button>
             {showOnlyLiked && (
-              <button 
-                className="export-btn mail-btn" 
-                onClick={handleSendEmail}
-                title="이메일로 요약 보고서 보내기"
-              >
-                📧 Email 보내기
-              </button>
+              <>
+                <button 
+                  className="export-btn mail-btn" 
+                  onClick={handleSendEmail}
+                  title="이메일로 요약 보고서 보내기"
+                >
+                  📧 Email 보내기
+                </button>
+                <button 
+                  className="export-btn mail-btn"
+                  style={{ background: '#4b5563' }} 
+                  onClick={handleSendTestEmail}
+                  title="이미지 없이 발송 가능 여부 테스트"
+                >
+                  🧪 발송 테스트
+                </button>
+              </>
             )}
             <button 
               className={`filter-btn ${showOnlyLiked ? 'active' : ''}`}
