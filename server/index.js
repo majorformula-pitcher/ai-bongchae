@@ -1672,9 +1672,9 @@ app.post('/api/send-email', async (req, res) => {
     console.warn('⚠️ Payload size is near limit (50MB). This might cause issue on AWS.');
   }
 
-  if (!newsList || !images || newsList.length !== images.length) {
+  if (!newsList) {
     console.error('[Email Error] Data validation failed');
-    return res.status(400).json({ success: false, error: '뉴스 목록과 이미지 데이터가 일치하지 않습니다.' });
+    return res.status(400).json({ success: false, error: '뉴스 목록이 누락되었습니다.' });
   }
 
   try {
@@ -1710,10 +1710,24 @@ app.post('/api/send-email', async (req, res) => {
 
     // 공통 첨부파일(이미지) 처리 (모든 계정에 동일하게 사용)
     newsList.forEach((news, idx) => {
-      const base64Data = images[idx].split(',')[1];
+      let buffer;
+      if (images && images[idx]) {
+        const base64Data = images[idx].includes(',') ? images[idx].split(',')[1] : images[idx];
+        buffer = Buffer.from(base64Data, 'base64');
+      } else {
+        // 이미지가 전달되지 않은 경우, temp_captures 폴더에서 로드 시도
+        const filePath = path.join(TEMP_DIR, `slide_${idx}.jpg`);
+        if (fs.existsSync(filePath)) {
+          buffer = fs.readFileSync(filePath);
+        } else {
+          // 백업용 1x1 투명 픽셀
+          buffer = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+        }
+      }
+
       attachments.push({
         filename: `slide_${idx}.jpg`,
-        content: Buffer.from(base64Data, 'base64'),
+        content: buffer,
         disposition: 'inline',
         contentId: `<slide_${idx}>`
       });

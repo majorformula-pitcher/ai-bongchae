@@ -646,16 +646,23 @@ function App() {
             logging: false
           });
           
-          images.push(canvas.toDataURL('image/jpeg', 0.4));
+          const base64Image = canvas.toDataURL('image/jpeg', 0.4);
+          
+          // [OOM 방지] 캡처 즉시 백엔드로 전송하여 메모리 피크를 분산시킵니다.
+          await axios.post('/api/upload-capture', {
+            id: i,
+            image: base64Image
+          });
+
+          images.push(base64Image);
         }
       }
 
       setLoadingProgress(85);
 
-      // 4. 백엔드로 데이터 전송 (초고화질 대용량 처리를 위해 600초 타임아웃 설정)
+      // 4. 백엔드로 데이터 전송 (이미지는 디스크에서 로드하므로 newsList만 보냄)
       const response = await axios.post('/api/send-email', {
-        newsList: emailNewsList,
-        images: images
+        newsList: emailNewsList
       }, {
         timeout: 600000 // 600초 대기
       });
