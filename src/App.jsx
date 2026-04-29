@@ -636,7 +636,7 @@ function App() {
                           hostname.endsWith('.ts.net') ||
                           hostname.endsWith('.local');
           
-          const targetScale = isLocal ? 4.0 : 2.0;
+          const targetScale = isLocal ? 4.0 : 1.6;
           
           const canvas = await html2canvas(element, {
             useCORS: true,
@@ -646,7 +646,7 @@ function App() {
             logging: false
           });
           
-          const base64Image = canvas.toDataURL('image/jpeg', 0.9);
+          const base64Image = canvas.toDataURL('image/jpeg', 0.8);
           
           // [OOM 방지] 캡처 즉시 백엔드로 전송하여 메모리 피크를 분산시킵니다.
           await axios.post('/api/upload-capture', {
