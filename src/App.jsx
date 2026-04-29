@@ -646,7 +646,7 @@ function App() {
             logging: false
           });
           
-          images.push(canvas.toDataURL('image/jpeg', 0.8));
+          images.push(canvas.toDataURL('image/jpeg', 0.4));
         }
       }
 
