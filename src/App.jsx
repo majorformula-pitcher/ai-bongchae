@@ -636,7 +636,7 @@ function App() {
                           hostname.endsWith('.ts.net') ||
                           hostname.endsWith('.local');
           
-          const targetScale = isLocal ? 4.0 : 1.2;
+          const targetScale = isLocal ? 4.0 : 0.8;
           
           const canvas = await html2canvas(element, {
             useCORS: true,
