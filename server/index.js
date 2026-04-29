@@ -1664,15 +1664,15 @@ app.post('/api/send-email', async (req, res) => {
     });
     htmlContent += `</div>`;
 
-    // [핵심] 각 계정별로 순차 발송 수행
-    for (const account of accounts) {
+    // [핵심] 각 계정별로 병렬 발송 수행 (AWS 타임아웃 방지)
+    await Promise.all(accounts.map(async (account) => {
       try {
         console.log(`- Sending to: ${account.to} using API Key: ${account.key ? account.key.substring(0, 10) + '...' : 'MISSING'}`);
         
         if (!account.key) {
            console.error(`  ❌ Skipping ${account.to}: No API Key found.`);
            results.push({ to: account.to, success: false, error: 'API Key가 없습니다.' });
-           continue;
+           return;
         }
 
         const resendInstance = new Resend(account.key);
@@ -1695,7 +1695,7 @@ app.post('/api/send-email', async (req, res) => {
         console.error(`  ❌ Exception for ${account.to}:`, innerErr.message);
         results.push({ to: account.to, success: false, error: innerErr.message });
       }
-    }
+    }));
 
     const successCount = results.filter(r => r.success).length;
     
