@@ -864,23 +864,13 @@ function App() {
               {showOnlyLiked ? '📊 PPT 만들기' : '📊 엑셀 Export'}
             </button>
             {showOnlyLiked && (
-              <>
-                <button 
-                  className="export-btn mail-btn" 
-                  onClick={handleSendEmail}
-                  title="이메일로 요약 보고서 보내기"
-                >
-                  📧 Email 보내기
-                </button>
-                <button 
-                  className="export-btn mail-btn"
-                  style={{ background: '#4b5563' }} 
-                  onClick={handleSendTestEmail}
-                  title="이미지 없이 발송 가능 여부 테스트"
-                >
-                  🧪 발송 테스트
-                </button>
-              </>
+              <button 
+                className="export-btn mail-btn" 
+                onClick={handleSendEmail}
+                title="이메일로 요약 보고서 보내기"
+              >
+                📧 Email 보내기
+              </button>
             )}
             <button 
               className={`filter-btn ${showOnlyLiked ? 'active' : ''}`}
