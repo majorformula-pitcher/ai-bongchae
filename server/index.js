@@ -10,7 +10,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import Anthropic from '@anthropic-ai/sdk';
 import iconv from 'iconv-lite';
 import jschardet from 'jschardet';
-
+import fs from 'fs';
 
 import sharp from 'sharp';
 import { createClient } from '@supabase/supabase-js';
