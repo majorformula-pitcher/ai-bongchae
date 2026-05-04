@@ -88,6 +88,7 @@ const DiscoveryContent = React.memo(({
 ));
 
 function App() {
+  const fileInputRef = useRef(null);
   const [newsList, setNewsList] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -834,6 +835,18 @@ function App() {
     return matchesSearch && matchesCategory && matchesLike && matchesDate;
   });
 
+  const handlePptUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    // 임시: 1단계 프론트엔드 첨부 확인용 Alert
+    alert(`[${file.name}] 파일이 성공적으로 첨부되었습니다!\n(백엔드 파싱 및 캡처 기능은 이어서 개발될 예정입니다.)`);
+    
+    // 같은 파일을 다시 선택할 수 있도록 value 초기화
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   return (
     <div className="discovery-container">
@@ -863,6 +876,21 @@ function App() {
             >
               {showOnlyLiked ? '📊 PPT 만들기' : '📊 엑셀 Export'}
             </button>
+            <button 
+              className="export-btn"
+              style={{ background: '#4b5563', marginLeft: '4px' }}
+              onClick={() => fileInputRef.current?.click()}
+              title="보유한 PPT 파일을 업로드하여 이메일로 전송"
+            >
+              📎 PPT 첨부하기
+            </button>
+            <input 
+              type="file" 
+              accept=".pptx" 
+              ref={fileInputRef} 
+              style={{ display: 'none' }} 
+              onChange={handlePptUpload} 
+            />
             {showOnlyLiked && (
               <button 
                 className="export-btn mail-btn" 
