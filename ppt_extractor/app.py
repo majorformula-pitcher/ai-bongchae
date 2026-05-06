@@ -86,7 +86,11 @@ class App(ctk.CTk):
         
         try:
             self.log(f"선택된 파일: {os.path.basename(pptx_path)}")
-            self.log("파워포인트를 백그라운드에서 구동하여 캡처를 시작합니다. 잠시만 기다려주세요...")
+            self.log("캡처를 위해 프로그램 창을 잠시 숨깁니다...")
+            
+            # 캡처 시 현재 프로그램 화면이 찍히지 않도록 창을 최소화(숨김)
+            self.iconify()
+            self.update()
             
             # core.py 의 캡처 함수 호출
             results = extract_ppt_content(pptx_path, out_dir)
@@ -107,6 +111,10 @@ class App(ctk.CTk):
             self.log(f"[오류 발생] {str(e)}")
             messagebox.showerror("오류", f"작업 중 오류가 발생했습니다:\n{str(e)}")
         finally:
+            # 숨겼던 창을 다시 표시하고 맨 앞으로 가져오기
+            self.deiconify()
+            self.lift()
+            
             # 버튼 다시 활성화
             self.btn_start.configure(state="normal")
             self.btn_browse.configure(state="normal")
