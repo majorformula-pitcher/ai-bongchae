@@ -492,7 +492,7 @@ function App() {
                   {
                     text: summaryLines[0] || '',
                     options: {
-                      bullet: { indent: 14, characterCode: '2022' },
+                      bullet: { indent: 14, characterCode: '2219' },
                       fontSize: 13,
                       color: '000000',
                       fontFace: 'SamsungOneKoreanOTF 600',
@@ -517,7 +517,7 @@ function App() {
                   {
                     text: summaryLines[1] || '',
                     options: {
-                      bullet: { indent: 14, characterCode: '2022' },
+                      bullet: { indent: 14, characterCode: '2219' },
                       fontSize: 13,
                       color: '000000',
                       fontFace: 'SamsungOneKoreanOTF 600',
