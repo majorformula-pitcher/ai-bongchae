@@ -6,7 +6,7 @@ import win32com.client
 import webbrowser
 import logging
 from pathlib import Path
-from PIL import ImageGrab
+from PIL import Image, ImageGrab, ImageChops, ImageDraw, ImageOps
 
 def trim_white_margins(image_path):
     """Pillow를 사용하여 이미지의 불필요한 단색(흰색) 여백을 자동으로 잘라냅니다."""
@@ -16,16 +16,39 @@ def trim_white_margins(image_path):
             logging.warning(f"이미지가 너무 작거나 없습니다(손상 의심). 자르기를 건너뜁니다: {image_path}")
             return
             
-        from PIL import Image, ImageChops
         img = Image.open(image_path)
-        # 좌상단 픽셀(0,0)의 색상을 배경색으로 가정
-        bg = Image.new(img.mode, img.size, img.getpixel((0,0)))
-        diff = ImageChops.difference(img, bg)
-        bbox = diff.getbbox()
+        
+        # 타겟 배경색을 강제로 순백색(255, 255, 255)으로 고정하여 모서리 오염 무시
+        bg = Image.new('RGB', img.size, (255, 255, 255))
+        diff = ImageChops.difference(img.convert('RGB'), bg)
+        
+        # 미세한 안티앨리어싱 및 그림자 찌꺼기를 무시하기 위한 오차 허용(Tolerance) 적용
+        diff_bw = diff.convert('L')
+        threshold = 8  # 민감도를 8로 낮춤 (회색 박스는 보존하고 순백색 여백만 제거)
+        diff_bw = diff_bw.point(lambda p: 255 if p > threshold else 0)
+        
+        # --- 가장자리 노이즈 차단 (가장자리 15픽셀 검은색으로 칠해서 무시) ---
+        draw = ImageDraw.Draw(diff_bw)
+        w, h = diff_bw.size
+        border = 15
+        draw.rectangle([0, 0, w, border], fill=0)          # 상단 테두리 무시
+        draw.rectangle([0, h-border, w, h], fill=0)        # 하단 테두리 무시
+        draw.rectangle([0, 0, border, h], fill=0)          # 좌측 테두리 무시
+        draw.rectangle([w-border, 0, w, h], fill=0)        # 우측 테두리 무시
+        # ------------------------------------------------------------------
+        
+        bbox = diff_bw.getbbox()
         if bbox:
             cropped_img = img.crop(bbox)
-            cropped_img.save(image_path, quality=100)
-            logging.info(f"Auto-crop 성공: {image_path}")
+            # 강제 여백 기능을 제거하여 회색 박스 경계에 딱 맞게 초밀착 크롭
+            # cropped_img = ImageOps.expand(cropped_img, border=5, fill='white')
+            
+            # 해상도 상향: 가로 최대 1200px로 리사이징
+            cropped_img.thumbnail((1200, 1200), Image.Resampling.LANCZOS)
+            
+            # 품질 상향: Quality 85로 설정하여 11장 기준 약 4MB 수준으로 최적화
+            cropped_img.save(image_path, "JPEG", quality=85, optimize=True)
+            logging.info(f"Auto-crop 성공 (초밀착 모드): {image_path}")
     except ImportError:
         logging.warning("Pillow가 설치되지 않아 Auto-crop을 건너뜁니다.")
     except Exception as e:
@@ -125,7 +148,12 @@ def extract_ppt_content(pptx_path, output_dir):
                 img = img.crop((int(left), int(top), int(right), int(bottom)))
                 if img.mode != 'RGB':
                     img = img.convert('RGB')
-                img.save(img_path, "JPEG", quality=100)
+                    
+                # 해상도 상향: 가로 최대 1200px로 리사이징
+                img.thumbnail((1200, 1200), Image.Resampling.LANCZOS)
+                
+                # 품질 상향: Quality 85로 설정하여 11장 기준 약 4MB 수준으로 최적화
+                img.save(img_path, "JPEG", quality=85, optimize=True)
                 img_size = os.path.getsize(img_path)
                 logging.info(f"Slide {index} exported successfully from screenshot. Size: {img_size} bytes")
             except Exception as e:
@@ -137,7 +165,7 @@ def extract_ppt_content(pptx_path, output_dir):
                 # 화면 전환 및 렌더링 대기
                 time.sleep(1.5)
             
-            # 캡처 직후 위아래 하얀 여백 자동 제거
+            # 캡처 직후 위아래 하얀 여백 자동 제거 (정밀 임계값 8 적용)
             trim_white_margins(img_path)
             
             # 2. 노트에서 URL 추출
@@ -212,17 +240,17 @@ def generate_html_report(results, output_html_path):
             # 인코딩 실패 시 기존 로컬 경로 방식으로 fallback (작동 안할 수 있음)
             img_uri = Path(img_path).as_uri()
         
-        html_content.append("<div style='margin-bottom: 15px;'>")
+        html_content.append("<div style='margin-bottom: 30px;'>")
         
         # URL이 존재하면 첫 번째 URL로 이미지 자체에 링크를 검
         if res['urls']:
             target_url = res['urls'][0]
             html_content.append(f"<a href='{target_url}' target='_blank' title='클릭하여 뉴스 보기'>")
-            html_content.append(f"<img src='{img_uri}' style='max-width: 800px; width: 100%; border: 1px solid #ddd; border-radius: 4px;' />")
+            html_content.append(f"<img src='{img_uri}' style='max-width: 800px; width: 100%;' />")
             html_content.append("</a><br>")
         else:
             # URL이 없는 슬라이드는 이미지만 표시
-            html_content.append(f"<img src='{img_uri}' style='max-width: 800px; width: 100%; border: 1px solid #ddd; border-radius: 4px;' /><br>")
+            html_content.append(f"<img src='{img_uri}' style='max-width: 800px; width: 100%;' /><br>")
             
         html_content.append("</div>")
         
