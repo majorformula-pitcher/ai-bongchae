@@ -105,8 +105,6 @@ class App(ctk.CTk):
             self.log("모든 작업이 성공적으로 완료되었습니다!")
             self.log("웹 브라우저가 열리면 화면을 복사(Ctrl+A, Ctrl+C)하여 메일에 붙여넣기 하세요.")
             
-            messagebox.showinfo("완료", "변환이 완료되었습니다! 브라우저 창을 확인하세요.")
-            
         except Exception as e:
             self.log(f"[오류 발생] {str(e)}")
             messagebox.showerror("오류", f"작업 중 오류가 발생했습니다:\n{str(e)}")
