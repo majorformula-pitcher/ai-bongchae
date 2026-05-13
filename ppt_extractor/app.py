@@ -30,6 +30,31 @@ class App(ctk.CTk):
         self.btn_browse = ctk.CTkButton(self.frame_file, text="파일 찾기", command=self.browse_file, width=100)
         self.btn_browse.pack(side="left", padx=(0, 10), pady=10)
 
+        # 옵션 설정 프레임 (이미지 간격 조절)
+        self.frame_options = ctk.CTkFrame(self)
+        self.frame_options.pack(pady=5, padx=20, fill="x")
+
+        # 1. 첫 번째 이미지 간격
+        self.lbl_margin_first = ctk.CTkLabel(self.frame_options, text="첫 번째 간격:", font=ctk.CTkFont(size=13))
+        self.lbl_margin_first.pack(side="left", padx=(10, 5), pady=5)
+
+        # 0px ~ 45px 까지의 리스트 생성
+        margin_values = [f"{i}px" for i in range(0, 46)]
+        self.combo_margin_first = ctk.CTkComboBox(self.frame_options, values=margin_values, width=80)
+        self.combo_margin_first.set("30px")
+        self.combo_margin_first.pack(side="left", padx=5, pady=5)
+
+        # 2. 나머지 이미지 간격
+        self.lbl_margin_rest = ctk.CTkLabel(self.frame_options, text="나머지 간격:", font=ctk.CTkFont(size=13))
+        self.lbl_margin_rest.pack(side="left", padx=(20, 5), pady=5)
+
+        self.combo_margin_rest = ctk.CTkComboBox(self.frame_options, values=margin_values, width=80)
+        self.combo_margin_rest.set("30px")
+        self.combo_margin_rest.pack(side="left", padx=5, pady=5)
+
+        self.lbl_margin_info = ctk.CTkLabel(self.frame_options, text="(0~45px)", font=ctk.CTkFont(size=11), text_color="gray")
+        self.lbl_margin_info.pack(side="left", padx=5, pady=5)
+
         # 실행 버튼
         self.btn_start = ctk.CTkButton(self, text="▶ 캡처 및 변환 시작", command=self.start_conversion, font=ctk.CTkFont(size=15, weight="bold"), height=40)
         self.btn_start.pack(pady=20)
@@ -77,10 +102,20 @@ class App(ctk.CTk):
         
         self.log("작업을 준비 중입니다...")
 
-        # 스레드 생성 및 시작
-        threading.Thread(target=self.run_extraction, args=(pptx_path,), daemon=True).start()
+        # 사용자가 선택한 간격 값 가져오기
+        first_margin_str = self.combo_margin_first.get().replace("px", "").strip()
+        rest_margin_str = self.combo_margin_rest.get().replace("px", "").strip()
+        try:
+            first_margin_val = int(first_margin_str)
+            rest_margin_val = int(rest_margin_str)
+        except ValueError:
+            first_margin_val = 30
+            rest_margin_val = 30
+            
+        # 스레드 생성 및 시작 (간격 값들 전달)
+        threading.Thread(target=self.run_extraction, args=(pptx_path, first_margin_val, rest_margin_val), daemon=True).start()
 
-    def run_extraction(self, pptx_path):
+    def run_extraction(self, pptx_path, first_margin_val, rest_margin_val):
         """백그라운드 스레드에서 실행되는 실제 추출 로직"""
         out_dir = os.path.join(os.path.dirname(os.path.abspath(pptx_path)), "output")
         
@@ -92,15 +127,17 @@ class App(ctk.CTk):
             self.iconify()
             self.update()
             
-            # core.py 의 캡처 함수 호출
-            results = extract_ppt_content(pptx_path, out_dir)
+            # core.py 의 캡처 함수 호출 (제목도 함께 받음)
+            results, main_title = extract_ppt_content(pptx_path, out_dir)
             
+            self.log(f"메인 제목: {main_title}")
             self.log(f"총 {len(results)}장의 슬라이드 캡처가 완료되었습니다.")
             self.log("HTML 메일 서식을 생성합니다...")
             
-            # HTML 리포트 생성 및 표시
+            # HTML 리포트 생성 및 표시 (추출된 제목 전달)
             report_path = os.path.join(out_dir, "report.html")
-            generate_html_report(results, report_path)
+            generate_html_report(results, report_path, main_title=main_title, 
+                                 first_margin_px=first_margin_val, rest_margin_px=rest_margin_val)
             
             self.log("모든 작업이 성공적으로 완료되었습니다!")
             self.log("웹 브라우저가 열리면 화면을 복사(Ctrl+A, Ctrl+C)하여 메일에 붙여넣기 하세요.")

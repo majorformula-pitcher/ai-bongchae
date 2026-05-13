@@ -91,6 +91,22 @@ def extract_ppt_content(pptx_path, output_dir):
         # PPT 열기 (DRM 렌더링을 위해 WithWindow=True 사용)
         presentation = powerpoint.Presentations.Open(pptx_path, ReadOnly=True, WithWindow=True)
         
+        # --- [수정] 뉴스 제목 추출 (1번 슬라이드 테이블 1행 1열 방식) ---
+        main_title = ""
+        try:
+            if len(presentation.Slides) >= 1:
+                slide1 = presentation.Slides(1)
+                for shape in slide1.Shapes:
+                    if shape.HasTable:
+                        # 테이블의 1행 1열 텍스트 추출
+                        cell_text = shape.Table.Cell(1, 1).Shape.TextFrame.TextRange.Text.strip()
+                        main_title = cell_text.replace("\r", " ").replace("\n", " ").strip()
+                        if main_title: break
+        except:
+            pass
+        if not main_title: main_title = ""
+        # ------------------------------------------
+
         # 원본 슬라이드 가로세로 비율 유지하며 고화질(가로 1920 기준) 캡처를 위한 크기 계산
         slide_width_pt = presentation.PageSetup.SlideWidth
         slide_height_pt = presentation.PageSetup.SlideHeight
@@ -214,43 +230,68 @@ def extract_ppt_content(pptx_path, output_dir):
             except Exception as e:
                 logging.warning(f"Ignored error during powerpoint.Quit(): {e}")
             
-    return results
+    return results, main_title
 
-def generate_html_report(results, output_html_path):
+def generate_html_report(results, output_html_path, main_title="", first_margin_px=30, rest_margin_px=30):
     """
     캡처된 이미지 경로와 URL 정보를 바탕으로 이메일 복사용 HTML 파일을 생성하고 브라우저로 띄웁니다.
+    :param main_title: 최상단에 표시할 첫 번째 뉴스 제목
+    :param first_margin_px: 첫 번째와 두 번째 이미지 사이의 여백
+    :param rest_margin_px: 두 번째 이후 이미지들 사이의 여백
     """
+    import datetime
+    today_str = datetime.date.today().strftime("%Y.%m.%d")
+    
+    # 제목(main_title)이 있으면 포함하고, 없으면 기본 포맷 유지
+    if main_title:
+        headline = f"[SR Tech News Daily] {main_title} 外 ({today_str})"
+    else:
+        headline = f"[SR Tech News Daily] 外 ({today_str})"
+
     html_content = [
         "<html>",
         "<head><meta charset='utf-8'></head>",
         "<body style='font-family: sans-serif;'>"
     ]
     
-    for res in results:
+    # 최상단 헤드라인 텍스트 추가 (Bold 해제)
+    html_content.append(f"<div style='margin-bottom: 25px; font-size: 17px; color: #000;'>")
+    html_content.append(f"{headline}")
+    html_content.append("</div>")
+    
+    for i, res in enumerate(results):
         img_path = res['image_path']
         
-        # 로컬 파일 대신 Base64 인코딩으로 변환하여 HTML 내부에 이미지 자체를 박아넣음
-        # 이메일에 복사/붙여넣기 시 이미지가 정상적으로 첨부되도록 하기 위함
+        # 로컬 파일 대신 Base64 인코딩으로 변환
         try:
             with open(img_path, "rb") as image_file:
                 encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
             img_uri = f"data:image/jpeg;base64,{encoded_string}"
         except Exception as e:
             print(f"Error encoding image {img_path}: {e}")
-            # 인코딩 실패 시 기존 로컬 경로 방식으로 fallback (작동 안할 수 있음)
             img_uri = Path(img_path).as_uri()
         
-        html_content.append("<div style='margin-bottom: 30px;'>")
+        # 마지막 이미지가 아닐 때만 하단 여백을 추가
+        if i < len(results) - 1:
+            # 첫 번째 이미지 뒤에는 first_margin 적용, 그 외에는 rest_margin 적용
+            current_margin = first_margin_px if i == 0 else rest_margin_px
+            html_content.append(f"<div style='margin-bottom: {current_margin}px;'>")
+        else:
+            # 마지막 이미지는 여백 제거
+            html_content.append("<div>")
         
+        # 마지막 이미지가 아니면 줄바꿈 추가
+        br_tag = "" if i == len(results) - 1 else "<br>"
+
         # URL이 존재하면 첫 번째 URL로 이미지 자체에 링크를 검
         if res['urls']:
             target_url = res['urls'][0]
             html_content.append(f"<a href='{target_url}' target='_blank' title='클릭하여 뉴스 보기'>")
             html_content.append(f"<img src='{img_uri}' style='max-width: 800px; width: 100%;' />")
-            html_content.append("</a><br>")
+            html_content.append(f"</a>{br_tag}")
         else:
             # URL이 없는 슬라이드는 이미지만 표시
-            html_content.append(f"<img src='{img_uri}' style='max-width: 800px; width: 100%;' /><br>")
+            html_content.append(f"<img src='{img_uri}' style='max-width: 800px; width: 100%;' />{br_tag}")
             
         html_content.append("</div>")
         
