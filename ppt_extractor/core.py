@@ -91,12 +91,12 @@ def extract_ppt_content(pptx_path, output_dir):
         # PPT 열기 (DRM 렌더링을 위해 WithWindow=True 사용)
         presentation = powerpoint.Presentations.Open(pptx_path, ReadOnly=True, WithWindow=True)
         
-        # --- [수정] 뉴스 제목 추출 (1번 슬라이드 테이블 1행 1열 방식) ---
+        # --- [수정] 뉴스 제목 추출 (2번 슬라이드 테이블 1행 1열 방식) ---
         main_title = ""
         try:
-            if len(presentation.Slides) >= 1:
-                slide1 = presentation.Slides(1)
-                for shape in slide1.Shapes:
+            if len(presentation.Slides) >= 2:
+                slide2 = presentation.Slides(2)
+                for shape in slide2.Shapes:
                     if shape.HasTable:
                         # 테이블의 1행 1열 텍스트 추출
                         cell_text = shape.Table.Cell(1, 1).Shape.TextFrame.TextRange.Text.strip()
@@ -240,7 +240,8 @@ def generate_html_report(results, output_html_path, main_title="", first_margin_
     :param rest_margin_px: 두 번째 이후 이미지들 사이의 여백
     """
     import datetime
-    today_str = datetime.date.today().strftime("%Y.%m.%d")
+    # 날짜 끝에 점(.) 추가
+    today_str = datetime.date.today().strftime("%Y.%m.%d.")
     
     # 제목(main_title)이 있으면 포함하고, 없으면 기본 포맷 유지
     if main_title:
@@ -250,14 +251,57 @@ def generate_html_report(results, output_html_path, main_title="", first_margin_
 
     html_content = [
         "<html>",
-        "<head><meta charset='utf-8'></head>",
-        "<body style='font-family: sans-serif;'>"
+        "<head>",
+        "<meta charset='utf-8'>",
+        "<style>",
+        "    body { font-family: sans-serif; margin: 20px; }",
+        "    .headline-container {",
+        "        display: flex;",
+        "        align-items: center;",
+        "        gap: 10px;",
+        "        margin-bottom: 25px;",
+        "        font-size: 17px;",
+        "        color: #000;",
+        "    }",
+        "    .copy-btn {",
+        "        background: #f8f9fa;",
+        "        border: 1px solid #ced4da;",
+        "        border-radius: 4px;",
+        "        cursor: pointer;",
+        "        padding: 4px 6px;",
+        "        display: flex;",
+        "        align-items: center;",
+        "        transition: all 0.2s;",
+        "    }",
+        "    .copy-btn:hover { background: #e2e6ea; border-color: #adb5bd; }",
+        "    .copy-btn:active { background: #dae0e5; transform: translateY(1px); }",
+        "    .copy-btn svg { width: 16px; height: 16px; fill: #495057; }",
+        "    img { max-width: 800px; width: 100%; height: auto; display: block; }",
+        "</style>",
+        "<script>",
+        "    function copyHeadline() {",
+        "        const text = document.getElementById('headline-text').innerText;",
+        "        const btn = document.querySelector('.copy-btn');",
+        "        const copyIcon = `<svg viewBox='0 0 24 24'><path d='M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z'/></svg>`;",
+        "        const checkIcon = `<svg viewBox='0 0 24 24'><path fill='#28a745' d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z'/></svg>`;",
+        "",
+        "        navigator.clipboard.writeText(text).then(() => {",
+        "            btn.innerHTML = checkIcon;",
+        "            setTimeout(() => { btn.innerHTML = copyIcon; }, 2000);",
+        "        }).catch(err => {",
+        "            alert('복사 실패: ' + err);",
+        "        });",
+        "    }",
+        "</script>",
+        "</head>",
+        "<body>",
+        "    <div class='headline-container'>",
+        f"        <span id='headline-text'>{headline}</span>",
+        "        <button class='copy-btn' onclick='copyHeadline()' title='복사하기'>",
+        "            <svg viewBox='0 0 24 24'><path d='M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z'/></svg>",
+        "        </button>",
+        "    </div>"
     ]
-    
-    # 최상단 헤드라인 텍스트 추가 (Bold 해제)
-    html_content.append(f"<div style='margin-bottom: 25px; font-size: 17px; color: #000;'>")
-    html_content.append(f"{headline}")
-    html_content.append("</div>")
     
     for i, res in enumerate(results):
         img_path = res['image_path']
