@@ -858,9 +858,7 @@ function App() {
             <button 
               className="export-btn"
               onClick={showOnlyLiked ? handleExportPPT : handleExportExcel}
-              title={showOnlyLiked ? "좋아요 뉴스 PPT로 내보내기 (현재 비활성화)" : "전체 뉴스 엑셀로 내보내기"}
-              disabled={showOnlyLiked}
-              style={showOnlyLiked ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
+              title={showOnlyLiked ? "좋아요 뉴스 PPT로 내보내기" : "전체 뉴스 엑셀로 내보내기"}
             >
               {showOnlyLiked ? '📊 PPT 만들기' : '📊 엑셀 Export'}
             </button>
@@ -868,9 +866,7 @@ function App() {
               <button 
                 className="export-btn mail-btn" 
                 onClick={handleSendEmail}
-                title="이메일로 요약 보고서 보내기 (현재 비활성화)"
-                disabled
-                style={{ opacity: 0.5, cursor: 'not-allowed' }}
+                title="이메일로 요약 보고서 보내기"
               >
                 📧 Email 보내기
               </button>

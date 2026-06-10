@@ -1,0 +1,127 @@
+<svg viewBox="0 0 1100 760" xmlns="http://www.w3.org/2000/svg" role="img" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Noto Sans KR', sans-serif">
+  <title>ai-bongchae 시스템 아키텍처</title>
+  <desc>React 프론트엔드, Express 백엔드, 다중 AI 엔진과 Supabase/SQLite 데이터 계층, Resend 이메일, RSS/웹 스크래핑, 독립 PPT Extractor 도구로 구성된 AI 뉴스 큐레이션 시스템.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8a8a87"/>
+    </marker>
+  </defs>
+
+  <style>
+    .title { font-size: 20px; font-weight: 600; fill: #1f1e1d; }
+    .subtitle { font-size: 12px; fill: #8a8a87; }
+    .layer-label { font-size: 11px; font-weight: 600; fill: #8a8a87; letter-spacing: 0.5px; }
+    .box-title { font-size: 14px; font-weight: 600; fill: #1f1e1d; }
+    .box-sub { font-size: 11px; fill: #6d6c69; }
+    .box { fill: #faf9f7; stroke: #d4d2cd; stroke-width: 1; }
+    .box-accent { fill: #f4ecdf; stroke: #d6b97f; stroke-width: 1; }
+    .box-soft { fill: #ffffff; stroke: #d4d2cd; stroke-width: 1; }
+    .edge { stroke: #8a8a87; stroke-width: 1.4; fill: none; }
+    .edge-dash { stroke: #b5b3ae; stroke-width: 1.2; fill: none; stroke-dasharray: 4 3; }
+  </style>
+
+  <rect width="1100" height="760" fill="#ffffff"/>
+
+  <text x="40" y="36" class="title">ai-bongchae · AI 뉴스 큐레이션 &amp; 발행 시스템</text>
+  <text x="40" y="56" class="subtitle">C:\Work\Test · React + Vite (FE) / Node.js + Express (BE) / 다중 AI 엔진 / 멀티 채널 발송</text>
+
+  <text x="40" y="100" class="layer-label">USER</text>
+  <rect x="440" y="82" width="220" height="50" rx="8" class="box"/>
+  <text x="550" y="105" class="box-title" text-anchor="middle">사용자 (브라우저)</text>
+  <text x="550" y="121" class="box-sub" text-anchor="middle">PC · 모바일 · 운영자</text>
+
+  <text x="40" y="172" class="layer-label">FRONTEND</text>
+  <rect x="200" y="154" width="700" height="90" rx="10" class="box-accent"/>
+  <text x="220" y="178" class="box-title">React + Vite SPA</text>
+  <text x="220" y="194" class="box-sub">App.jsx · framer-motion · lucide-react · html2canvas · pptxgenjs · xlsx</text>
+  <rect x="220" y="206" width="140" height="28" rx="6" class="box-soft"/>
+  <text x="290" y="224" class="box-sub" text-anchor="middle">Discovery (RSS 탐색)</text>
+  <rect x="370" y="206" width="140" height="28" rx="6" class="box-soft"/>
+  <text x="440" y="224" class="box-sub" text-anchor="middle">News List / Editor</text>
+  <rect x="520" y="206" width="140" height="28" rx="6" class="box-soft"/>
+  <text x="590" y="224" class="box-sub" text-anchor="middle">요약 · 캡처 · PPT</text>
+  <rect x="670" y="206" width="210" height="28" rx="6" class="box-soft"/>
+  <text x="775" y="224" class="box-sub" text-anchor="middle">발행 (Publishing) · Supabase Client</text>
+
+  <path d="M 550 132 L 550 154" class="edge" marker-end="url(#arrow)"/>
+
+  <text x="40" y="284" class="layer-label">BACKEND API</text>
+  <rect x="160" y="266" width="780" height="90" rx="10" class="box-accent"/>
+  <text x="180" y="290" class="box-title">Node.js + Express (server/index.js)</text>
+  <text x="180" y="306" class="box-sub">CORS · dotenv · 정적 dist 서빙 · PM2 운영</text>
+  <rect x="180" y="318" width="120" height="28" rx="6" class="box-soft"/>
+  <text x="240" y="336" class="box-sub" text-anchor="middle">/api/extract</text>
+  <rect x="310" y="318" width="140" height="28" rx="6" class="box-soft"/>
+  <text x="380" y="336" class="box-sub" text-anchor="middle">/api/summarize-text</text>
+  <rect x="460" y="318" width="120" height="28" rx="6" class="box-soft"/>
+  <text x="520" y="336" class="box-sub" text-anchor="middle">/api/news (CRUD)</text>
+  <rect x="590" y="318" width="120" height="28" rx="6" class="box-soft"/>
+  <text x="650" y="336" class="box-sub" text-anchor="middle">/api/rss-feeds</text>
+  <rect x="720" y="318" width="100" height="28" rx="6" class="box-soft"/>
+  <text x="770" y="336" class="box-sub" text-anchor="middle">/api/send-email</text>
+  <rect x="830" y="318" width="100" height="28" rx="6" class="box-soft"/>
+  <text x="880" y="336" class="box-sub" text-anchor="middle">proxy-image · capture</text>
+
+  <path d="M 550 244 L 550 266" class="edge" marker-end="url(#arrow)"/>
+  <text x="565" y="260" class="box-sub">REST / JSON</text>
+
+  <text x="40" y="404" class="layer-label">AI ENGINES</text>
+  <rect x="40" y="420" width="320" height="120" rx="10" class="box"/>
+  <text x="60" y="444" class="box-title">AI 요약 · 번역 엔진</text>
+  <rect x="60" y="458" width="280" height="22" rx="5" class="box-soft"/>
+  <text x="72" y="473" class="box-sub">Anthropic Claude (@anthropic-ai/sdk)</text>
+  <rect x="60" y="484" width="280" height="22" rx="5" class="box-soft"/>
+  <text x="72" y="499" class="box-sub">Google Gemini (@google/generative-ai)</text>
+  <rect x="60" y="510" width="280" height="22" rx="5" class="box-soft"/>
+  <text x="72" y="525" class="box-sub">Ollama Qwen 2.5 (로컬 LLM)</text>
+
+  <text x="395" y="404" class="layer-label">DATA</text>
+  <rect x="395" y="420" width="290" height="120" rx="10" class="box"/>
+  <text x="415" y="444" class="box-title">데이터 저장소</text>
+  <rect x="415" y="458" width="250" height="22" rx="5" class="box-soft"/>
+  <text x="427" y="473" class="box-sub">Supabase (운영 · ai-bongchae 테이블)</text>
+  <rect x="415" y="484" width="250" height="22" rx="5" class="box-soft"/>
+  <text x="427" y="499" class="box-sub">SQLite better-sqlite3 (개발 · bongchae.dev.db)</text>
+  <rect x="415" y="510" width="250" height="22" rx="5" class="box-soft"/>
+  <text x="427" y="525" class="box-sub">ai_news_publish · 발행 이력</text>
+
+  <text x="720" y="404" class="layer-label">EXTERNAL</text>
+  <rect x="720" y="420" width="340" height="120" rx="10" class="box"/>
+  <text x="740" y="444" class="box-title">외부 서비스 · 데이터 소스</text>
+  <rect x="740" y="458" width="300" height="22" rx="5" class="box-soft"/>
+  <text x="752" y="473" class="box-sub">Resend (멀티 계정 이메일 발송)</text>
+  <rect x="740" y="484" width="300" height="22" rx="5" class="box-soft"/>
+  <text x="752" y="499" class="box-sub">RSS Feeds · rss-parser</text>
+  <rect x="740" y="510" width="300" height="22" rx="5" class="box-soft"/>
+  <text x="752" y="525" class="box-sub">웹 페이지 스크래핑 (axios + cheerio)</text>
+
+  <path d="M 380 356 L 200 420" class="edge" marker-end="url(#arrow)"/>
+  <path d="M 540 356 L 540 420" class="edge" marker-end="url(#arrow)"/>
+  <path d="M 720 356 L 890 420" class="edge" marker-end="url(#arrow)"/>
+
+  <text x="40" y="590" class="layer-label">DEPLOYMENT</text>
+  <rect x="160" y="606" width="780" height="60" rx="10" class="box"/>
+  <text x="180" y="630" class="box-title">배포 · 운영</text>
+  <text x="180" y="650" class="box-sub">OCI 서버 (152.69.239.188:3000) · PM2 프로세스 매니저 · Cloudflared 터널 · deploy.sh (git pull → npm build → pm2 restart)</text>
+
+  <rect x="900" y="82" width="160" height="162" rx="10" class="box"/>
+  <text x="980" y="104" class="box-title" text-anchor="middle">PPT Extractor</text>
+  <text x="980" y="120" class="box-sub" text-anchor="middle">독립 실행 도구 (Python)</text>
+  <line x1="920" y1="132" x2="1040" y2="132" stroke="#d4d2cd"/>
+  <text x="980" y="150" class="box-sub" text-anchor="middle">win32com (PowerPoint)</text>
+  <text x="980" y="168" class="box-sub" text-anchor="middle">PIL · 이미지 후처리</text>
+  <text x="980" y="186" class="box-sub" text-anchor="middle">슬라이드 자동 캡처</text>
+  <text x="980" y="204" class="box-sub" text-anchor="middle">→ PNG / PPTX 산출</text>
+  <text x="980" y="228" class="box-sub" text-anchor="middle" font-style="italic">FE에 캡처 업로드 (수동)</text>
+  <path d="M 900 200 Q 870 280 880 318" class="edge-dash" marker-end="url(#arrow)"/>
+
+  <g transform="translate(40, 696)">
+    <rect x="0" y="0" width="14" height="12" rx="2" class="box-accent"/>
+    <text x="20" y="10" class="box-sub">자체 구현 핵심 계층</text>
+    <rect x="170" y="0" width="14" height="12" rx="2" class="box"/>
+    <text x="190" y="10" class="box-sub">인프라 / 외부 의존</text>
+    <line x1="350" y1="6" x2="380" y2="6" class="edge-dash"/>
+    <text x="388" y="10" class="box-sub">간접 / 수동 연동</text>
+  </g>
+</svg>

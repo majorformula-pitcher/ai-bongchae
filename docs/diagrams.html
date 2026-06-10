@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Bongchae 아키텍처 다이어그램</title>
+  <style>
+    body {
+      font-family: "Segoe UI", "Malgun Gothic", sans-serif;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 24px;
+      background: #fafafa;
+      color: #1f2328;
+      line-height: 1.6;
+    }
+    h1 { border-bottom: 2px solid #d0d7de; padding-bottom: 8px; }
+    h2 { margin-top: 32px; }
+    .doc {
+      background: #fff;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      padding: 20px 28px;
+      margin-bottom: 28px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .mermaid {
+      display: flex;
+      justify-content: center;
+      margin: 16px 0;
+    }
+    nav a { margin-right: 16px; }
+  </style>
+</head>
+<body>
+  <h1>AI Bongchae 아키텍처 다이어그램</h1>
+  <nav>
+    <a href="#level1">Level 1: 통합 구조</a>
+    <a href="#level2">Level 2: 기능별 흐름</a>
+    <a href="#level3">Level 3: 모듈 상세</a>
+  </nav>
+
+  <div class="doc" id="level1">
+    <h2>Level 1: 통합 시스템 구조 (Integration)</h2>
+    <p>사용자의 요청이 프론트엔드를 거쳐 백엔드와 외부 API 및 모듈로 어떻게 전달되는지 최상위 수준에서 표현합니다.</p>
+    <div class="mermaid">
+flowchart TD
+    User((사용자))
+
+    subgraph Client [클라이언트 계층]
+        UI[프론트엔드 UI<br/>React + Vite]
+    end
+
+    subgraph Server [서버 계층]
+        Backend[백엔드 API 서버<br/>Node.js / Express]
+    end
+
+    subgraph DataBase [데이터 계층]
+        DB[(메인 데이터베이스<br/>SQLite / Supabase)]
+    end
+
+    subgraph External [외부 API 및 연동 모듈]
+        RSS[외부 뉴스 RSS 피드]
+        AI[AI 요약 엔진<br/>Gemini / Claude / Ollama]
+        PPT[PPT 생성 모듈<br/>Python + win32com]
+        Email[이메일 발송 서비스<br/>Resend API]
+    end
+
+    User -->|URL 입력 / 버튼 클릭| UI
+    UI -->|REST API 요청| Backend
+    Backend -->|데이터 저장 및 조회| DB
+    Backend -->|XML 뉴스 데이터 요청| RSS
+    Backend -->|뉴스 본문 요약 요청| AI
+    Backend -->|보고서 파일 생성 요청| PPT
+    Backend -->|요약 보고서 전송 요청| Email
+
+    classDef client fill:#d4edda,stroke:#28a745,stroke-width:2px;
+    classDef server fill:#cce5ff,stroke:#007bff,stroke-width:2px;
+    classDef db fill:#f8d7da,stroke:#dc3545,stroke-width:2px;
+    classDef external fill:#e2e3e5,stroke:#6c757d,stroke-width:2px;
+
+    class UI client;
+    class Backend server;
+    class DB db;
+    class RSS,AI,PPT,Email external;
+    </div>
+  </div>
+
+  <div class="doc" id="level2">
+    <h2>Level 2: 주요 기능별 상세 흐름도 (Feature Details)</h2>
+
+    <h3>2.1 뉴스 수동 추가 흐름 (Add News)</h3>
+    <p>사용자가 URL을 입력하면 서버가 해당 URL을 스크래핑하고 AI를 통해 요약한 뒤 DB에 저장하는 과정입니다.</p>
+    <div class="mermaid">
+flowchart TD
+    A1((사용자)) -->|URL 입력 및 추가 버튼 클릭| B1[프론트엔드 UI]
+    B1 -->|POST /api/add-news| C1[백엔드 서버]
+
+    C1 -->|HTTP GET 요청| D1[뉴스 웹사이트]
+    D1 -->|HTML 문서 반환| C1
+
+    C1 -->|Cheerio 파싱 및 본문 추출| E1[백엔드 서버 내부 로직]
+    E1 -->|본문 텍스트 프롬프트 전달| F1[AI 요약 엔진]
+    F1 -->|4줄 요약 및 번역 반환| C1
+
+    C1 -->|제목, 이미지, 요약문 저장| G1[(데이터베이스)]
+    G1 -->|저장 성공| C1
+
+    C1 -->|신규 뉴스 데이터 응답| B1
+    B1 -->|화면 리스트 갱신| A1
+    </div>
+
+    <h3>2.2 RSS 뉴스 검색 흐름 (Discover RSS)</h3>
+    <p>시스템에 등록된 언론사들의 최신 RSS 피드를 실시간으로 불러와 사용자에게 보여주는 과정입니다.</p>
+    <div class="mermaid">
+flowchart TD
+    A2((사용자)) -->|RSS 피드 채널 선택| B2[프론트엔드 UI]
+    B2 -->|GET /api/rss?url=...| C2[백엔드 서버]
+
+    C2 -->|XML 데이터 요청| D2[언론사 RSS 서버]
+    D2 -->|XML 데이터 반환| C2
+
+    C2 -->|rss-parser 라이브러리로 분석| E2[데이터 정제 로직]
+    E2 -->|불필요한 태그 및 이미지 필터링| E2
+
+    E2 -->|정제된 JSON 데이터 구조 반환| B2
+    B2 -->|디스커버리 탭에 리스트 렌더링| A2
+    </div>
+  </div>
+
+  <div class="doc" id="level3">
+    <h2>Level 3: 핵심 모듈 상세 흐름도 (Module Details)</h2>
+    <h3>3.1 PPT 자동 생성 모듈 로직 (Python Extractor)</h3>
+    <p>좋아요를 누른 뉴스 데이터를 바탕으로 Python 윈도우 COM 객체를 이용해 PowerPoint 슬라이드를 자동으로 생성해주는 프로세스입니다.</p>
+    <div class="mermaid">
+flowchart TD
+    A3[백엔드 서버] -->|Python 스크립트 호출<br/>'python core.py'| B3[core.py 메인 프로세스]
+
+    B3 -->|1. 선택된 뉴스 데이터 조회| C3[(데이터베이스)]
+
+    C3 -->|뉴스 리스트 반환| D3[HTML 렌더링 템플릿]
+    D3 -->|뉴스 텍스트와 이미지 병합| E3[임시 HTML 파일 생성]
+
+    E3 -->|2. 브라우저 엔진 기반 캡처| F3[Pyppeteer 모듈]
+    F3 -->|화면 렌더링 후 스크린샷| G3[뉴스 캡처 이미지 생성]
+
+    G3 -->|3. win32com.client 호출| H3[PowerPoint 프로세스 제어]
+    H3 -->|원본 템플릿 파일 열기| I3[보고서 템플릿 PPTX]
+
+    I3 -->|슬라이드 복제 및 추가| J3[슬라이드 수정 작업]
+    J3 -->|캡처 이미지 삽입 및 날짜 텍스트 갱신| J3
+
+    J3 -->|최종 파일 저장 및 종료| K3[최종 ai-bongchae_report.pptx]
+
+    K3 -->|다운로드 경로 반환| A3
+    </div>
+  </div>
+
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({ startOnLoad: true, theme: "default" });
+  </script>
+</body>
+</html>
