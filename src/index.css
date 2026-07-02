@@ -637,7 +637,8 @@ body::before {
   line-height: 1.7;
   font-family: inherit;
   resize: vertical;
-  min-height: 200px; /* 높이 대폭 확장 */
+  min-height: 120px;
+  overflow-y: hidden; /* 내부 스크롤 대신 본문 길이에 맞춰 자동 확장 */
   outline: none;
   margin-bottom: 20px;
 }

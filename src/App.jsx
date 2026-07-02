@@ -1038,11 +1038,16 @@ function App() {
                   </h2>
                   <div className="news-summary-container">
                     {editingId === news.id ? (
-                      <textarea 
+                      <textarea
                         className="edit-summary-input"
                         value={editSummary}
                         onChange={(e) => setEditSummary(e.target.value)}
-                        rows={6}
+                        ref={(el) => {
+                          if (el) {
+                            el.style.height = 'auto';
+                            el.style.height = `${el.scrollHeight}px`;
+                          }
+                        }}
                       />
                     ) : (
                       <ul className="news-summary">
