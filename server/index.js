@@ -331,7 +331,33 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
 
 
 // AI 요약 함수 - Gemini 로직 (REST API 직통 호출 방식)
+// Gemini 폴백 체인: 앞의 모델이 실패(429/503 등)하면 다음 모델로 넘어갑니다.
+// 4개가 모두 실패해야 유료 엔진인 Claude로 폴백합니다.
+// 주의: gemini-flash-lite-latest는 v1에 없으므로 v1beta를 사용합니다.
+const GEMINI_MODEL_CHAIN = [
+  'gemini-2.5-flash-lite',
+  'gemini-flash-lite-latest',
+  'gemini-2.0-flash',
+  'gemini-2.5-flash'
+];
+
 async function summarizeWithGemini(bodyText, title, publishedAt) {
+  let lastError;
+  for (const model of GEMINI_MODEL_CHAIN) {
+    try {
+      console.log(`[Gemini] Trying model: ${model}...`);
+      const result = await _summarizeWithGeminiModel(model, bodyText, title, publishedAt);
+      console.log(`[Gemini] Success with model: ${model}`);
+      return result;
+    } catch (err) {
+      lastError = err;
+      console.warn(`[Gemini] Model ${model} failed: ${err.message}`);
+    }
+  }
+  throw new Error(`모든 Gemini 모델 실패 (마지막 오류: ${lastError?.message || 'Unknown'})`);
+}
+
+async function _summarizeWithGeminiModel(model, bodyText, title, publishedAt) {
   const isEnglish = /[a-zA-Z]{5,}/.test(title);
   const prompt = `
     다음 뉴스 본문을 분석해서 '반드시' 아래 형식의 순수 JSON으로만 응답해줘. 
@@ -363,7 +389,7 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
   `;
 
   const API_KEY = process.env.GEMINI_API_KEY;
-  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
 
   const payload = {
     contents: [
@@ -434,9 +460,9 @@ async function summarizeWithGemini(bodyText, title, publishedAt) {
     throw new Error("JSON 형식을 찾을 수 없습니다.");
   } catch (err) {
     if (err.response) {
-      console.error('[Gemini API Error] Status:', err.response.status);
+      console.error(`[Gemini API Error] Model: ${model} / Status:`, err.response.status);
       console.error('[Gemini API Error] Data:', JSON.stringify(err.response.data, null, 2));
-      throw new Error(`Gemini API Error (${err.response.status}): ${err.response.data.error?.message || 'Unknown error'}`);
+      throw new Error(`Gemini API Error (${model} / ${err.response.status}): ${err.response.data.error?.message || 'Unknown error'}`);
     }
     throw err;
   }
