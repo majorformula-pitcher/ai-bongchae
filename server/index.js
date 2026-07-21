@@ -1350,7 +1350,7 @@ app.get('/api/news', async (req, res) => {
 app.get('/api/news/export', async (req, res) => {
   try {
     if (USE_LOCAL_DB) {
-      const rows = localDb.prepare(`SELECT * FROM "${TABLE_NAME}" ORDER BY created_at DESC`).all();
+      const rows = localDb.prepare(`SELECT * FROM "${TABLE_NAME}" ORDER BY id ASC`).all();
       const data = rows.map(r => ({ ...r, likes: !!r.likes }));
       return res.json({ success: true, data, total: data.length });
     }
@@ -1362,7 +1362,7 @@ app.get('/api/news/export', async (req, res) => {
       const { data, error } = await supabase
         .from(TABLE_NAME)
         .select('*')
-        .order('created_at', { ascending: false })
+        .order('id', { ascending: true })
         .range(from, from + PAGE - 1);
       if (error) throw error;
       all = all.concat(data);
