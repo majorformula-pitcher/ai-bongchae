@@ -390,17 +390,23 @@ function App() {
   
   const handleExportExcel = async () => {
     try {
-      const res = await axios.get('/api/news');
+      const res = await axios.get('/api/news/export');
       if (!res.data.success) throw new Error('데이터를 불러오지 못했습니다.');
       const data = res.data.data;
 
+      const fmtDate = (v) => v ? new Date(v).toLocaleString('ko-KR') : '';
+
       const excelData = data.map(item => ({
-        '제목': item.title,
-        '카테고리': item.category || '기타',
-        '핵심 요약': item.summary,
-        '출처 URL': item.url,
-        '작성 엔진': item.engine || 'Unknown',
-        '등록 시간': new Date(item.created_at).toLocaleString('ko-KR')
+        'id': item.id,
+        'title': item.title,
+        'summary': item.summary,
+        'url': item.url,
+        'category': item.category || '기타',
+        'created_at': fmtDate(item.created_at),
+        'published_at': fmtDate(item.published_at),
+        'likes': item.likes,
+        'image': item.image,
+        'engine': item.engine || 'Unknown'
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(excelData);
@@ -408,7 +414,8 @@ function App() {
       XLSX.utils.book_append_sheet(workbook, worksheet, 'News_List');
 
       const wscols = [
-        { wch: 45 }, { wch: 15 }, { wch: 75 }, { wch: 35 }, { wch: 15 }, { wch: 25 }
+        { wch: 8 },  { wch: 45 }, { wch: 75 }, { wch: 35 }, { wch: 12 },
+        { wch: 22 }, { wch: 22 }, { wch: 8 },  { wch: 35 }, { wch: 12 }
       ];
       worksheet['!cols'] = wscols;
 

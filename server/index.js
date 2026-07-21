@@ -1345,6 +1345,37 @@ app.get('/api/news', async (req, res) => {
   }
 });
 
+// [신규 API] 뉴스 전체 조회 (엑셀 Export 용 - Supabase 1000행 제한 우회)
+// Supabase(PostgREST)는 한 번에 최대 1000행만 반환하므로 range로 페이지네이션하여 전부 수집합니다.
+app.get('/api/news/export', async (req, res) => {
+  try {
+    if (USE_LOCAL_DB) {
+      const rows = localDb.prepare(`SELECT * FROM "${TABLE_NAME}" ORDER BY created_at DESC`).all();
+      const data = rows.map(r => ({ ...r, likes: !!r.likes }));
+      return res.json({ success: true, data, total: data.length });
+    }
+
+    const PAGE = 1000;
+    let all = [];
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase
+        .from(TABLE_NAME)
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(from, from + PAGE - 1);
+      if (error) throw error;
+      all = all.concat(data);
+      if (!data || data.length < PAGE) break; // 마지막 페이지
+      from += PAGE;
+    }
+    res.json({ success: true, data: all, total: all.length });
+  } catch (error) {
+    console.error('[API] Export News Error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // [신규 API] 뉴스 추가 (서버에서 DB 직접 입력)
 app.post('/api/news', async (req, res) => {
   const newsData = { ...req.body };
