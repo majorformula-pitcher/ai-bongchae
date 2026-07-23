@@ -684,7 +684,18 @@ app.post('/api/extract', async (req, res) => {
   const { url: rawUrl } = req.body;
   if (!rawUrl) return res.status(400).json({ success: false, error: 'URL is required' });
 
-  const url = normalizeUrl(rawUrl);
+  // 구글뉴스 리다이렉트 URL은 원본 기사 주소로 해석한 뒤 사용합니다.
+  // (중복 체크/DB 저장 기준을 실제 기사 주소로 통일하기 위해 추출보다 먼저 수행)
+  let url = normalizeUrl(rawUrl);
+  if (url.includes('news.google.com/rss/articles/')) {
+    const resolvedEarly = await resolveGoogleNewsUrl(url);
+    if (resolvedEarly) {
+      url = normalizeUrl(resolvedEarly);
+      console.log(`[Crawler] Successfully resolved Google News redirect: ${url}`);
+    } else {
+      console.warn('[Crawler] Google News resolve failed, using original URL');
+    }
+  }
 
   try {
     // [중복 체크] 이미 등록된 뉴스라면 추출 과정 생략 (성능 및 비용 최적화)
@@ -715,16 +726,6 @@ app.post('/api/extract', async (req, res) => {
     
     console.log(`[Crawler] Attempting to fetch: ${url}`);
 
-    // [Step 0] 구글 뉴스 리다이렉트 URL 사전 처리 (진짜 주소 찾기)
-    if (url.includes('news.google.com/rss/articles/')) {
-      const resolved = await resolveGoogleNewsUrl(url);
-      if (resolved) {
-        url = resolved;
-        console.log(`[Crawler] Successfully resolved Google News redirect: ${url}`);
-      } else {
-        console.warn('[Crawler] Google News resolve failed, using original URL');
-      }
-    }
 
     const response = await axios.get(url, { 
       headers, 
