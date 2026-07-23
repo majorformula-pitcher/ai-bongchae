@@ -128,7 +128,10 @@ const RSS_FEEDS = [
   { name: "Bloomberg", url: "https://news.google.com/rss/search?q=when:24h+site:bloomberg.com+(AI+OR+Robot+OR+Security+OR+Tech)&hl=en-US&gl=US&ceid=US:en" },
   { name: "Reuters", url: "https://news.google.com/rss/search?q=when:24h+site:reuters.com+(AI+OR+Artificial+Intelligence+OR+Algorithm)&hl=en-US&gl=US&ceid=US:en" },
   { name: "FT", url: "https://news.google.com/rss/search?q=when:24h+site:ft.com+(Tech+OR+IT+OR+Software)&hl=en-US&gl=US&ceid=US:en" },
-  { name: "NYT Tech", url: "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml" }
+  { name: "NYT Tech", url: "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml" },
+  { name: "Berkeley", url: "https://news.berkeley.edu/category/research/technology-engineering/feed/" },
+  { name: "IEEE News", url: "https://spectrum.ieee.org/feeds/type/news.rss" },
+  { name: "IEEE AI", url: "https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss" }
 ];
 
 const __filename = fileURLToPath(import.meta.url);
