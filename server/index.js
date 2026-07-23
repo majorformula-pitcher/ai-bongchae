@@ -24,6 +24,51 @@ dotenv.config();
 const USE_LOCAL_DB = process.env.USE_LOCAL_DB === 'true';
 const TABLE_NAME = process.env.TABLE_NAME || 'ai-bongchae';
 
+// [Utility] 구글 뉴스 리다이렉트 URL -> 원본 기사 URL 해석
+// 구글이 기사 링크를 암호화하면서 canonical/og:url 태그가 사라졌기 때문에,
+// 구글 뉴스 페이지에서 서명값(data-n-a-sg/ts/id)을 읽어 내부 batchexecute API로 원본 주소를 얻습니다.
+async function resolveGoogleNewsUrl(googleUrl, headers) {
+  try {
+    // 1) 스플래시 페이지에서 서명 데이터 추출 (302 리다이렉트를 따라가야 함)
+    const splash = await axios.get(googleUrl, {
+      headers,
+      timeout: 10000,
+      maxRedirects: 5
+    });
+    const html = String(splash.data);
+    const sg = html.match(/data-n-a-sg="([^"]+)"/)?.[1];
+    const ts = html.match(/data-n-a-ts="([^"]+)"/)?.[1];
+    const id = html.match(/data-n-a-id="([^"]+)"/)?.[1];
+
+    if (!sg || !ts || !id) {
+      // 구버전 형식 폴백: canonical / og:url 태그
+      const $ = cheerio.load(html);
+      const legacy = $('link[rel="canonical"]').attr('href') || $('meta[property="og:url"]').attr('content');
+      return (legacy && !legacy.includes('news.google.com')) ? legacy : null;
+    }
+
+    // 2) 구글 내부 API 호출로 원본 URL 요청
+    const inner = `["garturlreq",[["X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,null,null,null,0,1],"X","X",1,[1,1,1],1,1,null,0,0,null,0],"${id}",${ts},"${sg}"]`;
+    const payload = 'f.req=' + encodeURIComponent(JSON.stringify([[['Fbv4je', inner, null, 'generic']]]));
+
+    const res = await axios.post(
+      'https://news.google.com/_/DotsSplashUi/data/batchexecute',
+      payload,
+      {
+        headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        timeout: 10000
+      }
+    );
+
+    // 3) 응답에서 구글 도메인이 아닌 첫 URL 추출
+    const match = String(res.data).match(/https?:\/\/(?!(?:www\.)?(?:google|gstatic)\.)[^"\\,\]\s]{15,}/);
+    return match ? match[0].replace(/\\+$/, '') : null;
+  } catch (e) {
+    console.warn('[Crawler] resolveGoogleNewsUrl error:', e.message);
+    return null;
+  }
+}
+
 // [Utility] URL 정규화 (중복 방지용)
 function normalizeUrl(url) {
   if (!url) return url;
@@ -665,18 +710,12 @@ app.post('/api/extract', async (req, res) => {
 
     // [Step 0] 구글 뉴스 리다이렉트 URL 사전 처리 (진짜 주소 찾기)
     if (url.includes('news.google.com/rss/articles/')) {
-      try {
-        const splashRes = await axios.get(url, { headers, timeout: 5000 });
-        const $splash = cheerio.load(splashRes.data);
-        const resolved = $splash('link[rel="canonical"]').attr('href') || 
-                         $splash('meta[property="og:url"]').attr('content') ||
-                         splashRes.data.match(/data-n-au="([^"]+)"/)?.[1];
-        if (resolved && !resolved.includes('news.google.com')) {
-          url = resolved;
-          console.log(`[Crawler] Successfully resolved Google News redirect: ${url}`);
-        }
-      } catch (e) {
-        console.warn('[Crawler] Google News resolve failed, using original:', e.message);
+      const resolved = await resolveGoogleNewsUrl(url, headers);
+      if (resolved) {
+        url = resolved;
+        console.log(`[Crawler] Successfully resolved Google News redirect: ${url}`);
+      } else {
+        console.warn('[Crawler] Google News resolve failed, using original URL');
       }
     }
 
