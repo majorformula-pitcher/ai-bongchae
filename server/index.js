@@ -107,7 +107,10 @@ const RSS_FEEDS = [
   { name: "전자신문-전자", url: "http://rss.etnews.com/06061.xml" },
   { name: "The AI", url: "https://www.newstheai.com/rss/allArticle.xml" },
   { name: "디지털투데이", url: "https://www.digitaltoday.co.kr/rss/allArticle.xml" },
-  { name: "한국경제-IT", url: "https://www.hankyung.com/feed/it" },
+  // [비활성화] 한국경제-IT: Cloudflare 봇 차단(Cf-Mitigated: challenge)으로 데이터센터 IP에서 403.
+  // 사내망 로컬 실행 시에는 정상 동작하지만 Oracle 운영 서버에서는 항상 실패하여 목록에서 제외함.
+  // 기사 본문 페이지는 차단되지 않으므로 URL 직접 입력으로는 요약 가능.
+  // { name: "한국경제-IT", url: "https://www.hankyung.com/feed/it" },
   { name: "Bloter", url: "https://www.bloter.net/rss/allArticle.xml" },
   { name: "AI타임스", url: "https://www.aitimes.com/rss/allArticle.xml" },
   { name: "ZDNet Korea", url: "https://zdnet.co.kr/feed" },
