@@ -27,11 +27,18 @@ const TABLE_NAME = process.env.TABLE_NAME || 'ai-bongchae';
 // [Utility] 구글 뉴스 리다이렉트 URL -> 원본 기사 URL 해석
 // 구글이 기사 링크를 암호화하면서 canonical/og:url 태그가 사라졌기 때문에,
 // 구글 뉴스 페이지에서 서명값(data-n-a-sg/ts/id)을 읽어 내부 batchexecute API로 원본 주소를 얻습니다.
-async function resolveGoogleNewsUrl(googleUrl, headers) {
+async function resolveGoogleNewsUrl(googleUrl) {
+  // 주의: 크롤러용 헤더를 재사용하면 안 됩니다.
+  // Accept-Encoding에 br이 포함되면 응답이 brotli로 압축되어 서명값 파싱에 실패합니다.
+  const gHeaders = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36',
+    'Accept-Encoding': 'gzip, deflate'
+  };
+
   try {
     // 1) 스플래시 페이지에서 서명 데이터 추출 (302 리다이렉트를 따라가야 함)
     const splash = await axios.get(googleUrl, {
-      headers,
+      headers: gHeaders,
       timeout: 10000,
       maxRedirects: 5
     });
@@ -55,7 +62,7 @@ async function resolveGoogleNewsUrl(googleUrl, headers) {
       'https://news.google.com/_/DotsSplashUi/data/batchexecute',
       payload,
       {
-        headers: { ...headers, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        headers: { ...gHeaders, 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
         timeout: 10000
       }
     );
@@ -710,7 +717,7 @@ app.post('/api/extract', async (req, res) => {
 
     // [Step 0] 구글 뉴스 리다이렉트 URL 사전 처리 (진짜 주소 찾기)
     if (url.includes('news.google.com/rss/articles/')) {
-      const resolved = await resolveGoogleNewsUrl(url, headers);
+      const resolved = await resolveGoogleNewsUrl(url);
       if (resolved) {
         url = resolved;
         console.log(`[Crawler] Successfully resolved Google News redirect: ${url}`);
