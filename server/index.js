@@ -156,7 +156,7 @@ const rssParser = new Parser({
 const RSS_FEEDS = [
   { name: "로봇신문", url: "https://www.irobotnews.com/rss/allArticle.xml" },
   { name: "전자신문-AI", url: "http://rss.etnews.com/04046.xml" },
-  { name: "전자신문-전자", url: "http://rss.etnews.com/06061.xml" },
+  { name: "전자신문-전자", url: "https://rss.etnews.com/Section901.xml" },
   { name: "The AI", url: "https://www.newstheai.com/rss/allArticle.xml" },
   { name: "디지털투데이", url: "https://www.digitaltoday.co.kr/rss/allArticle.xml" },
   // [비활성화] 한국경제 직접 RSS: Cloudflare 봇 차단(Cf-Mitigated: challenge)으로 데이터센터 IP에서 403.
