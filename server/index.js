@@ -187,7 +187,8 @@ const RSS_FEEDS = [
   { name: "NYT Tech", url: "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml" },
   { name: "Berkeley", url: "https://news.berkeley.edu/category/research/technology-engineering/feed/" },
   { name: "IEEE News", url: "https://spectrum.ieee.org/feeds/type/news.rss" },
-  { name: "IEEE AI", url: "https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss" }
+  { name: "IEEE AI", url: "https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss" },
+  { name: "냉동공조저널", url: "https://www.hvacrj.co.kr/rss/allArticle.xml" }
 ];
 
 const __filename = fileURLToPath(import.meta.url);
@@ -863,7 +864,7 @@ async function crawlArticle(rawUrl) {
   }
 
   const bodySelectors = [
-    '#realArtcContents', '#articleContetns', 
+    '#article-view-content-div', '#realArtcContents', '#articleContetns', 
     'div.article-content', 'div.post-content', 'div.content-lock-content', 
     'div.article_txt', 'div.article_body', 'div#articleBody', 
     'article', 'main', '.entry-content', '.story-content', 'div.article-body-content'
