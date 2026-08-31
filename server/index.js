@@ -390,13 +390,16 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
 
 
 // AI 요약 함수 - Gemini 로직 (REST API 직통 호출 방식)
-// Gemini 폴백 체인: 앞의 모델이 실패(429/503 등)하면 다음 모델로 넘어갑니다.
-// 4개가 모두 실패해야 유료 엔진인 Claude로 폴백합니다.
-// 주의: gemini-flash-lite-latest는 v1에 없으므로 v1beta를 사용합니다.
+// Gemini 8단계 폴백 체인: 앞의 모델이 실패(429/503 등)하면 다음 모델로 넘어갑니다.
+// 8개가 모두 실패해야 유료 백업 엔진인 Claude 3.5 Haiku로 폴백합니다.
 const GEMINI_MODEL_CHAIN = [
+  'gemini-3.7-flash',
+  'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
+  'gemini-3.1-flash-lite',
   'gemini-2.5-flash-lite',
   'gemini-flash-lite-latest',
-  'gemini-2.0-flash',
   'gemini-2.5-flash'
 ];
 
@@ -566,7 +569,7 @@ async function summarizeWithClaude(bodyText, title, publishedAt) {
  기사 본문: ${bodyText}`;
 
   const msg = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
+    model: "claude-3-5-haiku-20241022",
     max_tokens: 1024,
     system: "당신은 뉴스 요약 전문가입니다. 숫자를 사용하지 말고 문장 위주로만 출력하세요.",
     messages: [{ role: "user", content: prompt }],
@@ -1209,43 +1212,45 @@ async function summarizeForPublish(title, summary) {
     };
   }
 
-  // 2. Gemini API 사용 (Fallback 또는 클라우드 배포 모드)
-  try {
-    const API_KEY = process.env.GEMINI_API_KEY;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
-    const payload = {
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { 
-        temperature: 0.1, 
-        maxOutputTokens: 1024,
-        response_mime_type: "application/json"
-      }
-    };
+  // 2. Gemini API 8단계 체인 사용
+  for (const model of GEMINI_MODEL_CHAIN) {
+    try {
+      const API_KEY = process.env.GEMINI_API_KEY;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
+      const payload = {
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { 
+          temperature: 0.1, 
+          maxOutputTokens: 1024,
+          response_mime_type: "application/json"
+        }
+      };
 
-    const response = await axios.post(url, payload, { headers: { 'Content-Type': 'application/json' }, timeout: 15000 });
-    
-    if (response.data.candidates && response.data.candidates.length > 0) {
-      const responseText = response.data.candidates[0].content.parts[0].text.trim();
-      let startIdx = responseText.indexOf('{');
-      let endIdx = responseText.lastIndexOf('}');
-      if (startIdx !== -1 && endIdx !== -1) {
-        let jsonStr = responseText.substring(startIdx, endIdx + 1);
-        let data = JSON.parse(jsonStr);
-        return {
-          title_ko: data.title_ko || (title.length > 25 ? title.substring(0, 25) : title),
-          summary_eng: Array.isArray(data.summary_ko) ? data.summary_ko.join('\n') : (data.summary_eng || summary.split('\n').slice(0, 2).join('\n')),
-          engine: "Gemini"
-        };
+      const response = await axios.post(url, payload, { headers: { 'Content-Type': 'application/json' }, timeout: 15000 });
+      
+      if (response.data.candidates && response.data.candidates.length > 0) {
+        const responseText = response.data.candidates[0].content.parts[0].text.trim();
+        let startIdx = responseText.indexOf('{');
+        let endIdx = responseText.lastIndexOf('}');
+        if (startIdx !== -1 && endIdx !== -1) {
+          let jsonStr = responseText.substring(startIdx, endIdx + 1);
+          let data = JSON.parse(jsonStr);
+          return {
+            title_ko: data.title_ko || (title.length > 25 ? title.substring(0, 25) : title),
+            summary_eng: Array.isArray(data.summary_ko) ? data.summary_ko.join('\n') : (data.summary_eng || summary.split('\n').slice(0, 2).join('\n')),
+            engine: `Gemini (${model})`
+          };
+        }
       }
+    } catch (geminiErr) {
+      console.warn(`[AI] Gemini ${model} failed for publish:`, geminiErr.message);
     }
-  } catch (geminiErr) {
-    console.warn('[AI] Gemini failed for publish, trying Claude fallback:', geminiErr.message);
   }
 
-  // 3. Gemini 실패 시 Claude API 시도
+  // 3. Gemini 8개 모델 실패 시 유료 Claude 3.5 Haiku 시도
   try {
     const msg = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
+      model: "claude-3-5-haiku-20241022",
       max_tokens: 1024,
       system: "당신은 뉴스 요약 전문가입니다. JSON 출력만 허용합니다.",
       messages: [{ role: "user", content: prompt }],
@@ -1260,7 +1265,7 @@ async function summarizeForPublish(title, summary) {
       return {
         title_ko: data.title_ko || (title.length > 25 ? title.substring(0, 25) : title),
         summary_eng: Array.isArray(data.summary_ko) ? data.summary_ko.join('\n') : (data.summary_eng || summary.split('\n').slice(0, 2).join('\n')),
-        engine: "Claude"
+        engine: "Claude (3.5 Haiku)"
       };
     }
   } catch (claudeErr) {
