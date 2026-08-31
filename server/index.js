@@ -682,13 +682,8 @@ app.get('/api/proxy-image', async (req, res) => {
   }
 });
 
-app.post('/api/extract', async (req, res) => {
-
-  const { url: rawUrl } = req.body;
-  if (!rawUrl) return res.status(400).json({ success: false, error: 'URL is required' });
-
-  // 구글뉴스 리다이렉트 URL은 원본 기사 주소로 해석한 뒤 사용합니다.
-  // (중복 체크/DB 저장 기준을 실제 기사 주소로 통일하기 위해 추출보다 먼저 수행)
+// [Crawler Core] URL로부터 본문, 제목, 이미지, 발행일 등을 추출하는 공통 크롤러 함수
+async function crawlArticle(rawUrl) {
   let url = normalizeUrl(rawUrl);
   if (url.includes('news.google.com/rss/articles/')) {
     const resolvedEarly = await resolveGoogleNewsUrl(url);
@@ -700,296 +695,280 @@ app.post('/api/extract', async (req, res) => {
     }
   }
 
+  const headers = { 
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+    "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Referer": url.includes('naver.com') ? "https://news.naver.com/" : "https://www.google.com/",
+    "DNT": "1",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Ch-Ua": '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
+    "Sec-Ch-Ua-Mobile": "?0",
+    "Sec-Ch-Ua-Platform": '"Windows"',
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "cross-site",
+    "Sec-Fetch-User": "?1"
+  };
+
+  console.log(`[Crawler] Attempting to fetch: ${url}`);
+
+  const response = await axios.get(url, { 
+    headers, 
+    timeout: 15000, 
+    responseType: 'arraybuffer',
+    validateStatus: (status) => status < 500 
+  });
+
+  const buffer = response.data;
+  const status = response.status;
+
+  let charset = 'utf-8';
+  const contentType = response.headers['content-type'] || '';
+  const headerMatch = contentType.match(/charset=([\w\-]+)/i);
+  if (headerMatch) {
+    charset = headerMatch[1].toLowerCase();
+  } else {
+    const detected = jschardet.detect(buffer);
+    if (detected && detected.confidence > 0.8) {
+      charset = detected.encoding.toLowerCase();
+    }
+  }
+
+  let html = iconv.decode(buffer, charset);
+  let $ = cheerio.load(html);
+  const metaCharset = $('meta[charset]').attr('charset') || 
+                      $('meta[http-equiv="Content-Type"]').attr('content')?.match(/charset=([\w\-]+)/i)?.[1];
+  
+  if (metaCharset && metaCharset.toLowerCase() !== charset) {
+    charset = metaCharset.toLowerCase();
+    html = iconv.decode(buffer, charset);
+    $ = cheerio.load(html);
+  }
+
+  if (status >= 400) {
+    console.warn(`[Crawler] Low-level block detected (HTTP ${status}). Trying OG fallback.`);
+    const ogTitle = $('meta[property="og:title"]').attr('content') || $('title').text().trim();
+    const ogDesc = $('meta[property="og:description"]').attr('content') || "";
+    const ogImage = $('meta[property="og:image"]').attr('content') || "";
+    if (ogTitle && ogDesc) {
+      return {
+        success: true,
+        url,
+        title: ogTitle,
+        bodyText: ogDesc,
+        imageUrl: ogImage,
+        publishedAt: new Date().toISOString()
+      };
+    }
+    throw new Error(`HTTP ${status} — 접근 제한 (사이트에서 직접 차단함)`);
+  }
+
+  let title = $('meta[property="og:title"]').attr('content') || 
+              $('.articleSubecjt').text().trim() || 
+              $('h1.articleSubecjt').text().trim() ||
+              $('title').text().trim() || 
+              "제목 없음";
+
+  title = title.replace(/\s*[-|:|/]\s*(더밀크\s*\|\s*The\s*Miilk|더밀크|Bloomberg\.com|Bloomberg|CNBC|The Verge|NYT|Reuters|Financial Times|FT|TechCrunch|VentureBeat|CNET|Wired).*$/i, '').trim();
+  if (title.includes(' - ')) title = title.split(' - ').slice(0, -1).join(' - ');
+  else if (title.includes(' | ')) title = title.split(' | ').slice(0, -1).join(' | ');
+  else if (title.includes(' : ')) title = title.split(' : ').slice(0, -1).join(' : ');
+  title = title.trim();
+
+  let imageUrl = "";
+  if (url.includes('nate.com')) {
+    imageUrl = $('#realArtcContents img').first().attr('src') || 
+               $('.img_area img').first().attr('src') || 
+               $('meta[property="og:image"]').attr('content') || "";
+  } else {
+    imageUrl = $('meta[property="og:image"]').attr('content') || 
+               $('#realArtcContents img').first().attr('src') || 
+               $('.img_area img').first().attr('src') || 
+               $('article img').first().attr('src') || "";
+  }
+
+  if (!imageUrl || imageUrl.includes('blank.gif') || imageUrl.includes('default_image')) {
+    imageUrl = $('article img').first().attr('src') || imageUrl;
+  }
+
+  if (imageUrl) {
+    imageUrl = imageUrl.trim();
+    if (imageUrl.startsWith('/')) {
+      if (imageUrl.startsWith('//')) {
+        imageUrl = 'https:' + imageUrl;
+      } else {
+        try {
+          const urlObj = new URL(url);
+          imageUrl = `${urlObj.protocol}//${urlObj.host}${imageUrl}`;
+        } catch (e) {
+          console.error('[Crawler] Failed to resolve relative image URL:', e.message);
+        }
+      }
+    }
+
+    if (imageUrl.startsWith('https://')) {
+      imageUrl = 'https://' + imageUrl.substring(8).replace(/\/+/g, '/');
+    } else if (imageUrl.startsWith('http://')) {
+      imageUrl = 'http://' + imageUrl.substring(7).replace(/\/+/g, '/');
+    } else {
+      imageUrl = imageUrl.replace(/\/+/g, '/');
+      if (imageUrl.startsWith('https:/')) imageUrl = imageUrl.replace('https:/', 'https://');
+      else if (imageUrl.startsWith('http:/')) imageUrl = imageUrl.replace('http:/', 'http://');
+    }
+  }
+
+  let rawDate = $('meta[name="news-article-recently-created"]').attr('content') || 
+                $('meta[property="article:published_time"]').attr('content') || 
+                $('meta[name="pubdate"]').attr('content') ||
+                $('meta[name="publish-date"]').attr('content') ||
+                $('[data-date-time]').first().attr('data-date-time') || 
+                $('.media_end_head_info_dateline_ts').attr('data-last-updated') ||
+                $('.media_end_head_info_dateline_ts').text().replace(/입력|수정/g, '').trim() ||
+                $('time').attr('datetime') || "";
+
+  let publishedAt = "";
+  if (rawDate && /^\d{14}$/.test(rawDate)) {
+    publishedAt = `${rawDate.slice(0,4)}-${rawDate.slice(4,6)}-${rawDate.slice(6,8)}T${rawDate.slice(8,10)}:${rawDate.slice(10,12)}:${rawDate.slice(12,14)}+09:00`;
+  } else if (rawDate && /^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/.test(rawDate)) {
+    publishedAt = rawDate.replace(' ', 'T') + "+09:00";
+  } else if (rawDate && rawDate.includes('.')) {
+    const dateMatch = rawDate.match(/(\d{4})\.(\d{2})\.(\d{2})/);
+    const timeMatch = rawDate.match(/(오전|오후)\s*(\d{1,2}):(\d{1,2})/);
+    if (dateMatch) {
+      let year = dateMatch[1];
+      let month = dateMatch[2];
+      let day = dateMatch[3];
+      let hour = "00";
+      let min = "00";
+      if (timeMatch) {
+        let h = parseInt(timeMatch[2]);
+        let isPM = timeMatch[1] === '오후';
+        if (isPM && h < 12) h += 12;
+        if (!isPM && h === 12) h = 0;
+        hour = h.toString().padStart(2, '0');
+        min = timeMatch[3].padStart(2, '0');
+      }
+      publishedAt = `${year}-${month}-${day}T${hour}:${min}:00+09:00`;
+    }
+  }
+
+  if (!publishedAt && rawDate && rawDate.length > 10) {
+    publishedAt = rawDate;
+  }
+  if (!publishedAt) {
+    publishedAt = new Date().toISOString();
+  }
+
+  const bodySelectors = [
+    '#realArtcContents', '#articleContetns', 
+    'div.article-content', 'div.post-content', 'div.content-lock-content', 
+    'div.article_txt', 'div.article_body', 'div#articleBody', 
+    'article', 'main', '.entry-content', '.story-content', 'div.article-body-content'
+  ];
+
+  let bodyText = "";
+  try {
+    $('script[type="application/ld+json"]').each((i, el) => {
+      try {
+        const jsonText = $(el).text();
+        const jsonData = JSON.parse(jsonText);
+        
+        const findArticleBody = (obj) => {
+          if (!obj || typeof obj !== 'object') return null;
+          if (Array.isArray(obj)) {
+            for (const item of obj) {
+              const result = findArticleBody(item);
+              if (result) return result;
+            }
+          }
+          if (obj.articleBody && obj.articleBody.length > 200) return obj.articleBody;
+          for (const key in obj) {
+            const result = findArticleBody(obj[key]);
+            if (result) return result;
+          }
+          return null;
+        };
+
+        const foundText = findArticleBody(jsonData);
+        if (foundText) {
+          bodyText = foundText;
+          console.log(`[Crawler] Success! Article content extracted via JSON-LD (${bodyText.length} chars)`);
+          return false;
+        }
+      } catch (e) { }
+    });
+  } catch (ldError) {
+    console.error('[Crawler] JSON-LD extraction failed:', ldError.message);
+  }
+
+  if (!bodyText || bodyText.length < 200) {
+    for (const s of bodySelectors) {
+      const el = $(s);
+      if (el.length > 0) {
+        el.find('script, style, nav, footer, aside, iframe, header, button, .ad-unit, .promo-box, .newsletter-signup').remove();
+        const text = el.text().trim();
+        if (text.length > 200) {
+          bodyText = text;
+          console.log(`[Crawler] Content extracted via selector: ${s} (${bodyText.length} chars)`);
+          break;
+        }
+      }
+    }
+  }
+  
+  if (bodyText.length < 100) {
+    console.log(`[Crawler] Selectors failed or short. Using OG Description.`);
+    bodyText = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || "";
+  }
+
+  if (!bodyText || bodyText.length < 50) throw new Error('본문을 추출할 수 없습니다. (사이트 차단 또는 구조 변경)');
+
+  bodyText = bodyText
+    .replace(/\s+/g, ' ')
+    .replace(/[a-zA-Z0-9._%+-]+@ businessinsider\.com/g, '')
+    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '')
+    .replace(/[가-힣]{2,4}\s*기자(?!\w)/g, '')
+    .slice(0, 8000);
+
+  return {
+    success: true,
+    url,
+    title,
+    bodyText,
+    imageUrl,
+    publishedAt
+  };
+}
+
+app.post('/api/extract', async (req, res) => {
+  const { url: rawUrl } = req.body;
+  if (!rawUrl) return res.status(400).json({ success: false, error: 'URL is required' });
+
+  let normalizedTargetUrl = normalizeUrl(rawUrl);
+
   try {
     // [중복 체크] 이미 등록된 뉴스라면 추출 과정 생략 (성능 및 비용 최적화)
     if (USE_LOCAL_DB) {
-      const existing = localDb.prepare(`SELECT id FROM "${TABLE_NAME}" WHERE url = ?`).get(url);
+      const existing = localDb.prepare(`SELECT id FROM "${TABLE_NAME}" WHERE url = ?`).get(normalizedTargetUrl);
       if (existing) return res.status(400).json({ success: false, error: '이미 등록된 뉴스입니다.' });
     } else {
-      const { data: existing } = await supabase.from(TABLE_NAME).select('id').eq('url', url).maybeSingle();
+      const { data: existing } = await supabase.from(TABLE_NAME).select('id').eq('url', normalizedTargetUrl).maybeSingle();
       if (existing) return res.status(400).json({ success: false, error: '이미 등록된 뉴스입니다.' });
     }
-    const headers = { 
-      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-      "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-      "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
-      "Accept-Encoding": "gzip, deflate, br",
-      "Referer": url.includes('naver.com') ? "https://news.naver.com/" : "https://www.google.com/",
-      "DNT": "1",
-      "Connection": "keep-alive",
-      "Upgrade-Insecure-Requests": "1",
-      "Sec-Ch-Ua": '"Not(A:Brand";v="99", "Google Chrome";v="133", "Chromium";v="133"',
-      "Sec-Ch-Ua-Mobile": "?0",
-      "Sec-Ch-Ua-Platform": '"Windows"',
-      "Sec-Fetch-Dest": "document",
-      "Sec-Fetch-Mode": "navigate",
-      "Sec-Fetch-Site": "cross-site",
-      "Sec-Fetch-User": "?1"
-    };
-    
-    console.log(`[Crawler] Attempting to fetch: ${url}`);
 
-
-    const response = await axios.get(url, { 
-      headers, 
-      timeout: 15000, 
-      responseType: 'arraybuffer', // 인코딩 처리를 위해 raw 버퍼로 받습니다.
-      validateStatus: (status) => status < 500 
-    });
-    
-    const buffer = response.data;
-    const status = response.status;
-    
-    // [인코딩 감지 및 변환]
-    let charset = 'utf-8';
-    
-    // 1. 헤더에서 감지
-    const contentType = response.headers['content-type'] || '';
-    const headerMatch = contentType.match(/charset=([\w\-]+)/i);
-    if (headerMatch) {
-      charset = headerMatch[1].toLowerCase();
-    } else {
-      // 2. jschardet으로 내용물 분석
-      const detected = jschardet.detect(buffer);
-      if (detected && detected.confidence > 0.8) {
-        charset = detected.encoding.toLowerCase();
-      }
-    }
-
-    // 네이트 등 특수 인코딩 처리
-    let html = iconv.decode(buffer, charset);
-    
-    // 만약 깨짐이 남아있다면 meta 태그 분석 후 재디코딩 시도
-    let $ = cheerio.load(html);
-    const metaCharset = $('meta[charset]').attr('charset') || 
-                        $('meta[http-equiv="Content-Type"]').attr('content')?.match(/charset=([\w\-]+)/i)?.[1];
-    
-    if (metaCharset && metaCharset.toLowerCase() !== charset) {
-      charset = metaCharset.toLowerCase();
-      html = iconv.decode(buffer, charset);
-      $ = cheerio.load(html);
-    }
-
-    if (status >= 400) {
-      console.warn(`[Crawler] Low-level block detected (HTTP ${status}). Trying OG fallback.`);
-      const ogTitle = $('meta[property="og:title"]').attr('content') || $('title').text().trim();
-      const ogDesc = $('meta[property="og:description"]').attr('content') || "";
-      const ogImage = $('meta[property="og:image"]').attr('content') || "";
-      if (ogTitle && ogDesc) {
-        return res.json({ success: true, title: ogTitle, summary: ogDesc, category: "기타", published_at: new Date().toISOString(), image: ogImage, url, engine: "Fallback" });
-      }
-      throw new Error(`HTTP ${status} — 접근 제한 (사이트에서 직접 차단함)`);
-    }
-
-    let title = $('meta[property="og:title"]').attr('content') || 
-                $('.articleSubecjt').text().trim() || // Nate 전용 (오타 포함)
-                $('h1.articleSubecjt').text().trim() ||
-                $('title').text().trim() || 
-                "제목 없음";
-
-    
-    // [제목 세척 고도화] 매체명 접미사 제거 ( - , | , : , / 등 및 특정 매체명 직접 제거)
-    title = title.replace(/\s*[-|:|/]\s*(더밀크\s*\|\s*The\s*Miilk|더밀크|Bloomberg\.com|Bloomberg|CNBC|The Verge|NYT|Reuters|Financial Times|FT|TechCrunch|VentureBeat|CNET|Wired).*$/i, '').trim();
-    
-    // Fallback: 위 정규식으로 안 잡히는 일반적인 구분자 처리
-    if (title.includes(' - ')) title = title.split(' - ').slice(0, -1).join(' - ');
-    else if (title.includes(' | ')) title = title.split(' | ').slice(0, -1).join(' | ');
-    else if (title.includes(' : ')) title = title.split(' : ').slice(0, -1).join(' : ');
-    
-    title = title.trim();
-    
-    let imageUrl = "";
-    
-    // 네이트 뉴스의 경우 메타 태그(og:image)가 저화질이거나 작동하지 않는 경우가 많아 본문 이미지 우선 탐색
-    if (url.includes('nate.com')) {
-      imageUrl = $('#realArtcContents img').first().attr('src') || 
-                 $('.img_area img').first().attr('src') || 
-                 $('meta[property="og:image"]').attr('content') || "";
-    } else {
-      imageUrl = $('meta[property="og:image"]').attr('content') || 
-                 $('#realArtcContents img').first().attr('src') || 
-                 $('.img_area img').first().attr('src') || 
-                 $('article img').first().attr('src') || "";
-    }
-
-    // [이미지 추출 고도화] 여전히 비어있거나 불량인 경우 fallback
-    if (!imageUrl || imageUrl.includes('blank.gif') || imageUrl.includes('default_image')) {
-      imageUrl = $('article img').first().attr('src') || imageUrl;
-    }
-
-    // [이미지 주소 정제] 네이트 등에서 발생하는 /// 및 상대 경로 처리
-    if (imageUrl) {
-      imageUrl = imageUrl.trim();
-      
-      // 상대 경로 해결
-      if (imageUrl.startsWith('/')) {
-        if (imageUrl.startsWith('//')) {
-          imageUrl = 'https:' + imageUrl;
-        } else {
-          // 절대 경로가 아닌 경우 현재 URL의 도메인 결합
-          try {
-            const urlObj = new URL(url);
-            imageUrl = `${urlObj.protocol}//${urlObj.host}${imageUrl}`;
-          } catch (e) {
-            console.error('[Crawler] Failed to resolve relative image URL:', e.message);
-          }
-        }
-      }
-
-      // 네이트 특유의 중복 슬래시 해결
-      // 1. 프로토콜 부분은 그대로 두고 나머지의 중복 슬래시를 합침
-      if (imageUrl.startsWith('https://')) {
-        imageUrl = 'https://' + imageUrl.substring(8).replace(/\/+/g, '/');
-      } else if (imageUrl.startsWith('http://')) {
-        imageUrl = 'http://' + imageUrl.substring(7).replace(/\/+/g, '/');
-      } else {
-        // 프로토콜이 없는 경우 등
-        imageUrl = imageUrl.replace(/\/+/g, '/');
-        if (imageUrl.startsWith('https:/')) imageUrl = imageUrl.replace('https:/', 'https://');
-        else if (imageUrl.startsWith('http:/')) imageUrl = imageUrl.replace('http:/', 'http://');
-      }
-    }
-    
-    // [날짜 추출 고도화] 여러 메타 태그와 네이버 전용 선택자 뒤지기
-    let rawDate = $('meta[name="news-article-recently-created"]').attr('content') || 
-                  $('meta[property="article:published_time"]').attr('content') || 
-                  $('meta[name="pubdate"]').attr('content') ||
-                  $('meta[name="publish-date"]').attr('content') ||
-                  $('[data-date-time]').first().attr('data-date-time') || // Naver 신규 태그
-                  $('.media_end_head_info_dateline_ts').attr('data-last-updated') ||
-                  $('.media_end_head_info_dateline_ts').text().replace(/입력|수정/g, '').trim() ||
-                  $('time').attr('datetime') || "";
-    
-    let publishedAt = "";
-
-    // [Step 1] YYYYMMDDHHmmss 형식 처리 (네이버 전용)
-    if (rawDate && /^\d{14}$/.test(rawDate)) {
-      publishedAt = `${rawDate.slice(0,4)}-${rawDate.slice(4,6)}-${rawDate.slice(6,8)}T${rawDate.slice(8,10)}:${rawDate.slice(10,12)}:${rawDate.slice(12,14)}+09:00`;
-    } 
-    // [Step 2] YYYY-MM-DD HH:mm:ss 형식 처리
-    else if (rawDate && /^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}/.test(rawDate)) {
-      publishedAt = rawDate.replace(' ', 'T') + "+09:00";
-    }
-    // [Step 3] YYYY.MM.DD. 오전/오후 HH:mm 형식 처리
-    else if (rawDate && rawDate.includes('.')) {
-      const dateMatch = rawDate.match(/(\d{4})\.(\d{2})\.(\d{2})/);
-      const timeMatch = rawDate.match(/(오전|오후)\s*(\d{1,2}):(\d{1,2})/);
-      
-      if (dateMatch) {
-        let year = dateMatch[1];
-        let month = dateMatch[2];
-        let day = dateMatch[3];
-        let hour = "00";
-        let min = "00";
-        
-        if (timeMatch) {
-          let h = parseInt(timeMatch[2]);
-          let isPM = timeMatch[1] === '오후';
-          if (isPM && h < 12) h += 12;
-          if (!isPM && h === 12) h = 0;
-          hour = h.toString().padStart(2, '0');
-          min = timeMatch[3].padStart(2, '0');
-        }
-        publishedAt = `${year}-${month}-${day}T${hour}:${min}:00+09:00`;
-      }
-    }
-
-    // [Fallback] 정제가 실패했으나 rawDate가 ISO와 유사한 경우
-    if (!publishedAt && rawDate && rawDate.length > 10) {
-      publishedAt = rawDate;
-    }
-    
-    // 최종 검증: 여전히 비어있으면 오늘 날짜
-    if (!publishedAt) {
-      publishedAt = new Date().toISOString();
-    }
-
-    // 진일보한 본문 셀렉터 (해외 매체 대응 포함)
-    const bodySelectors = [
-      '#realArtcContents', '#articleContetns', // Nate 전용 (오타 포함)
-      'div.article-content', 'div.post-content', 'div.content-lock-content', 
-      'div.article_txt', 'div.article_body', 'div#articleBody', 
-      'article', 'main', '.entry-content', '.story-content', 'div.article-body-content'
-    ];
-
-    let bodyText = "";
-
-    // [Method 1] JSON-LD ArticleBody 추출 (가장 강력한 차단 우회법)
-    try {
-      $('script[type="application/ld+json"]').each((i, el) => {
-        try {
-          const jsonText = $(el).text();
-          const jsonData = JSON.parse(jsonText);
-          
-          const findArticleBody = (obj) => {
-            if (!obj || typeof obj !== 'object') return null;
-            if (Array.isArray(obj)) {
-              for (const item of obj) {
-                const result = findArticleBody(item);
-                if (result) return result;
-              }
-            }
-            if (obj.articleBody && obj.articleBody.length > 200) return obj.articleBody;
-            for (const key in obj) {
-              const result = findArticleBody(obj[key]);
-              if (result) return result;
-            }
-            return null;
-          };
-
-          const foundText = findArticleBody(jsonData);
-          if (foundText) {
-            bodyText = foundText;
-            console.log(`[Crawler] Success! Article content extracted via JSON-LD (${bodyText.length} chars)`);
-            return false; // break each
-          }
-        } catch (e) { /* ignore parse errors */ }
-      });
-    } catch (ldError) {
-      console.error('[Crawler] JSON-LD extraction failed:', ldError.message);
-    }
-
-    // [Method 2] DOM Selector 추출 (JSON-LD 실패 시)
-    if (!bodyText || bodyText.length < 200) {
-      for (const s of bodySelectors) {
-        const el = $(s);
-        if (el.length > 0) {
-          el.find('script, style, nav, footer, aside, iframe, header, button, .ad-unit, .promo-box, .newsletter-signup').remove();
-          const text = el.text().trim();
-          if (text.length > 200) {
-            bodyText = text;
-            console.log(`[Crawler] Content extracted via selector: ${s} (${bodyText.length} chars)`);
-            break;
-          }
-        }
-      }
-    }
-    
-    // [Method 3] OG Description Fallback
-    if (bodyText.length < 100) {
-      console.log(`[Crawler] Selectors failed or short. Using OG Description.`);
-      bodyText = $('meta[property="og:description"]').attr('content') || $('meta[name="description"]').attr('content') || "";
-    }
-
-    if (!bodyText || bodyText.length < 50) throw new Error('본문을 추출할 수 없습니다. (사이트 차단 또는 구조 변경)');
-
-    // 텍스트 정제 (불필요한 공백 및 로고 문구 제거)
-    bodyText = bodyText
-      .replace(/\s+/g, ' ')
-      .replace(/[a-zA-Z0-9._%+-]+@ businessinsider\.com/g, '') // 특정 매체 이메일 제거
-      .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '')
-      .replace(/[가-힣]{2,4}\s*기자(?!\w)/g, '')
-      .slice(0, 8000);
+    const crawled = await crawlArticle(rawUrl);
+    const { url, title, bodyText, imageUrl, publishedAt } = crawled;
 
     let extractedData = { title, category: "기타", summary: "", published_at: publishedAt || new Date().toISOString().split('T')[0] };
-    // [AI 요약 연동] 환경별 분기 (로컬: Qwen 단독, AWS: Gemini -> Claude)
     let geminiErrorMsg = "";
     let ollamaErrorMsg = "";
     let claudeErrorMsg = "";
     let engine = "";
 
     if (USE_LOCAL_DB) {
-      // 로컬 환경: Ollama (Qwen)만 사용
       try {
         console.log('[AI] Attempting Local Ollama (Qwen)...');
         const liteBodyText = bodyText.slice(0, 4000);
@@ -1003,7 +982,6 @@ app.post('/api/extract', async (req, res) => {
         engine = "Error";
       }
     } else {
-      // AWS 환경: Gemini -> Claude
       try {
         console.log('[AI] Attempting Gemini for Text Summary...');
         const geminiResult = await summarizeWithGemini(bodyText, title, publishedAt);
@@ -1031,13 +1009,12 @@ app.post('/api/extract', async (req, res) => {
       success: true, 
       ...extractedData,
       engine,
-      image: imageUrl, // 프론트엔드에서 프록시 처리를 하므로 여기서는 순수 URL만 반환
+      image: imageUrl,
       url: url 
     });
 
   } catch (error) {
     console.error('Extraction engine error:', error);
-    // 에러 발생 시에도 추출된 제목이 있다면 프론트엔드 수동 입력을 위해 전달합니다.
     res.status(200).json({ 
       success: false, 
       error: error.message,
@@ -1084,24 +1061,17 @@ app.post('/api/summarize-text', express.json({ limit: '10mb' }), async (req, res
   }
 });
 
-// PPT 발행용 요약 헬퍼 함수
-async function summarizeForPublish(title, summary) {
-  const isKorean = /[가-힣]/.test(title);
-  if (!isKorean) {
-    // 한글이 아니면 기본 25자 자르기 및 2줄 슬라이싱 처리
-    return {
-      title_ko: title.length > 25 ? title.substring(0, 25) : title,
-      summary_eng: summary.split('\n').slice(0, 2).join('\n')
-    };
-  }
+// PPT 발행용 요약 헬퍼 함수 (원본 기사 본문 기반)
+async function summarizeForPublish(title, bodyText, fallbackSummary = '') {
+  const contentToSummarize = (bodyText && bodyText.length > 50) ? bodyText : (fallbackSummary || '');
 
   const prompt = `
   당신은 뉴스 요약 전문가입니다.
-  주어진 한국어 뉴스 카드 정보를 바탕으로 PPT 슬라이드에 들어갈 핵심 요약본을 작성해야 합니다.
+  주어진 뉴스 기사 원본(제목 및 본문)을 분석하여 PPT 슬라이드에 들어갈 핵심 요약본을 작성해야 합니다.
   
   [핵심 제약 조건 - 절대 엄수]
   1. 글자 수 제한:
-     - "title_ko": 공백 포함 **25자 이상 30자 이내**로 요약된 직관적인 제목.
+     - "title_ko": 공백 포함 **반드시 25자 이상 30자 이내**로 요약된 직관적인 한국어 제목. (영문 기사일 경우 핵심 내용을 한국어로 번역 및 요약하여 25~30자로 작성)
      - "summary_ko": 공백 포함 **각 문장당 반드시 55자 이상 60자 이내**의 요약 문장 2개를 담은 배열. (공백 포함 60자 절대 초과 금지)
   2. 말투 및 형식:
      - 모든 요약 문장은 **명사 및 명사형(ex: 출시, 제공, 활용, 성공 등)** 혹은 **'~했음', '~있음', '~기록함' 같은 음/기 종결 형태**로 끝마치세요.
@@ -1125,9 +1095,9 @@ async function summarizeForPublish(title, summary) {
   - "title_ko": 공백 포함 **반드시 25자 이상 30자 이내**
   - "summary_ko": 공백 포함 **각 문장당 반드시 55자 이상 60자 이내** (절대 엄수)
 
-  원본 제목: ${title}
-  원본 요약:
-  ${summary}
+  기사 제목: ${title}
+  기사 본문 내용:
+  ${contentToSummarize.slice(0, 5000)}
   `;
 
   // 1. Ollama 사용 (localhost 모드일 경우 강제)
@@ -1173,7 +1143,6 @@ async function summarizeForPublish(title, summary) {
               break;
             }
           }
-          // 만약 조합으로도 25~30자가 안 만들어지면, 그냥 원본 제목을 30자로 자르거나 억지 패딩을 자름
           if (finalTitle.length < 25) {
             finalTitle = (finalTitle + '에 대한 세부 성과와 향후 전망 기대').substring(0, 30);
           }
@@ -1187,7 +1156,7 @@ async function summarizeForPublish(title, summary) {
             .slice(0, 2)
             .join('\n');
         } else {
-          processedSummary = (finalSummary || summary)
+          processedSummary = (finalSummary || fallbackSummary)
             .split('\n')
             .slice(0, 2)
             .join('\n');
@@ -1207,7 +1176,7 @@ async function summarizeForPublish(title, summary) {
     // 최악의 경우 Fallback (단순 슬라이싱)
     return {
       title_ko: title.length > 30 ? title.substring(0, 30) : title,
-      summary_eng: summary.split('\n').slice(0, 2).map(line => line.length > 60 ? line.substring(0, 60) : line).join('\n'),
+      summary_eng: (fallbackSummary || contentToSummarize).split('\n').slice(0, 2).map(line => line.length > 60 ? line.substring(0, 60) : line).join('\n'),
       engine: "Fallback"
     };
   }
@@ -1237,7 +1206,7 @@ async function summarizeForPublish(title, summary) {
           let data = JSON.parse(jsonStr);
           return {
             title_ko: data.title_ko || (title.length > 25 ? title.substring(0, 25) : title),
-            summary_eng: Array.isArray(data.summary_ko) ? data.summary_ko.join('\n') : (data.summary_eng || summary.split('\n').slice(0, 2).join('\n')),
+            summary_eng: Array.isArray(data.summary_ko) ? data.summary_ko.join('\n') : (data.summary_eng || (fallbackSummary || contentToSummarize).split('\n').slice(0, 2).join('\n')),
             engine: `Gemini (${model})`
           };
         }
@@ -1264,7 +1233,7 @@ async function summarizeForPublish(title, summary) {
       let data = JSON.parse(jsonStr);
       return {
         title_ko: data.title_ko || (title.length > 25 ? title.substring(0, 25) : title),
-        summary_eng: Array.isArray(data.summary_ko) ? data.summary_ko.join('\n') : (data.summary_eng || summary.split('\n').slice(0, 2).join('\n')),
+        summary_eng: Array.isArray(data.summary_ko) ? data.summary_ko.join('\n') : (data.summary_eng || (fallbackSummary || contentToSummarize).split('\n').slice(0, 2).join('\n')),
         engine: "Claude (3.5 Haiku)"
       };
     }
@@ -1275,7 +1244,7 @@ async function summarizeForPublish(title, summary) {
   // 최악의 경우 Fallback (단순 슬라이싱)
   return {
     title_ko: title.length > 30 ? title.substring(0, 30) : title,
-    summary_eng: summary.split('\n').slice(0, 2).map(line => line.length > 60 ? line.substring(0, 60) : line).join('\n'),
+    summary_eng: (fallbackSummary || contentToSummarize).split('\n').slice(0, 2).map(line => line.length > 60 ? line.substring(0, 60) : line).join('\n'),
     engine: "Fallback"
   };
 }
@@ -1291,27 +1260,13 @@ app.post('/api/publish-news', async (req, res) => {
     const publishedData = [];
 
     for (const item of newsList) {
-      let targetTitle = item.title;
-      let targetSummary = item.summary;
+      const normalizedUrl = normalizeUrl(item.url);
 
-      // 0. DB 조회 (ai-bongchae-dev의 news 테이블)
-      if (USE_LOCAL_DB) {
-        try {
-          const row = localDb.prepare(`SELECT title, summary FROM "${TABLE_NAME}" WHERE url = ?`).get(normalizeUrl(item.url));
-          if (row) {
-            targetTitle = row.title;
-            targetSummary = row.summary;
-          }
-        } catch (dbErr) {
-          console.warn('[API] news DB lookup failed:', dbErr.message);
-        }
-      }
-
-      // 0.5 ai_news_publish 테이블에 이미 해당 URL 요약본이 있는지 확인
+      // 1. ai_news_publish 테이블에 이미 해당 URL 요약본이 있는지 확인 (캐싱)
       let existingPublish = null;
       if (USE_LOCAL_DB) {
         try {
-          existingPublish = localDb.prepare(`SELECT title_ko, summary_ko FROM "ai_news_publish" WHERE url = ?`).get(normalizeUrl(item.url));
+          existingPublish = localDb.prepare(`SELECT title_ko, summary_ko FROM "ai_news_publish" WHERE url = ?`).get(normalizedUrl);
         } catch (dbErr) {
           console.warn('[API] ai_news_publish lookup failed:', dbErr.message);
         }
@@ -1320,7 +1275,7 @@ app.post('/api/publish-news', async (req, res) => {
           const { data, error } = await supabase
             .from('ai_news_publish')
             .select('title_ko, summary_ko')
-            .eq('url', normalizeUrl(item.url))
+            .eq('url', normalizedUrl)
             .maybeSingle();
           if (!error && data) {
             existingPublish = data;
@@ -1338,13 +1293,27 @@ app.post('/api/publish-news', async (req, res) => {
         finalTitleKo = existingPublish.title_ko;
         finalSummaryKo = existingPublish.summary_ko;
       } else {
-        // 없으면 AI 요약 수행
-        const summaryResult = await summarizeForPublish(targetTitle, targetSummary);
+        // [핵심 변경] 원본 URL을 직접 크롤링하여 본문 전문 추출 후 PPT용 요약 수행
+        let crawledBodyText = '';
+        let crawledTitle = item.title;
+        try {
+          console.log(`[Publish] Crawling original URL for PPT summary: ${item.url}`);
+          const crawlResult = await crawlArticle(item.url);
+          if (crawlResult && crawlResult.bodyText) {
+            crawledBodyText = crawlResult.bodyText;
+            if (crawlResult.title) crawledTitle = crawlResult.title;
+          }
+        } catch (crawlErr) {
+          console.warn(`[Publish] Crawling failed for URL [${item.url}], fallback to card summary:`, crawlErr.message);
+        }
+
+        // 원본 기사 본문 기반으로 요약 수행 (본문 스크래핑 실패 시 item.summary 폴백)
+        const summaryResult = await summarizeForPublish(crawledTitle, crawledBodyText, item.summary);
         finalTitleKo = summaryResult.title_ko;
         finalSummaryKo = summaryResult.summary_eng;
 
         const publishPayload = {
-          url: normalizeUrl(item.url),
+          url: normalizedUrl,
           title_ko: finalTitleKo,
           summary_ko: finalSummaryKo,
           summary_eng: null,
