@@ -236,15 +236,27 @@ const enqueueOllama = (requestFn) => {
   });
 };
 
-// 원본 뉴스 제목에서 불필요한 꼬리표(매체명 등)를 안전하게 정제하는 함수
+// 원본 뉴스 제목에서 불필요한 꼬리표/말머리(매체명 등)를 안전하게 정제하는 함수
 function cleanExtractedTitle(title) {
   if (!title) return '';
-  // 1. 특정 패턴 (예: " < 모빌리티 < 기사본문 - 로봇신문") 꼬리 자르기
-  let cleaned = title.replace(/\s*<[^<]+<\s*기사본문\s*-\s*[가-힣]+/, '');
+  let cleaned = title.trim();
+
+  // 0. 앞머리에 위치한 "[매체명]" 또는 "(매체명)" 접두사 제거 (예: "[냉동공조저널]한국건설기술인협회...")
+  cleaned = cleaned.replace(/^\[\s*([^\]]+)\s*\]\s*/, (match, p1) => {
+    if (/(저널|신문|일보|경제|뉴스|미디어|데일리|통신|타임즈|기자|Korea|Herald|닷컴|투데이|ZDNet|블로터|테크|Tech|지디넷|이데일리|뉴시스|머니투데이|OSEN|디스패치|인벤|루리웹|포모스|The Miilk|더밀크|The AI)/i.test(p1)) {
+      return '';
+    }
+    return match;
+  });
+
+  // 1. 특정 브레드크럼 패턴 (예: " < 특별인터뷰 < 인터뷰 < 기사본문 - 냉동공조저널") 꼬리 자르기
+  cleaned = cleaned.replace(/\s*<[^<]+<.*$/, '');
+  cleaned = cleaned.replace(/\s*<[^<]+<\s*기사본문\s*-\s*[가-힣]+/, '');
+
   // 2. 마지막에 위치한 " - 매체명" 또는 " | 매체명" 제거
   let pattern = /\s*[-|]\s*([^-|]+)$/;
   let replacer = (match, p1) => {
-    if (/(신문|일보|경제|뉴스|미디어|데일리|통신|타임즈|기자|Korea|Herald|닷컴|투데이|ZDNet|블로터|테크|Tech|지디넷|이데일리|뉴시스|머니투데이|OSEN|디스패치|인벤|루리웹|포모스|The Miilk|더밀크)/i.test(p1)) {
+    if (/(저널|신문|일보|경제|뉴스|미디어|데일리|통신|타임즈|기자|Korea|Herald|닷컴|투데이|ZDNet|블로터|테크|Tech|지디넷|이데일리|뉴시스|머니투데이|OSEN|디스패치|인벤|루리웹|포모스|The Miilk|더밀크|The AI)/i.test(p1)) {
       return '';
     }
     if (p1.length <= 6 && !p1.includes(' ')) {
@@ -767,17 +779,20 @@ async function crawlArticle(rawUrl) {
     throw new Error(`HTTP ${status} — 접근 제한 (사이트에서 직접 차단함)`);
   }
 
-  let title = $('meta[property="og:title"]').attr('content') || 
-              $('.articleSubecjt').text().trim() || 
-              $('h1.articleSubecjt').text().trim() ||
-              $('title').text().trim() || 
-              "제목 없음";
+  let rawExtractedTitle = $('.heading').text().trim() ||
+                          $('.article-head-title').text().trim() ||
+                          $('.articleSubecjt').text().trim() || 
+                          $('h1.articleSubecjt').text().trim() ||
+                          $('meta[property="og:title"]').attr('content') || 
+                          $('title').text().trim() || 
+                          "제목 없음";
 
+  let title = cleanExtractedTitle(rawExtractedTitle);
   title = title.replace(/\s*[-|:|/]\s*(더밀크\s*\|\s*The\s*Miilk|더밀크|Bloomberg\.com|Bloomberg|CNBC|The Verge|NYT|Reuters|Financial Times|FT|TechCrunch|VentureBeat|CNET|Wired).*$/i, '').trim();
   if (title.includes(' - ')) title = title.split(' - ').slice(0, -1).join(' - ');
   else if (title.includes(' | ')) title = title.split(' | ').slice(0, -1).join(' | ');
   else if (title.includes(' : ')) title = title.split(' : ').slice(0, -1).join(' : ');
-  title = title.trim();
+  title = cleanExtractedTitle(title.trim());
 
   let imageUrl = "";
   if (url.includes('nate.com')) {
