@@ -1077,127 +1077,13 @@ app.post('/api/summarize-text', express.json({ limit: '10mb' }), async (req, res
   }
 });
 
-// PPT 발행용 요약 헬퍼 함수 (원본 기사 본문 기반)
-async function summarizeForPublish(title, bodyText, fallbackSummary = '') {
-  const contentToSummarize = (bodyText && bodyText.length > 50) ? bodyText : (fallbackSummary || '');
+function getSafeFileName(title) {
+  if (!title) return 'untitled';
+  return title.replace(/[\/\\:*?"<>|]/g, '_').replace(/\s+/g, ' ').trim().substring(0, 40);
+}
 
-  const prompt = `
-  당신은 뉴스 요약 전문가입니다.
-  주어진 뉴스 기사 원본(제목 및 본문)을 분석하여 PPT 슬라이드에 들어갈 핵심 요약본을 작성해야 합니다.
-  
-  [핵심 제약 조건 - 절대 엄수]
-  1. 글자 수 제한:
-     - "title_ko": 공백 포함 **반드시 25자 이상 30자 이내**로 요약된 직관적인 한국어 제목. (영문 기사일 경우 핵심 내용을 한국어로 번역 및 요약하여 25~30자로 작성)
-     - "summary_ko": 공백 포함 **각 문장당 반드시 55자 이상 60자 이내**의 요약 문장 2개를 담은 배열. (공백 포함 60자 절대 초과 금지)
-  2. 말투 및 형식:
-     - 모든 요약 문장은 **명사 및 명사형(ex: 출시, 제공, 활용, 성공 등)** 혹은 **'~했음', '~있음', '~기록함' 같은 음/기 종결 형태**로 끝마치세요.
-     - "~입니다", "~했습니다" 같은 구어체 종결어미는 **절대 사용하지 마세요.**
-  3. 출력 형식:
-     - 오직 아래 구조의 순수 JSON 데이터만 출력하세요. 다른 텍스트나 \`\`\`json 마크다운은 절대 금지합니다.
-
-  [작성 예시 - 공백 포함 55자~60자 사이를 정확히 맞춘 모범 작성 예시]
-  {
-    "title_ko": "지멘스와 영국 휴머노이드사의 에를랑엔 공장 로봇 테스트 완료",
-    "summary_ko": [
-      "독일 지멘스가 영국 휴머노이드사와 긴밀하게 협력하여 공장 내 물류 자동화를 위한 바퀴형 로봇 주행 테스트 성공",
-      "인공지능 인프라와 첨단 디지털 시뮬레이션 도구를 적극 활용하여 실제 공장 환경에서의 자율 주행 성능 최적화"
-    ]
-  }
-
-  [제약 조건 엄수 요청]
-  - 문장 길이는 반드시 공백 포함 **55자~60자** 사이로 꽉 채워 작성하여 PPT 상에서 정확하고 예쁜 2줄로 떨어지도록 유도하세요.
-  - **단 1글자도 공백 포함 60자를 절대 초과해서는 안 됩니다.**
-
-  - "title_ko": 공백 포함 **반드시 25자 이상 30자 이내**
-  - "summary_ko": 공백 포함 **각 문장당 반드시 55자 이상 60자 이내** (절대 엄수)
-
-  기사 제목: ${title}
-  기사 본문 내용:
-  ${contentToSummarize.slice(0, 5000)}
-  `;
-
-  // 1. Ollama 사용 (localhost 모드일 경우 강제)
-  if (USE_LOCAL_DB) {
-    try {
-      const OLLAMA_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
-      const MODEL = process.env.OLLAMA_MODEL || 'qwen2.5:3b';
-      
-      const response = await axios.post(`${OLLAMA_URL}/api/generate`, {
-        model: MODEL,
-        prompt: prompt,
-        stream: false,
-        options: { temperature: 0.1 }
-      }, { timeout: 30000 });
-
-      let rawResponse = response.data.response;
-      console.log('[AI] Ollama raw response:', rawResponse);
-      let startIdx = rawResponse.indexOf('{');
-      let endIdx = rawResponse.lastIndexOf('}');
-      if (startIdx !== -1 && endIdx !== -1) {
-        let jsonStr = rawResponse.substring(startIdx, endIdx + 1);
-        let data = JSON.parse(jsonStr);
-        
-        let finalTitle = data.title_ko || data.title || title;
-        let finalSummary = data.summary_ko || data.summary_eng || data.summary;
-
-        // [제목 25~30자 맞춤용 패딩 로직]
-        if (finalTitle.length < 25) {
-          const paddings = [
-            '에 따른 향후 발전 방향과 전망',
-            '에 대한 세부 성과와 기대 효과',
-            '에 따른 물류 혁신 및 발전 기대',
-            '에 관한 심층적인 분석과 전망',
-            '에 대한 적극적인 추진 계획',
-            '에 따른 성과 분석과 전망',
-            '을 통한 비즈니스 가치 창출',
-            '에 따른 혁신적인 성과 기대'
-          ];
-          for (const pad of paddings) {
-            let candidate = finalTitle + pad;
-            if (candidate.length >= 25 && candidate.length <= 30) {
-              finalTitle = candidate;
-              break;
-            }
-          }
-          if (finalTitle.length < 25) {
-            finalTitle = (finalTitle + '에 대한 세부 성과와 향후 전망 기대').substring(0, 30);
-          }
-        } else if (finalTitle.length > 30) {
-          finalTitle = finalTitle.substring(0, 30);
-        }
-
-        let processedSummary = '';
-        if (Array.isArray(finalSummary)) {
-          processedSummary = finalSummary
-            .slice(0, 2)
-            .join('\n');
-        } else {
-          processedSummary = (finalSummary || fallbackSummary)
-            .split('\n')
-            .slice(0, 2)
-            .join('\n');
-        }
-
-        return {
-          title_ko: finalTitle,
-          summary_eng: processedSummary,
-          engine: "Ollama"
-        };
-      }
-    } catch (ollamaErr) {
-      console.warn('[AI] Local Ollama failed for publish:', ollamaErr.message);
-      console.error(ollamaErr);
-    }
-
-    // 최악의 경우 Fallback (단순 슬라이싱)
-    return {
-      title_ko: title.length > 30 ? title.substring(0, 30) : title,
-      summary_eng: (fallbackSummary || contentToSummarize).split('\n').slice(0, 2).map(line => line.length > 60 ? line.substring(0, 60) : line).join('\n'),
-      engine: "Fallback"
-    };
-  }
-
-  // 2. Gemini API 8단계 체인 사용
+async function runAiPrompt(prompt) {
+  // 1. Gemini API 8단계 체인 사용
   for (const model of GEMINI_MODEL_CHAIN) {
     try {
       const API_KEY = process.env.GEMINI_API_KEY;
@@ -1206,63 +1092,147 @@ async function summarizeForPublish(title, bodyText, fallbackSummary = '') {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { 
           temperature: 0.1, 
-          maxOutputTokens: 1024,
+          maxOutputTokens: 2048,
           response_mime_type: "application/json"
         }
       };
 
-      const response = await axios.post(url, payload, { headers: { 'Content-Type': 'application/json' }, timeout: 15000 });
+      const response = await axios.post(url, payload, { headers: { 'Content-Type': 'application/json' }, timeout: 30000 });
       
       if (response.data.candidates && response.data.candidates.length > 0) {
-        const responseText = response.data.candidates[0].content.parts[0].text.trim();
-        let startIdx = responseText.indexOf('{');
-        let endIdx = responseText.lastIndexOf('}');
-        if (startIdx !== -1 && endIdx !== -1) {
-          let jsonStr = responseText.substring(startIdx, endIdx + 1);
-          let data = JSON.parse(jsonStr);
-          return {
-            title_ko: data.title_ko || (title.length > 25 ? title.substring(0, 25) : title),
-            summary_eng: Array.isArray(data.summary_ko) ? data.summary_ko.join('\n') : (data.summary_eng || (fallbackSummary || contentToSummarize).split('\n').slice(0, 2).join('\n')),
-            engine: `Gemini (${model})`
-          };
-        }
+        const text = response.data.candidates[0].content.parts[0].text.trim();
+        return { text, engine: `Gemini (${model})` };
       }
     } catch (geminiErr) {
-      console.warn(`[AI] Gemini ${model} failed for publish:`, geminiErr.message);
+      console.warn(`[AI] Gemini ${model} failed:`, geminiErr.message);
     }
   }
 
-  // 3. Gemini 8개 모델 실패 시 유료 Claude 3.5 Haiku 시도
+  // 2. Gemini 8개 모델 실패 시 유료 Claude 3.5 Haiku 시도
   try {
     const msg = await anthropic.messages.create({
       model: "claude-3-5-haiku-20241022",
-      max_tokens: 1024,
-      system: "당신은 뉴스 요약 전문가입니다. JSON 출력만 허용합니다.",
+      max_tokens: 2048,
+      system: "당신은 뉴스 요약 및 데이터 구조화 전문가입니다. JSON 출력만 허용합니다.",
       messages: [{ role: "user", content: prompt }],
     });
 
-    let responseText = msg.content[0].text.trim();
-    let startIdx = responseText.indexOf('{');
-    let endIdx = responseText.lastIndexOf('}');
-    if (startIdx !== -1 && endIdx !== -1) {
-      let jsonStr = responseText.substring(startIdx, endIdx + 1);
-      let data = JSON.parse(jsonStr);
-      return {
-        title_ko: data.title_ko || (title.length > 25 ? title.substring(0, 25) : title),
-        summary_eng: Array.isArray(data.summary_ko) ? data.summary_ko.join('\n') : (data.summary_eng || (fallbackSummary || contentToSummarize).split('\n').slice(0, 2).join('\n')),
-        engine: "Claude (3.5 Haiku)"
-      };
-    }
+    const text = msg.content[0].text.trim();
+    return { text, engine: "Claude (3.5 Haiku)" };
   } catch (claudeErr) {
-    console.error('[AI] Claude failed for publish:', claudeErr.message);
+    console.error('[AI] Claude failed:', claudeErr.message);
   }
 
-  // 최악의 경우 Fallback (단순 슬라이싱)
-  return {
-    title_ko: title.length > 30 ? title.substring(0, 30) : title,
-    summary_eng: (fallbackSummary || contentToSummarize).split('\n').slice(0, 2).map(line => line.length > 60 ? line.substring(0, 60) : line).join('\n'),
-    engine: "Fallback"
-  };
+  throw new Error("모든 AI 모델 호출에 실패했습니다.");
+}
+
+// PPT 발행용 2단계 요약 헬퍼 함수 (1.txt / 2.txt 파일 템플릿 기반)
+async function summarizeForPublish(title, bodyText, fallbackSummary = '') {
+  const contentToSummarize = (bodyText && bodyText.length > 50) ? bodyText : (fallbackSummary || '');
+  const safeTitle = getSafeFileName(title);
+
+  const summaryDir = path.join(__dirname, '../summary4ppt');
+  if (!fs.existsSync(summaryDir)) {
+    fs.mkdirSync(summaryDir, { recursive: true });
+  }
+
+  const template1Path = path.join(summaryDir, '1.txt');
+  const template2Path = path.join(summaryDir, '2.txt');
+
+  const file1Path = path.join(summaryDir, `1_${safeTitle}.txt`);
+  const file2Path = path.join(summaryDir, `2_${safeTitle}.txt`);
+
+  try {
+    // -------------------------------------------------------------
+    // [1단계] Fact Sheet Extraction (1.txt 읽기, 주입 및 1_뉴스제목.txt 파일 생성)
+    // -------------------------------------------------------------
+    let template1Content = fs.readFileSync(template1Path, 'utf-8');
+
+    const articleJsonPayload = JSON.stringify({
+      title: title,
+      contents: contentToSummarize
+    }, null, 2);
+
+    let prompt1 = template1Content.replace(
+      /\{\s*"title"\s*:=\s*""\s*,\s*\n?\s*"contents"\s*:=\s*""\s*\}/g,
+      articleJsonPayload
+    );
+
+    if (!prompt1.includes(articleJsonPayload)) {
+      prompt1 = template1Content.replace(
+        '[요약을 위한 뉴스 제목과 본문]',
+        `[요약을 위한 뉴스 제목과 본문]\n\n${articleJsonPayload}`
+      );
+    }
+
+    // 1_뉴스제목.txt 생성 및 저장
+    fs.writeFileSync(file1Path, prompt1, 'utf-8');
+    console.log(`[PPT 2-Stage] 1단계 프롬프트 파일 생성 완료: ${file1Path}`);
+
+    // 1단계 AI API 호출 (Fact Sheet JSON 도출)
+    console.log(`[PPT 2-Stage] 1단계 Fact Sheet 추출 AI 호출 중...`);
+    const stage1Result = await runAiPrompt(prompt1);
+    
+    let stage1FactSheetText = stage1Result.text;
+    let s1Start = stage1FactSheetText.indexOf('{');
+    let s1End = stage1FactSheetText.lastIndexOf('}');
+    if (s1Start !== -1 && s1End !== -1) {
+      stage1FactSheetText = stage1FactSheetText.substring(s1Start, s1End + 1);
+    }
+
+    // -------------------------------------------------------------
+    // [2단계] Newsletter Summary Generation (2.txt 읽기, 1단계 결과 주입 및 2_뉴스제목.txt 파일 생성)
+    // -------------------------------------------------------------
+    let template2Content = fs.readFileSync(template2Path, 'utf-8');
+
+    let prompt2 = template2Content.replace('{... 1단계 출력 JSON ... }', stage1FactSheetText);
+    if (!prompt2.includes(stage1FactSheetText)) {
+      prompt2 = template2Content.replace('<fact_sheet>', `<fact_sheet>\n\n${stage1FactSheetText}`);
+    }
+
+    // 2_뉴스제목.txt 생성 및 저장
+    fs.writeFileSync(file2Path, prompt2, 'utf-8');
+    console.log(`[PPT 2-Stage] 2단계 프롬프트 파일 생성 완료: ${file2Path}`);
+
+    // 2단계 AI API 호출 (최종 발행 문안 도출)
+    console.log(`[PPT 2-Stage] 2단계 Newsletter 요약 AI 호출 중...`);
+    const stage2Result = await runAiPrompt(prompt2);
+
+    let stage2SummaryText = stage2Result.text;
+    let s2Start = stage2SummaryText.indexOf('{');
+    let s2End = stage2SummaryText.lastIndexOf('}');
+
+    let finalTitleKo = title;
+    let finalSummaryKo = fallbackSummary;
+
+    if (s2Start !== -1 && s2End !== -1) {
+      const parsedData = JSON.parse(stage2SummaryText.substring(s2Start, s2End + 1));
+      if (parsedData.title) {
+        finalTitleKo = parsedData.title;
+      }
+      if (parsedData.summary1) {
+        if (parsedData.summary2) {
+          finalSummaryKo = `${parsedData.summary1}\n${parsedData.summary2}`;
+        } else {
+          finalSummaryKo = parsedData.summary1;
+        }
+      }
+    }
+
+    return {
+      title_ko: finalTitleKo,
+      summary_eng: finalSummaryKo,
+      engine: `${stage1Result.engine} -> ${stage2Result.engine}`
+    };
+
+  } catch (twoStageErr) {
+    console.error('[PPT 2-Stage Error] Two stage pipeline failed:', twoStageErr.message);
+    return {
+      title_ko: title.length > 30 ? title.substring(0, 30) : title,
+      summary_eng: (fallbackSummary || contentToSummarize).split('\n').slice(0, 2).map(line => line.length > 60 ? line.substring(0, 60) : line).join('\n'),
+      engine: "Fallback (2-Stage Failed)"
+    };
+  }
 }
 
 // [신규 API] 뉴스 카드 PPT용 요약 및 DB 발행

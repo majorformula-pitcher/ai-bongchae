@@ -28,4 +28,6 @@ dist-ssr
 *.db
 tmp/
 scratch/
+summary4ppt/1_*.txt
+summary4ppt/2_*.txt
 
