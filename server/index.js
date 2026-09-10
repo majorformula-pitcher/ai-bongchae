@@ -403,9 +403,10 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
 
 
 // AI 요약 함수 - Gemini 로직 (REST API 직통 호출 방식)
-// Gemini 8단계 폴백 체인: 앞의 모델이 실패(429/503 등)하면 다음 모델로 넘어갑니다.
-// 8개가 모두 실패해야 유료 백업 엔진인 Claude 3.5 Haiku로 폴백합니다.
+// Gemini 9단계 폴백 체인: 앞의 모델이 실패(429/503 등)하면 다음 모델로 넘어갑니다.
+// 9개가 모두 실패해야 유료 백업 엔진인 Claude 3.5 Haiku로 폴백합니다.
 const GEMINI_MODEL_CHAIN = [
+  'gemini-3.8-flash',
   'gemini-3.7-flash',
   'gemini-3.6-flash',
   'gemini-3.5-flash',

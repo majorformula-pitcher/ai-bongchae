@@ -1,30 +1,38 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
-
 dotenv.config();
 
-async function listModels() {
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  
-  try {
-    // API 호환성을 위해 직접 fetch로 모델 목록을 조회해 봅니다.
-    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`;
-    const response = await fetch(url);
-    const data = await response.json();
-    
-    if (data.models) {
-      console.log("\n✅ 사용 가능한 모델 목록:");
-      data.models.forEach(m => {
-        if (m.supportedGenerationMethods.includes("generateContent")) {
-          console.log(`- ${m.name.replace("models/", "")}`);
-        }
+async function testChain() {
+  const models = [
+    'gemini-3.8-flash',
+    'gemini-3.7-flash',
+    'gemini-3.6-flash',
+    'gemini-3.5-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-3.1-flash-lite',
+    'gemini-2.5-flash-lite',
+    'gemini-flash-lite-latest',
+    'gemini-2.5-flash'
+  ];
+
+  console.log("\n--- Gemini API 모델 실시간 호출 검증 ---");
+  for (const m of models) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${process.env.GEMINI_API_KEY}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: 'Hello' }] }] })
       });
-    } else {
-      console.log("❌ 모델을 찾을 수 없습니다. API 키를 확인해 주세요.", data);
+      const data = await res.json();
+      if (data.candidates && data.candidates.length > 0) {
+        console.log(`✅ [${m}] 호출 성공!`);
+      } else {
+        console.log(`❌ [${m}] 응답 오류: ${data.error?.message || JSON.stringify(data)}`);
+      }
+    } catch(e) {
+      console.log(`❌ [${m}] 에러: ${e.message}`);
     }
-  } catch (error) {
-    console.error("❌ 오류 발생:", error.message);
   }
 }
 
-listModels();
+testChain();
