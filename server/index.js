@@ -1092,12 +1092,12 @@ async function runAiPrompt(prompt) {
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: { 
           temperature: 0.1, 
-          maxOutputTokens: 2048,
+          maxOutputTokens: 8192,
           response_mime_type: "application/json"
         }
       };
 
-      const response = await axios.post(url, payload, { headers: { 'Content-Type': 'application/json' }, timeout: 30000 });
+      const response = await axios.post(url, payload, { headers: { 'Content-Type': 'application/json' }, timeout: 60000 });
       
       if (response.data.candidates && response.data.candidates.length > 0) {
         const text = response.data.candidates[0].content.parts[0].text.trim();
@@ -1112,7 +1112,7 @@ async function runAiPrompt(prompt) {
   try {
     const msg = await anthropic.messages.create({
       model: "claude-3-5-haiku-20241022",
-      max_tokens: 2048,
+      max_tokens: 8192,
       system: "당신은 뉴스 요약 및 데이터 구조화 전문가입니다. JSON 출력만 허용합니다.",
       messages: [{ role: "user", content: prompt }],
     });
@@ -1274,12 +1274,16 @@ app.post('/api/publish-news', async (req, res) => {
       let finalTitleKo = '';
       let finalSummaryKo = '';
 
-      if (existingPublish && existingPublish.title_ko && existingPublish.summary_ko) {
-        // 이미 요약본이 존재하면 AI 요약을 건너뜀
+      // 과거 4줄 요약 형태(줄바꿈 3개 이상 또는 ~습니다 구어체) 감지 시 캐시 무효화 및 2단계 재요약
+      const isOld4LineFormat = existingPublish && existingPublish.summary_ko && 
+        (existingPublish.summary_ko.split('\n').length >= 3 || existingPublish.summary_ko.includes('습니다') || existingPublish.summary_ko.includes('입니다'));
+
+      if (existingPublish && existingPublish.title_ko && existingPublish.summary_ko && !isOld4LineFormat) {
+        // 이미 2단계 규격의 최신 요약본이 존재하면 AI 요약을 건너뜀
         finalTitleKo = existingPublish.title_ko;
         finalSummaryKo = existingPublish.summary_ko;
       } else {
-        // [핵심 변경] 원본 URL을 직접 크롤링하여 본문 전문 추출 후 PPT용 요약 수행
+        // 원본 URL을 직접 크롤링하여 본문 전문 추출 후 PPT용 2단계 요약 수행
         let crawledBodyText = '';
         let crawledTitle = item.title;
         try {
@@ -1293,7 +1297,7 @@ app.post('/api/publish-news', async (req, res) => {
           console.warn(`[Publish] Crawling failed for URL [${item.url}], fallback to card summary:`, crawlErr.message);
         }
 
-        // 원본 기사 본문 기반으로 요약 수행 (본문 스크래핑 실패 시 item.summary 폴백)
+        // 원본 기사 본문 기반 2단계 요약 수행
         const summaryResult = await summarizeForPublish(crawledTitle, crawledBodyText, item.summary);
         finalTitleKo = summaryResult.title_ko;
         finalSummaryKo = summaryResult.summary_eng;
@@ -1306,19 +1310,20 @@ app.post('/api/publish-news', async (req, res) => {
           engine: summaryResult.engine || "Fallback"
         };
 
-        // DB 저장
+        // DB 저장 (UPSERT)
         if (USE_LOCAL_DB) {
           const stmt = localDb.prepare(`
             INSERT INTO "ai_news_publish" (url, title_ko, summary_ko, summary_eng, engine)
             VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(url) DO UPDATE SET title_ko=excluded.title_ko, summary_ko=excluded.summary_ko, engine=excluded.engine
           `);
           stmt.run(publishPayload.url, publishPayload.title_ko, publishPayload.summary_ko, publishPayload.summary_eng, publishPayload.engine);
         } else {
           const { error } = await supabase
             .from('ai_news_publish')
-            .insert([publishPayload]);
+            .upsert([publishPayload], { onConflict: 'url' });
           if (error) {
-            console.error('[Supabase Publish Error]:', error.message);
+            console.error('[Supabase Publish Upsert Error]:', error.message);
           }
         }
       }
