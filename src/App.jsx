@@ -274,11 +274,14 @@ function App() {
   };
 
   const handleManualAdd = async () => {
-    if (!manualTitle) return;
+    if (!urlInput || !manualTitle || !manualSummary || !manualCategory) {
+      alert('뉴스 URL, 뉴스 제목, 뉴스 본문, 카테고리를 모두 입력해 주세요.');
+      return;
+    }
     
     setIsProcessing(true);
     let finalTitle = manualTitle;
-    let finalSummary = manualSummary || '사용자가 직접 등록한 뉴스입니다.';
+    let finalSummary = manualSummary;
     let finalCategory = manualCategory;
     let finalEngine = 'User'; // 기본 출처는 사용자
 
@@ -314,7 +317,7 @@ function App() {
       const res = await axios.post('/api/news', {
         title: finalTitle,
         summary: finalSummary,
-        url: urlInput || `manual-${Date.now()}`,
+        url: urlInput,
         category: finalCategory || '기타',
         published_at: new Date().toISOString().split('T')[0],
         engine: finalEngine,
@@ -987,7 +990,7 @@ function App() {
                 {manualErrorMessage ? (
                   <p className="manual-desc">⚠️ {manualErrorMessage}</p>
                 ) : (
-                  <p className="manual-desc">직접 뉴스 제목과 본문을 입력하여 요약 및 등록할 수 있습니다.</p>
+                  <p className="manual-desc">뉴스 URL, 제목, 본문, 카테고리를 모두 입력하여 요약 및 등록할 수 있습니다.</p>
                 )}
                 <button 
                   className="manual-cancel-btn"
@@ -1008,7 +1011,7 @@ function App() {
               />
               <textarea 
                 className="manual-field manual-textarea" 
-                placeholder="뉴스 요약 또는 본문을 입력하세요 (선택)" 
+                placeholder="뉴스 요약 또는 본문을 입력하세요 (필수)" 
                 value={manualSummary}
                 onChange={(e) => setManualSummary(e.target.value)}
               />
@@ -1032,7 +1035,7 @@ function App() {
                 <button 
                   className="add-btn manual-btn" 
                   onClick={handleManualAdd}
-                  disabled={isProcessing || !manualTitle}
+                  disabled={isProcessing || !urlInput || !manualTitle || !manualSummary || !manualCategory}
                 >
                   {isProcessing ? 'AI 요약 및 등록 중...' : '수동 등록 완료'}
                 </button>
