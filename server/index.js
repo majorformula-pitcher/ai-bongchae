@@ -293,7 +293,7 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
     다음 뉴스 본문을 분석해서 아래 형식의 순수 JSON으로만 응답해줘. 
     
     {
-      ${isEnglish ? '"title": "한국어 번역 제목",\n      ' : ''}"category": "AI, Robot, Security, Data, Display, IT, 기타 중 하나 선택",
+      ${isEnglish ? '"title": "한국어 번역 제목",\n      ' : ''}"category": "AI, Robot, Security, Data, Display, IT, Energy, 기타 중 하나 선택",
       "summary": [
         "첫 번째 문장 (~입니다 체)",
         "두 번째 문장 (~입니다 체)",
@@ -304,7 +304,7 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
     }
     
     주의사항:
-    ${isEnglish ? '- title: 원본 영어 제목을 반드시 한국어로 번역하세요.\n    ' : ''}- category: [AI, Robot, Security, Data, Display, IT, 기타] 중 하나 선택.
+    ${isEnglish ? '- title: 원본 영어 제목을 반드시 한국어로 번역하세요.\n    ' : ''}- category: [AI, Robot, Security, Data, Display, IT, Energy, 기타] 중 하나 선택.
     - summary: 기사 본문에 나오는 구체적인 수치, 고유명사, 핵심 결과 및 의미 등을 풍부하게 포함하여 **정확히 4개의 상세한 문장**으로 요약하세요. 단순하고 뻔한 요약 대신 구체적인 팩트를 전달해야 합니다.
     - 모든 문장의 끝은 반드시 **"~입니다", "~했습니다"**와 같은 자연스러운 평어체로 종결해야 합니다. 명사형 종결은 절대 금지합니다.
     - 기사 발행일 힌트: "${publishedAt || '날짜 정보 없음'}" 를 참고하세요.
@@ -440,7 +440,7 @@ async function _summarizeWithGeminiModel(model, bodyText, title, publishedAt) {
     설명이나 마크다운 코드 블록(예: \`\`\`json)은 절대 포함하지 마.
     
     {
-      ${isEnglish ? '"title": "기사 제목의 한국어 번역",\n      ' : ''}"category": "AI, Robot, Security, Data, Display, IT, 기타 중 하나를 가장 적절한 것으로 선택",
+      ${isEnglish ? '"title": "기사 제목의 한국어 번역",\n      ' : ''}"category": "AI, Robot, Security, Data, Display, IT, Energy, 기타 중 하나를 가장 적절한 것으로 선택",
       "summary": [
         "첫 번째 구체적이고 상세한 핵심 요약 문장 (~입니다 체)",
         "두 번째 구체적이고 상세한 핵심 요약 문장 (~입니다 체)",
@@ -603,7 +603,7 @@ async function summarizeWithClaude(bodyText, title, publishedAt) {
       finalTitle = line.replace('제목:', '').trim();
     } else if (line.startsWith('카테고리:')) {
       const cat = line.replace('카테고리:', '').trim();
-      const validCategories = ['AI', 'Robot', '보안', 'IT', '기타'];
+      const validCategories = ['AI', 'Robot', 'Security', 'Data', 'Display', 'IT', 'Energy', '기타'];
       finalCategory = validCategories.find(v => cat.toUpperCase().includes(v.toUpperCase())) || "기타";
     } else {
       // [구조적 정제] 1~4번 번호패턴만 핀셋 제거하여 연도/소수점 보호
@@ -1904,5 +1904,5 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   console.log('[Config] DB Mode:', USE_LOCAL_DB ? 'Local SQLite' : 'Supabase');
 });
 
-// [대용량 처리 보강] 서버 타임아웃을 600초(10분)로 연장하여 초고화질 이미지 전송 중 중단 방지
-server.timeout = 600000;
+// [대용량 처리 보강] 서버 타임아웃을 1800초(30분)로 연장하여 대용량 PPT 요약 및 이미지 전송 중 중단 방지
+server.timeout = 1800000;

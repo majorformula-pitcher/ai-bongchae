@@ -6,7 +6,7 @@ import html2canvas from 'html2canvas';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Compass, List, Plus, X, ChevronUp, 
-  RefreshCw, Zap, ExternalLink, CheckCircle2, Copy 
+  RefreshCw, Zap, ExternalLink, CheckCircle2, Copy, Edit3 
 } from 'lucide-react';
 import './index.css';
 
@@ -100,6 +100,8 @@ function App() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [processingType, setProcessingType] = useState('news'); // 'news' or 'email'
   const [isExportingPPT, setIsExportingPPT] = useState(false);
+  const [pptProgressText, setPptProgressText] = useState('');
+  const [pptProgressPercent, setPptProgressPercent] = useState(0);
 
   const [manualMode, setManualMode] = useState(false);
   const [manualErrorMessage, setManualErrorMessage] = useState('');
@@ -441,19 +443,36 @@ function App() {
       setIsProcessing(false);
       setLoadingProgress(0);
 
-      // 백엔드 발행 API 호출을 통해 30자 제목 & 60자 본문 2줄 요약 수행 및 DB 저장
-      const pubRes = await fetch('/api/publish-news', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newsList: likedNews })
-      });
-      const pubData = await pubRes.json();
-      
-      if (!pubData.success) {
-        throw new Error(pubData.error || '요약 발행 중 오류가 발생했습니다.');
+      const publishedNewsList = [];
+      const totalCount = likedNews.length;
+
+      // 백엔드 발행 API를 1건씩 순차 호출하여 실시간 진행 상태(예: 3/10건 요약 중)를 UI에 표시하고 타임아웃 차단
+      for (let i = 0; i < totalCount; i++) {
+        const currentNews = likedNews[i];
+        const currentNum = i + 1;
+        const shortTitle = (currentNews.title || '').length > 18 
+          ? currentNews.title.substring(0, 18) + '...' 
+          : (currentNews.title || '');
+
+        setPptProgressText(`${currentNum}/${totalCount}건 요약 중... (${shortTitle})`);
+        setPptProgressPercent(Math.round((i / totalCount) * 100));
+
+        const pubRes = await fetch('/api/publish-news', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newsList: [currentNews] })
+        });
+
+        const pubData = await pubRes.json();
+        if (!pubData.success || !pubData.data || pubData.data.length === 0) {
+          throw new Error(pubData.error || `[${currentNum}/${totalCount}건] 요약 발행 중 오류가 발생했습니다.`);
+        }
+
+        publishedNewsList.push(pubData.data[0]);
       }
 
-      const publishedNewsList = pubData.data;
+      setPptProgressText(`${totalCount}/${totalCount}건 요약 완료! PPT 파일 생성 중...`);
+      setPptProgressPercent(100);
 
       const pres = new pptxgen();
       
@@ -606,17 +625,24 @@ function App() {
       setProcessingType('email');
       setLoadingProgress(5);
       
-      // 0. ai_news_publish의 최신 요약 데이터(title_ko, summary_ko) 동기화
-      const pubRes = await fetch('/api/publish-news', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ newsList: filteredNews })
-      });
-      const pubData = await pubRes.json();
-      if (!pubData.success) {
-        throw new Error(pubData.error || '발행 요약을 가져오지 못했습니다.');
+      // 0. ai_news_publish의 최신 요약 데이터(title_ko, summary_ko) 1건씩 순차 동기화
+      const emailNewsList = [];
+      const totalNewsCount = filteredNews.length;
+      for (let idx = 0; idx < totalNewsCount; idx++) {
+        const item = filteredNews[idx];
+        setLoadingProgress(Math.floor(((idx + 1) / totalNewsCount) * 15));
+
+        const pubRes = await fetch('/api/publish-news', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ newsList: [item] })
+        });
+        const pubData = await pubRes.json();
+        if (!pubData.success || !pubData.data || pubData.data.length === 0) {
+          throw new Error(pubData.error || `[${idx + 1}/${totalNewsCount}건] 발행 요약을 가져오지 못했습니다.`);
+        }
+        emailNewsList.push(pubData.data[0]);
       }
-      const emailNewsList = pubData.data;
 
       const images = [];
 
@@ -814,17 +840,19 @@ function App() {
   };
 
   // 전체 뉴스 데이터에서 유니크한 카테고리 목록 추출 및 커스텀 정렬
+  const categoryOrder = ['AI', 'Data', 'Display', 'IT', 'Robot', 'Security', 'Energy', '기타'];
   const categories = ['All', ...new Set(newsList.map(news => news.category).filter(Boolean))].sort((a, b) => {
     if (a === 'All') return -1;
     if (b === 'All') return 1;
     
-    const aIsEng = /^[a-zA-Z]/.test(a);
-    const bIsEng = /^[a-zA-Z]/.test(b);
-    
-    if (aIsEng && !bIsEng) return -1; // 영어가 앞으로
-    if (!aIsEng && bIsEng) return 1;  // 한글이 뒤로
-    
-    return a.localeCompare(b, 'ko'); // 같은 언어끼리는 가나다/ABC 순
+    const indexA = categoryOrder.indexOf(a);
+    const indexB = categoryOrder.indexOf(b);
+
+    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+    if (indexA !== -1) return -1;
+    if (indexB !== -1) return 1;
+
+    return a.localeCompare(b, 'ko');
   });
 
   const filteredNews = newsList.filter(news => {
@@ -923,6 +951,26 @@ function App() {
               <Plus size={18} />
               <span>{isProcessing ? '⚡ 처리 중' : '뉴스 추가'}</span>
             </button>
+            <button 
+              className={`add-btn manual-toggle-btn ${manualMode ? 'active' : ''}`}
+              style={{
+                background: manualMode ? 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)' : 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                color: '#fff',
+                marginLeft: '8px'
+              }}
+              onClick={() => {
+                const nextMode = !manualMode;
+                setManualMode(nextMode);
+                if (nextMode) {
+                  setManualErrorMessage('');
+                }
+              }}
+              disabled={isProcessing}
+            >
+              <Edit3 size={18} />
+              <span>{manualMode ? 'URL 입력' : '직접 입력'}</span>
+            </button>
           </div>
           {isProcessing && !isExportingPPT && (
             <>
@@ -936,10 +984,17 @@ function App() {
           {manualMode && (
             <div className="manual-input-area">
               <div className="manual-header">
-                <p className="manual-desc">⚠️ {manualErrorMessage}</p>
+                {manualErrorMessage ? (
+                  <p className="manual-desc">⚠️ {manualErrorMessage}</p>
+                ) : (
+                  <p className="manual-desc">직접 뉴스 제목과 본문을 입력하여 요약 및 등록할 수 있습니다.</p>
+                )}
                 <button 
                   className="manual-cancel-btn"
-                  onClick={() => setManualMode(false)}
+                  onClick={() => {
+                    setManualMode(false);
+                    setManualErrorMessage('');
+                  }}
                 >
                   입력 취소
                 </button>
@@ -971,6 +1026,7 @@ function App() {
                   <option value="Data">Data</option>
                   <option value="Display">Display</option>
                   <option value="IT">IT</option>
+                  <option value="Energy">Energy</option>
                   <option value="기타">기타</option>
                 </select>
                 <button 
@@ -1212,15 +1268,21 @@ function App() {
         {isExportingPPT && (
           <div style={{
             position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-            background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex',
+            background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex',
             flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
           }}>
-            <RefreshCw className="animate-spin text-primary mb-4" size={48} />
-            <div style={{color: 'white', fontSize: '1.2rem', fontWeight: 'bold'}}>
-              PPT 만드는 중
+            <RefreshCw className="animate-spin text-primary mb-4" size={52} />
+            <div style={{color: 'white', fontSize: '1.3rem', fontWeight: 'bold', marginBottom: '8px'}}>
+              PPT 슬라이드 리포트 생성 중... 📊
             </div>
-            <div style={{width: '300px', height: '8px', background: '#334155', borderRadius: '4px', marginTop: '20px', overflow: 'hidden'}}>
-              <div style={{width: `50%`, height: '100%', background: '#8b5cf6', transition: 'width 0.3s ease'}} />
+            <div style={{color: '#38bdf8', fontSize: '1.1rem', fontWeight: 'bold', marginBottom: '16px'}}>
+              {pptProgressText || '요약 준비 중...'}
+            </div>
+            <div style={{width: '320px', height: '10px', background: '#334155', borderRadius: '5px', overflow: 'hidden', boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.4)'}}>
+              <div style={{width: `${pptProgressPercent}%`, height: '100%', background: 'linear-gradient(90deg, #38bdf8, #8b5cf6)', transition: 'width 0.4s ease-in-out'}} />
+            </div>
+            <div style={{color: '#94a3b8', fontSize: '0.9rem', marginTop: '10px', fontWeight: '500'}}>
+              {pptProgressPercent}% 진행 완료
             </div>
 
             {/* 비상 탈출용 수동 닫기 버튼 */}
@@ -1229,7 +1291,7 @@ function App() {
                 setIsExportingPPT(false);
               }}
               style={{
-                marginTop: '30px', padding: '10px 20px', background: '#e11d48', color: 'white',
+                marginTop: '30px', padding: '8px 18px', background: '#e11d48', color: 'white',
                 borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', border: 'none',
                 boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
               }}
