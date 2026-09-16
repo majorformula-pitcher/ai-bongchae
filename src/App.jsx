@@ -109,6 +109,15 @@ function App() {
   const [manualSummary, setManualSummary] = useState('');
   const [manualCategory, setManualCategory] = useState('');
 
+  // PPT 미요약 기사 검토 및 1_뉴스제목.txt 수정 모달 상태
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [reviewList, setReviewList] = useState([]);
+  const [reviewIndex, setReviewIndex] = useState(0);
+  const [reviewTitle, setReviewTitle] = useState('');
+  const [reviewBodyText, setReviewBodyText] = useState('');
+  const [isStageProcessing, setIsStageProcessing] = useState(false);
+  const [processedPptItems, setProcessedPptItems] = useState([]);
+
   // RSS Discovery 관련 상태
   const [isDiscoveryOpen, setIsDiscoveryOpen] = useState(false);
   const [rssFeeds, setRssFeeds] = useState([]);
@@ -431,8 +440,120 @@ function App() {
     }
   };
 
+  const createAndDownloadPpt = async (publishedNewsList) => {
+    setPptProgressText('PPT 프레젠테이션 파일 생성 중...');
+    setPptProgressPercent(100);
+
+    const pres = new pptxgen();
+    pres.defineLayout({ name: 'SR_NEWS', width: 5.51, height: 2.36 });
+    pres.layout = 'SR_NEWS';
+
+    for (const news of publishedNewsList) {
+      const slide = pres.addSlide();
+      
+      const summaryLines = (news.summary_ko || news.summary_eng || news.summary || '')
+        .split('\n')
+        .filter(line => line.trim() !== '')
+        .slice(0, 2)
+        .map(line => line.replace(/^[•\-\*]\s*/, ''));
+
+      const tableRows = [
+        [
+          { 
+            text: news.title_ko || news.title, 
+            options: { 
+              colspan: 2, 
+              fontSize: 14, 
+              color: '022CB2', 
+              fontFace: 'SamsungOneKorean 700', 
+              underline: { style: 'sng' }, 
+              valign: 'middle',
+              margin: [0.05, 0.1, 0, 0.1]
+            } 
+          }
+        ],
+        [
+          { 
+            text: [
+              {
+                text: summaryLines[0] || '',
+                options: {
+                  bullet: { indent: 14, characterCode: '2022' },
+                  fontSize: 13,
+                  color: '000000',
+                  fontFace: 'SamsungOneKoreanOTF 600',
+                  paraSpaceAfter: 6,
+                  lineSpacing: 16
+                }
+              }
+            ],
+            options: { 
+              valign: 'top',
+              margin: [0.05, 0.10, 0.05, 0.10]
+            } 
+          },
+          { 
+            text: '', 
+            options: { rowspan: 2 } 
+          }
+        ],
+        [
+          { 
+            text: [
+              {
+                text: summaryLines[1] || '',
+                options: {
+                  bullet: { indent: 14, characterCode: '2022' },
+                  fontSize: 13,
+                  color: '000000',
+                  fontFace: 'SamsungOneKoreanOTF 600',
+                  paraSpaceAfter: 6,
+                  lineSpacing: 16
+                }
+              }
+            ],
+            options: { 
+              valign: 'top',
+              margin: [0.05, 0.10, 0.05, 0.10]
+            } 
+          }
+        ]
+      ];
+
+      slide.addTable(tableRows, {
+        x: 0.08, y: 0.38,
+        w: 13.6 / 2.54, 
+        h: 4.08 / 2.54,
+        colW: [10.54 / 2.54, 3.06 / 2.54],
+        rowH: [0.97 / 2.54, 1.555 / 2.54, 1.555 / 2.54],
+        fill: { color: 'F2F2F2' },
+        border: { type: 'none' }
+      });
+
+      if (news.image) {
+        try {
+          const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(news.image)}&round=true`;
+          slide.addImage({ 
+            path: proxyUrl, 
+            x: 4.25, y: 0.818, w: 1.07, h: 1.02,
+            sizing: { type: 'cover', w: 1.07, h: 1.02 }
+          });
+        } catch (imgErr) {
+          console.warn('Image skip:', imgErr);
+        }
+      }
+
+      slide.addNotes(news.url || '');
+    }
+
+    setIsExportingPPT(false);
+    setTimeout(() => {
+      pres.writeFile({ fileName: `AI_Bongchae_PPT_${new Date().toLocaleDateString()}.pptx` });
+    }, 500);
+  };
+
   const handleExportPPT = async () => {
-    if (isExportingPPT) return;
+    if (isExportingPPT || reviewModalOpen) return;
 
     try {
       const likedNews = filteredNews.filter(n => n.likes).slice(0, 10);
@@ -445,167 +566,108 @@ function App() {
       setIsExportingPPT(true);
       setIsProcessing(false);
       setLoadingProgress(0);
+      setPptProgressText('기사 요약 데이터 확인 및 원본 크롤링 준비 중...');
+      setPptProgressPercent(10);
 
-      const publishedNewsList = [];
-      const totalCount = likedNews.length;
+      // 1. 백엔드 prepare-ppt-sources API 호출하여 1_뉴스제목.txt 생성 및 캐시 판별
+      const prepRes = await fetch('/api/prepare-ppt-sources', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newsList: likedNews })
+      });
 
-      // 백엔드 발행 API를 1건씩 순차 호출하여 실시간 진행 상태(예: 3/10건 요약 중)를 UI에 표시하고 타임아웃 차단
-      for (let i = 0; i < totalCount; i++) {
-        const currentNews = likedNews[i];
-        const currentNum = i + 1;
-        const shortTitle = (currentNews.title || '').length > 18 
-          ? currentNews.title.substring(0, 18) + '...' 
-          : (currentNews.title || '');
-
-        setPptProgressText(`${currentNum}/${totalCount}건 요약 중... (${shortTitle})`);
-        setPptProgressPercent(Math.round((i / totalCount) * 100));
-
-        const pubRes = await fetch('/api/publish-news', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ newsList: [currentNews] })
-        });
-
-        const pubData = await pubRes.json();
-        if (!pubData.success || !pubData.data || pubData.data.length === 0) {
-          throw new Error(pubData.error || `[${currentNum}/${totalCount}건] 요약 발행 중 오류가 발생했습니다.`);
-        }
-
-        publishedNewsList.push(pubData.data[0]);
+      const prepData = await prepRes.json();
+      if (!prepData.success || !prepData.items) {
+        throw new Error(prepData.error || 'PPT 생성 준비 중 오류가 발생했습니다.');
       }
 
-      setPptProgressText(`${totalCount}/${totalCount}건 요약 완료! PPT 파일 생성 중...`);
-      setPptProgressPercent(100);
+      const items = prepData.items;
+      const cachedItems = items.filter(it => it.cached);
+      const uncachedItems = items.filter(it => !it.cached);
 
-      const pres = new pptxgen();
-      
-      // 원본 PPTX와 동일한 커스텀 슬라이드 크기 (5.51 x 2.36 인치)
-      pres.defineLayout({ name: 'SR_NEWS', width: 5.51, height: 2.36 });
-      pres.layout = 'SR_NEWS';
+      const alreadyDone = cachedItems.map(it => {
+        const matched = likedNews.find(n => n.url === it.url) || {};
+        return {
+          url: it.url,
+          title_ko: it.title_ko,
+          summary_ko: it.summary_ko,
+          image: matched.image
+        };
+      });
 
-      const generateSlides = async () => {
-        for (const news of publishedNewsList) {
-          const slide = pres.addSlide();
-          
-          // 요약 본문 2줄 제한 (한글 요약인 summary_ko 우선 사용)
-          const summaryLines = (news.summary_ko || news.summary_eng || news.summary || '')
-            .split('\n')
-            .filter(line => line.trim() !== '')
-            .slice(0, 2)
-            .map(line => line.replace(/^[•\-\*]\s*/, ''));
+      setProcessedPptItems(alreadyDone);
 
-          
-          // 3x2 Table 데이터 구성
-          // 1행: 열 병합 (colspan: 2), 뉴스 제목
-          // 2행: 1열 요약 1줄, 2열 빈칸 (이미지가 올라갈 공간, rowspan: 2)
-          // 3행: 1열 요약 2줄
-          const tableRows = [
-            [
-              { 
-                text: news.title_ko || news.title, 
-                options: { 
-                  colspan: 2, 
-                  fontSize: 14, 
-                  color: '022CB2', 
-                  fontFace: 'SamsungOneKorean 700', 
-                  underline: { style: 'sng' }, 
-                  valign: 'middle',
-                  margin: [0.05, 0.1, 0, 0.1]
-                } 
-              }
-            ],
-            [
-              { 
-                text: [
-                  {
-                    text: summaryLines[0] || '',
-                    options: {
-                      bullet: { indent: 14, characterCode: '2022' },
-                      fontSize: 13,
-                      color: '000000',
-                      fontFace: 'SamsungOneKoreanOTF 600',
-                      paraSpaceAfter: 6,
-                      lineSpacing: 16
-                    }
-                  }
-                ],
-                options: { 
-                  valign: 'top',
-                  margin: [0.05, 0.10, 0.05, 0.10]
-                } 
-              },
-              { 
-                text: '', 
-                options: { rowspan: 2 } 
-              }
-            ],
-            [
-              { 
-                text: [
-                  {
-                    text: summaryLines[1] || '',
-                    options: {
-                      bullet: { indent: 14, characterCode: '2022' },
-                      fontSize: 13,
-                      color: '000000',
-                      fontFace: 'SamsungOneKoreanOTF 600',
-                      paraSpaceAfter: 6,
-                      lineSpacing: 16
-                    }
-                  }
-                ],
-                options: { 
-                  valign: 'top',
-                  margin: [0.05, 0.10, 0.05, 0.10]
-                } 
-              }
-            ]
-          ];
-
-          // 표(Table) 추가: 너비 13.6cm, 높이 4.08cm (인치 환산: cm / 2.54)
-          slide.addTable(tableRows, {
-            x: 0.08, y: 0.38,
-            w: 13.6 / 2.54, 
-            h: 4.08 / 2.54,
-            colW: [10.54 / 2.54, 3.06 / 2.54],
-            rowH: [0.97 / 2.54, 1.555 / 2.54, 1.555 / 2.54],
-            fill: { color: 'F2F2F2' },
-            border: { type: 'none' }
-          });
-
-          // 이미지 - 병합된 2열 위치에 정확히 덧씌우기
-          if (news.image) {
-            try {
-              const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(news.image)}&round=true`;
-              slide.addImage({ 
-                path: proxyUrl, 
-                x: 4.25, y: 0.818, w: 1.07, h: 1.02,
-                sizing: { type: 'cover', w: 1.07, h: 1.02 }
-              });
-            } catch (imgErr) {
-              console.warn('Image skip:', imgErr);
-            }
-          }
-
-          // URL은 슬라이드 노트에만 포함
-          slide.addNotes(news.url || '');
-        }
-      };
-
-      await generateSlides();
-
-      // 1. 프로그레스 화면 먼저 완벽히 해제 (React 렌더링 스레드 확보)
-      setIsExportingPPT(false);
-
-      // 2. 브라우저가 화면을 새로 그릴 시간을 준 후 (0.5초), 다운로드 팝업 트리거
-      setTimeout(() => {
-        pres.writeFile({ fileName: `AI_Bongchae_PPT_${new Date().toLocaleDateString()}.pptx` });
-      }, 500);
+      if (uncachedItems.length === 0) {
+        // 모든 기사가 이미 최신 요약본으로 저장되어 있음 -> 바로 PPT 생성
+        await createAndDownloadPpt(alreadyDone);
+      } else {
+        // 미요약 기사 검토 모달 팝업 오픈
+        setIsExportingPPT(false);
+        setReviewList(uncachedItems);
+        setReviewIndex(0);
+        setReviewTitle(uncachedItems[0].crawledTitle || uncachedItems[0].originalTitle);
+        setReviewBodyText(uncachedItems[0].crawledBodyText);
+        setReviewModalOpen(true);
+      }
 
     } catch (err) {
       console.error('PPT Export Error:', err);
       alert('PPT 생성 중 오류가 발생했습니다: ' + err.message);
       setIsExportingPPT(false);
+    }
+  };
+
+  const handleConfirmReviewItem = async () => {
+    if (isStageProcessing || !reviewTitle || !reviewBodyText) return;
+
+    const currentItem = reviewList[reviewIndex];
+    const originalLikedObj = filteredNews.find(n => n.url === currentItem.url) || {};
+
+    try {
+      setIsStageProcessing(true);
+
+      const res = await fetch('/api/process-ppt-stage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: currentItem.url,
+          title: reviewTitle,
+          bodyText: reviewBodyText,
+          fallbackSummary: currentItem.fallbackSummary
+        })
+      });
+
+      const data = await res.json();
+      if (!data.success || !data.data) {
+        throw new Error(data.error || 'AI 1~2단계 요약 처리 실패');
+      }
+
+      const newItem = {
+        ...data.data,
+        image: originalLikedObj.image
+      };
+
+      const nextProcessed = [...processedPptItems, newItem];
+      setProcessedPptItems(nextProcessed);
+
+      if (reviewIndex + 1 < reviewList.length) {
+        // 다음 기사 검토로 이동
+        const nextIdx = reviewIndex + 1;
+        setReviewIndex(nextIdx);
+        setReviewTitle(reviewList[nextIdx].crawledTitle || reviewList[nextIdx].originalTitle);
+        setReviewBodyText(reviewList[nextIdx].crawledBodyText);
+        setIsStageProcessing(false);
+      } else {
+        // 모든 미요약 기사 검토 및 요약 완료 -> 모달 닫고 PPT 다운로드 생성
+        setReviewModalOpen(false);
+        setIsStageProcessing(false);
+        setIsExportingPPT(true);
+        await createAndDownloadPpt(nextProcessed);
+      }
+    } catch (err) {
+      console.error('[ReviewConfirm Error]:', err);
+      alert('1~2단계 AI 요약 수행 중 오류 발생: ' + err.message);
+      setIsStageProcessing(false);
     }
   };
 
@@ -1267,6 +1329,139 @@ function App() {
             </motion.div>
           </>
         )}
+        {/* PPT 1_뉴스제목.txt 원본 기사 검토 및 수정 모달 */}
+        {reviewModalOpen && reviewList.length > 0 && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+            background: 'rgba(15, 23, 42, 0.92)', zIndex: 10000, display: 'flex',
+            alignItems: 'center', justifyContent: 'center', padding: '20px'
+          }}>
+            <div style={{
+              background: '#1e293b', borderRadius: '16px', border: '1px solid #475569',
+              width: '100%', maxWidth: '820px', maxHeight: '90vh', display: 'flex',
+              flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              overflow: 'hidden'
+            }}>
+              {/* 모달 헤더 */}
+              <div style={{
+                padding: '20px 24px', borderBottom: '1px solid #334155', background: '#0f172a',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+              }}>
+                <div>
+                  <h3 style={{color: '#f8fafc', fontSize: '1.25rem', fontWeight: 'bold', margin: 0, display: 'flex', alignItems: 'center', gap: '8px'}}>
+                    <span>📝 PPT 기사 원문 검토 및 수정</span>
+                    <span style={{fontSize: '0.85rem', padding: '3px 10px', background: '#3b82f6', borderRadius: '12px', color: 'white', fontWeight: 'normal'}}>
+                      {reviewIndex + 1} / {reviewList.length}건
+                    </span>
+                  </h3>
+                  <p style={{color: '#94a3b8', fontSize: '0.85rem', margin: '4px 0 0 0'}}>
+                    1_뉴스제목.txt (450, 451행)에 삽입된 원본 내용입니다. 크롤링 결과가 부실할 경우 직접 수정해 주세요.
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setReviewModalOpen(false)}
+                  style={{background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px'}}
+                >
+                  <X size={22} />
+                </button>
+              </div>
+
+              {/* 모달 본문 */}
+              <div style={{padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px'}}>
+                {/* URL 및 템플릿 파일 정보 */}
+                <div style={{background: '#0f172a', padding: '12px 16px', borderRadius: '8px', border: '1px solid #334155', fontSize: '0.85rem'}}>
+                  <div style={{color: '#38bdf8', fontWeight: 'bold', marginBottom: '4px', wordBreak: 'break-all'}}>
+                    🔗 원본 URL: <a href={reviewList[reviewIndex]?.url} target="_blank" rel="noopener noreferrer" style={{color: '#38bdf8', textDecoration: 'underline'}}>{reviewList[reviewIndex]?.url}</a>
+                  </div>
+                  <div style={{color: '#cbd5e1'}}>
+                    📄 파일 경로: <code style={{background: '#1e293b', padding: '2px 6px', borderRadius: '4px', color: '#f43f5e'}}>summary4ppt/{reviewList[reviewIndex]?.file1Name}</code>
+                  </div>
+                </div>
+
+                {/* 제목 입력 */}
+                <div>
+                  <label style={{display: 'block', color: '#f8fafc', fontWeight: 'bold', marginBottom: '6px', fontSize: '0.9rem'}}>
+                    뉴스 제목 (1_뉴스제목.txt 450행 삽입) <span style={{color: '#f43f5e'}}>*</span>
+                  </label>
+                  <input 
+                    type="text"
+                    value={reviewTitle}
+                    onChange={(e) => setReviewTitle(e.target.value)}
+                    placeholder="뉴스 제목을 입력하거나 수정하세요"
+                    style={{
+                      width: '100%', padding: '12px 16px', background: '#0f172a', border: '1px solid #475569',
+                      borderRadius: '8px', color: 'white', fontSize: '0.95rem', outline: 'none'
+                    }}
+                  />
+                </div>
+
+                {/* 본문 전문 입력 */}
+                <div style={{display: 'flex', flexDirection: 'column', flex: 1}}>
+                  <label style={{display: 'block', color: '#f8fafc', fontWeight: 'bold', marginBottom: '6px', fontSize: '0.9rem'}}>
+                    뉴스 본문 전문 (1_뉴스제목.txt 451행 삽입) <span style={{color: '#f43f5e'}}>*</span>
+                  </label>
+                  <textarea 
+                    value={reviewBodyText}
+                    onChange={(e) => setReviewBodyText(e.target.value)}
+                    placeholder="크롤링이 실패했거나 내용이 부족한 경우 본문 전문을 직접 붙여넣으세요..."
+                    rows={10}
+                    style={{
+                      width: '100%', padding: '14px 16px', background: '#0f172a', border: '1px solid #475569',
+                      borderRadius: '8px', color: 'white', fontSize: '0.9rem', lineHeight: '1.6', outline: 'none',
+                      resize: 'vertical', minHeight: '200px'
+                    }}
+                  />
+                </div>
+
+                {(!reviewTitle || !reviewBodyText) && (
+                  <div style={{color: '#fbbf24', fontSize: '0.85rem', fontWeight: '500'}}>
+                    ⚠️ 제목과 본문을 모두 입력하셔야 1단계 AI API 호출 (Fact Sheet 추출)을 진행할 수 있습니다.
+                  </div>
+                )}
+              </div>
+
+              {/* 모달 푸터 */}
+              <div style={{
+                padding: '16px 24px', borderTop: '1px solid #334155', background: '#0f172a',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+              }}>
+                <button 
+                  onClick={() => setReviewModalOpen(false)}
+                  style={{
+                    padding: '10px 18px', background: 'transparent', border: '1px solid #475569',
+                    borderRadius: '8px', color: '#cbd5e1', cursor: 'pointer', fontWeight: '500'
+                  }}
+                  disabled={isStageProcessing}
+                >
+                  중단 및 취소
+                </button>
+                <button 
+                  onClick={handleConfirmReviewItem}
+                  disabled={isStageProcessing || !reviewTitle || !reviewBodyText}
+                  style={{
+                    padding: '10px 24px',
+                    background: (isStageProcessing || !reviewTitle || !reviewBodyText) ? '#475569' : 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                    border: 'none', borderRadius: '8px', color: 'white', fontWeight: 'bold',
+                    cursor: (isStageProcessing || !reviewTitle || !reviewBodyText) ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
+                  }}
+                >
+                  {isStageProcessing ? (
+                    <>
+                      <RefreshCw className="animate-spin" size={16} />
+                      <span>AI 1단계 Fact Sheet 추출 중...</span>
+                    </>
+                  ) : (
+                    <span>
+                      {reviewIndex + 1 < reviewList.length ? '완료 및 다음 기사 검토 ➔' : '완료 및 PPT 최종 생성 ➔'}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* PPT 생성 전용 로딩 오버레이 */}
         {isExportingPPT && (
           <div style={{

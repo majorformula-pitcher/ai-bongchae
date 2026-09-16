@@ -1343,6 +1343,172 @@ app.post('/api/publish-news', async (req, res) => {
   }
 });
 
+// [신규 API] PPT 발행 전 미요약 뉴스 크롤링 및 1.txt/2.txt 템플릿 파일 준비 (450, 451행 주입)
+app.post('/api/prepare-ppt-sources', async (req, res) => {
+  const { newsList } = req.body;
+  if (!newsList || !Array.isArray(newsList)) {
+    return res.status(400).json({ success: false, error: '뉴스 목록이 필요합니다.' });
+  }
+
+  try {
+    const summaryDir = path.join(__dirname, '../summary4ppt');
+    if (!fs.existsSync(summaryDir)) {
+      fs.mkdirSync(summaryDir, { recursive: true });
+    }
+
+    const preparedItems = [];
+
+    for (const item of newsList) {
+      const normalizedUrl = normalizeUrl(item.url);
+
+      // 1. DB ai_news_publish 캐시 조회
+      let existingPublish = null;
+      if (USE_LOCAL_DB) {
+        try {
+          existingPublish = localDb.prepare(`SELECT title_ko, summary_ko FROM "ai_news_publish" WHERE url = ?`).get(normalizedUrl);
+        } catch (dbErr) {
+          console.warn('[API] ai_news_publish lookup failed:', dbErr.message);
+        }
+      } else {
+        try {
+          const { data, error } = await supabase
+            .from('ai_news_publish')
+            .select('title_ko, summary_ko')
+            .eq('url', normalizedUrl)
+            .maybeSingle();
+          if (!error && data) existingPublish = data;
+        } catch (supaErr) {
+          console.warn('[API] Supabase lookup failed:', supaErr.message);
+        }
+      }
+
+      const isOld4LineFormat = existingPublish && existingPublish.summary_ko && 
+        (existingPublish.summary_ko.split('\n').length >= 3 || existingPublish.summary_ko.includes('습니다') || existingPublish.summary_ko.includes('입니다'));
+
+      if (existingPublish && existingPublish.title_ko && existingPublish.summary_ko && !isOld4LineFormat) {
+        preparedItems.push({
+          url: normalizedUrl,
+          cached: true,
+          title_ko: existingPublish.title_ko,
+          summary_ko: existingPublish.summary_ko
+        });
+      } else {
+        // 2. 원본 URL 크롤링
+        let crawledBodyText = '';
+        let crawledTitle = item.title;
+        try {
+          console.log(`[PreparePPT] Crawling original URL: ${item.url}`);
+          const crawlResult = await crawlArticle(item.url);
+          if (crawlResult && crawlResult.bodyText) {
+            crawledBodyText = crawlResult.bodyText;
+            if (crawlResult.title) crawledTitle = crawlResult.title;
+          }
+        } catch (crawlErr) {
+          console.warn(`[PreparePPT] Crawling failed for [${item.url}]:`, crawlErr.message);
+        }
+
+        const contentToUse = (crawledBodyText && crawledBodyText.length > 50) ? crawledBodyText : (item.summary || '');
+        const safeTitle = getSafeFileName(crawledTitle);
+
+        const template1Path = path.join(summaryDir, '1.txt');
+        const template2Path = path.join(summaryDir, '2.txt');
+        const file1Path = path.join(summaryDir, `1_${safeTitle}.txt`);
+        const file2Path = path.join(summaryDir, `2_${safeTitle}.txt`);
+
+        // 3. 1_뉴스제목.txt 생성 및 450, 451행에 뉴스 제목 & 본문 전문 삽입
+        let template1Content = fs.readFileSync(template1Path, 'utf-8');
+        const articleJsonPayload = JSON.stringify({
+          title: crawledTitle,
+          contents: contentToUse
+        }, null, 2);
+
+        let prompt1 = template1Content.replace(
+          /\{\s*"title"\s*:=\s*""\s*,\s*\n?\s*"contents"\s*:=\s*""\s*\}/g,
+          articleJsonPayload
+        );
+        if (!prompt1.includes(articleJsonPayload)) {
+          prompt1 = template1Content.replace(
+            '[요약을 위한 뉴스 제목과 본문]',
+            `[요약을 위한 뉴스 제목과 본문]\n\n${articleJsonPayload}`
+          );
+        }
+
+        fs.writeFileSync(file1Path, prompt1, 'utf-8');
+
+        // 2_뉴스제목.txt 생성
+        if (fs.existsSync(template2Path)) {
+          fs.writeFileSync(file2Path, fs.readFileSync(template2Path, 'utf-8'), 'utf-8');
+        }
+
+        preparedItems.push({
+          url: normalizedUrl,
+          cached: false,
+          originalTitle: item.title,
+          crawledTitle: crawledTitle,
+          crawledBodyText: contentToUse,
+          fallbackSummary: item.summary,
+          file1Name: `1_${safeTitle}.txt`,
+          file2Name: `2_${safeTitle}.txt`
+        });
+      }
+    }
+
+    res.json({ success: true, items: preparedItems });
+  } catch (err) {
+    console.error('[PreparePPT Error]:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// [신규 API] 사용자가 검토/수정한 기사 제목 및 본문으로 1~2단계 요약 실행 및 DB 저장
+app.post('/api/process-ppt-stage', async (req, res) => {
+  const { url, title, bodyText, fallbackSummary } = req.body;
+  if (!url || !title) {
+    return res.status(400).json({ success: false, error: 'URL과 제목이 필요합니다.' });
+  }
+
+  try {
+    const normalizedUrl = normalizeUrl(url);
+    console.log(`[ProcessPPTStage] Executing 2-Stage AI summary for verified article: ${title}`);
+    
+    // 2단계 요약 수행
+    const summaryResult = await summarizeForPublish(title, bodyText, fallbackSummary);
+
+    const publishPayload = {
+      url: normalizedUrl,
+      title_ko: summaryResult.title_ko,
+      summary_ko: summaryResult.summary_eng,
+      summary_eng: null,
+      engine: summaryResult.engine || "Fallback"
+    };
+
+    // DB 저장 (UPSERT)
+    if (USE_LOCAL_DB) {
+      const stmt = localDb.prepare(`
+        INSERT INTO "ai_news_publish" (url, title_ko, summary_ko, summary_eng, engine)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(url) DO UPDATE SET title_ko=excluded.title_ko, summary_ko=excluded.summary_ko, engine=excluded.engine
+      `);
+      stmt.run(publishPayload.url, publishPayload.title_ko, publishPayload.summary_ko, publishPayload.summary_eng, publishPayload.engine);
+    } else {
+      const { error } = await supabase
+        .from('ai_news_publish')
+        .upsert([publishPayload], { onConflict: 'url' });
+      if (error) {
+        console.error('[Supabase Publish Upsert Error]:', error.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      data: publishPayload
+    });
+  } catch (err) {
+    console.error('[ProcessPPTStage Error]:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // [신규 API] 뉴스 목록 전체 조회
 app.get('/api/news', async (req, res) => {
   try {
