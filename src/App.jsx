@@ -1144,35 +1144,7 @@ function App() {
           {filteredNews.length > 0 ? (
             filteredNews.map(news => (
               <div key={news.id} id={`news-card-${news.id}`} className="news-card">
-                {editingId === news.id ? (
-                  <select 
-                    className="news-category-badge edit-category-select"
-                    style={{
-                      appearance: 'auto',
-                      background: 'rgba(15, 23, 42, 0.95)',
-                      color: 'white',
-                      border: '1px solid #38bdf8',
-                      borderRadius: '12px',
-                      padding: '2px 8px',
-                      fontSize: '0.8rem',
-                      cursor: 'pointer',
-                      zIndex: 10
-                    }}
-                    value={editCategory}
-                    onChange={(e) => setEditCategory(e.target.value)}
-                  >
-                    <option value="AI">AI</option>
-                    <option value="Robot">Robot</option>
-                    <option value="Security">Security</option>
-                    <option value="Data">Data</option>
-                    <option value="Display">Display</option>
-                    <option value="IT">IT</option>
-                    <option value="Energy">Energy</option>
-                    <option value="기타">기타</option>
-                  </select>
-                ) : (
-                  <div className="news-category-badge">{news.category}</div>
-                )}
+                <div className="news-category-badge">{editingId === news.id ? editCategory : news.category}</div>
                 <button className="delete-btn" title="뉴스 삭제" onClick={(e) => handleDelete(e, news.id)}>×</button>
                 <a href={news.url} target="_blank" rel="noopener noreferrer" className="news-image-container">
                   {(editingId === news.id ? editImage : news.image) ? (
@@ -1190,33 +1162,65 @@ function App() {
                 </a>
                 {editingId === news.id && (
                   <div style={{
-                    padding: '8px 12px',
-                    background: 'rgba(15, 23, 42, 0.9)',
+                    padding: '12px 14px',
+                    background: '#0f172a',
                     borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: '4px'
+                    gap: '10px'
                   }}>
-                    <label style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 'bold' }}>
-                      🖼️ 이미지 URL 수정:
-                    </label>
-                    <input 
-                      type="text"
-                      className="edit-image-input"
-                      placeholder="이미지 URL을 입력하거나 수정하세요 (빈 칸은 이미지 없음)"
-                      value={editImage}
-                      onChange={(e) => setEditImage(e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '6px 10px',
-                        borderRadius: '6px',
-                        border: '1px solid #475569',
-                        background: '#0f172a',
-                        color: 'white',
-                        fontSize: '0.85rem',
-                        outline: 'none'
-                      }}
-                    />
+                    <div>
+                      <label style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                        🏷️ 카테고리 수정:
+                      </label>
+                      <select 
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #475569',
+                          background: '#1e293b',
+                          color: 'white',
+                          fontSize: '0.9rem',
+                          outline: 'none',
+                          cursor: 'pointer'
+                        }}
+                        value={editCategory}
+                        onChange={(e) => setEditCategory(e.target.value)}
+                      >
+                        <option value="AI">AI</option>
+                        <option value="Robot">Robot</option>
+                        <option value="Security">Security</option>
+                        <option value="Data">Data</option>
+                        <option value="Display">Display</option>
+                        <option value="IT">IT</option>
+                        <option value="Energy">Energy</option>
+                        <option value="기타">기타</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label style={{ fontSize: '0.8rem', color: '#38bdf8', fontWeight: 'bold', display: 'block', marginBottom: '4px' }}>
+                        🖼️ 이미지 URL 수정:
+                      </label>
+                      <input 
+                        type="text"
+                        className="edit-image-input"
+                        placeholder="이미지 URL을 입력하거나 수정하세요 (빈 칸은 이미지 없음)"
+                        value={editImage}
+                        onChange={(e) => setEditImage(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '8px 12px',
+                          borderRadius: '6px',
+                          border: '1px solid #475569',
+                          background: '#1e293b',
+                          color: 'white',
+                          fontSize: '0.85rem',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
                   </div>
                 )}
                 <div className="news-content">
