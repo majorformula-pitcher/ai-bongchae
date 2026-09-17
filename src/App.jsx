@@ -906,7 +906,7 @@ function App() {
 
   // 전체 뉴스 데이터에서 유니크한 카테고리 목록 추출 및 커스텀 정렬
   const categoryOrder = ['AI', 'Data', 'Display', 'IT', 'Robot', 'Security', 'Energy', '기타'];
-  const categories = ['All', ...new Set(newsList.map(news => news.category).filter(Boolean))].sort((a, b) => {
+  const categories = ['All', ...new Set([...categoryOrder, ...newsList.map(news => news.category).filter(Boolean)])].sort((a, b) => {
     if (a === 'All') return -1;
     if (b === 'All') return 1;
     

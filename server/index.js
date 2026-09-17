@@ -378,7 +378,7 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
     let sumLines = Array.isArray(summaryRaw) ? summaryRaw : String(summaryRaw).split('\n');
     
     // 카테고리 필드 정제 로직 복구
-    const validCategories = ['AI', 'Robot', 'Security', 'Data', 'Display', 'IT', '기타'];
+    const validCategories = ['AI', 'Robot', 'Security', 'Data', 'Display', 'IT', 'Energy', '기타'];
     let finalCategory = aiData.category || '기타';
     if (!validCategories.includes(finalCategory)) {
       finalCategory = validCategories.find(c => finalCategory.toUpperCase().includes(c.toUpperCase())) || '기타';
@@ -520,7 +520,7 @@ async function _summarizeWithGeminiModel(model, bodyText, title, publishedAt) {
       let jsonStr = responseText.substring(startIdx, endIdx + 1);
       let aiData = JSON.parse(jsonStr);
       
-      const validCategories = ['AI', 'Robot', 'Security', 'Data', 'Display', 'IT', '기타'];
+      const validCategories = ['AI', 'Robot', 'Security', 'Data', 'Display', 'IT', 'Energy', '기타'];
       let finalCategory = aiData.category || '기타';
       if (!validCategories.includes(finalCategory)) {
         finalCategory = validCategories.find(c => finalCategory.toUpperCase().includes(c.toUpperCase())) || '기타';
