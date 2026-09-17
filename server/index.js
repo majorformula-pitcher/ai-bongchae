@@ -1788,14 +1788,15 @@ app.get('/api/proxy-image', async (req, res) => {
   }
 });
 
-// [API] 뉴스 카드 정보 수정 (제목, 요약)
+// [API] 뉴스 카드 정보 수정 (제목, 요약, 카테고리, 이미지)
 app.put('/api/news/:id', async (req, res) => {
   const { id } = req.params;
-  const { title, summary } = req.body;
+  const { title, summary, category, image } = req.body;
 
   console.log(`\n[Update Request] News ID: ${id}`);
   console.log(`- New Title: ${title?.substring(0, 30)}...`);
-  console.log(`- Summary Length: ${summary?.length} chars`);
+  console.log(`- New Category: ${category}`);
+  console.log(`- New Image: ${image}`);
 
   if (!title || !summary) {
     console.error('  ❌ Validation Failed: Title or Summary missing');
@@ -1808,10 +1809,10 @@ app.put('/api/news/:id', async (req, res) => {
       const numericId = parseInt(id, 10);
       const statement = localDb.prepare(`
         UPDATE "${TABLE_NAME}" 
-        SET title = ?, summary = ? 
+        SET title = ?, summary = ?, category = ?, image = ?
         WHERE id = ?
       `);
-      const info = statement.run(title, summary, numericId);
+      const info = statement.run(title, summary, category || '기타', image || null, numericId);
       
       if (info.changes === 0) {
         console.error(`  ❌ Update Failed: No news found with ID ${id}`);
@@ -1822,9 +1823,13 @@ app.put('/api/news/:id', async (req, res) => {
       res.json({ success: true, message: '뉴스가 성공적으로 수정되었습니다.' });
     } else {
       // Supabase 업데이트
+      const updatePayload = { title, summary };
+      if (category !== undefined) updatePayload.category = category;
+      if (image !== undefined) updatePayload.image = image || null;
+
       const { data, error } = await supabase
         .from(TABLE_NAME)
-        .update({ title, summary })
+        .update(updatePayload)
         .eq('id', id);
 
       if (error) {

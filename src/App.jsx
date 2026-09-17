@@ -131,6 +131,8 @@ function App() {
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
   const [editSummary, setEditSummary] = useState('');
+  const [editCategory, setEditCategory] = useState('');
+  const [editImage, setEditImage] = useState('');
   const [copiedId, setCopiedId] = useState(null); // 복사 피드백 상태 추가
 
   // DB에서 뉴스 읽어오기 (서버 API 경유)
@@ -828,17 +830,25 @@ function App() {
     }
   };
 
-  // [뉴스 수정] 제목과 요약을 DB에 업데이트합니다.
+  // [뉴스 수정] 제목, 요약, 카테고리, 이미지를 DB에 업데이트합니다.
   const handleUpdateNews = async (id) => {
     try {
       const response = await axios.put(`/api/news/${id}`, {
         title: editTitle,
-        summary: editSummary
+        summary: editSummary,
+        category: editCategory,
+        image: editImage
       });
 
       if (response.data.success) {
         setNewsList(prev => prev.map(news => 
-          news.id === id ? { ...news, title: editTitle, summary: editSummary } : news
+          news.id === id ? { 
+            ...news, 
+            title: editTitle, 
+            summary: editSummary, 
+            category: editCategory, 
+            image: editImage 
+          } : news
         ));
         setEditingId(null);
       }
@@ -902,6 +912,8 @@ function App() {
     setEditingId(news.id);
     setEditTitle(news.title);
     setEditSummary(news.summary || '');
+    setEditCategory(news.category || '기타');
+    setEditImage(news.image || '');
   };
 
   // 전체 뉴스 데이터에서 유니크한 카테고리 목록 추출 및 커스텀 정렬
@@ -1132,12 +1144,40 @@ function App() {
           {filteredNews.length > 0 ? (
             filteredNews.map(news => (
               <div key={news.id} id={`news-card-${news.id}`} className="news-card">
-                <div className="news-category-badge">{news.category}</div>
+                {editingId === news.id ? (
+                  <select 
+                    className="news-category-badge edit-category-select"
+                    style={{
+                      appearance: 'auto',
+                      background: 'rgba(15, 23, 42, 0.95)',
+                      color: 'white',
+                      border: '1px solid #38bdf8',
+                      borderRadius: '12px',
+                      padding: '2px 8px',
+                      fontSize: '0.8rem',
+                      cursor: 'pointer',
+                      zIndex: 10
+                    }}
+                    value={editCategory}
+                    onChange={(e) => setEditCategory(e.target.value)}
+                  >
+                    <option value="AI">AI</option>
+                    <option value="Robot">Robot</option>
+                    <option value="Security">Security</option>
+                    <option value="Data">Data</option>
+                    <option value="Display">Display</option>
+                    <option value="IT">IT</option>
+                    <option value="Energy">Energy</option>
+                    <option value="기타">기타</option>
+                  </select>
+                ) : (
+                  <div className="news-category-badge">{news.category}</div>
+                )}
                 <button className="delete-btn" title="뉴스 삭제" onClick={(e) => handleDelete(e, news.id)}>×</button>
                 <a href={news.url} target="_blank" rel="noopener noreferrer" className="news-image-container">
-                  {news.image ? (
+                  {(editingId === news.id ? editImage : news.image) ? (
                     <img 
-                      src={`/api/proxy-image?url=${encodeURIComponent(news.image)}`} 
+                      src={`/api/proxy-image?url=${encodeURIComponent(editingId === news.id ? editImage : news.image)}`} 
                       alt={news.title} 
                       className="news-image" 
                       crossOrigin="anonymous" 
@@ -1148,6 +1188,37 @@ function App() {
                     </div>
                   )}
                 </a>
+                {editingId === news.id && (
+                  <div style={{
+                    padding: '8px 12px',
+                    background: 'rgba(15, 23, 42, 0.9)',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px'
+                  }}>
+                    <label style={{ fontSize: '0.75rem', color: '#38bdf8', fontWeight: 'bold' }}>
+                      🖼️ 이미지 URL 수정:
+                    </label>
+                    <input 
+                      type="text"
+                      className="edit-image-input"
+                      placeholder="이미지 URL을 입력하거나 수정하세요 (빈 칸은 이미지 없음)"
+                      value={editImage}
+                      onChange={(e) => setEditImage(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '6px 10px',
+                        borderRadius: '6px',
+                        border: '1px solid #475569',
+                        background: '#0f172a',
+                        color: 'white',
+                        fontSize: '0.85rem',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+                )}
                 <div className="news-content">
                   <h2 className="news-title">
                     {editingId === news.id ? (
