@@ -964,8 +964,7 @@ async function crawlArticle(rawUrl) {
     .replace(/\s+/g, ' ')
     .replace(/[a-zA-Z0-9._%+-]+@ businessinsider\.com/g, '')
     .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '')
-    .replace(/[가-힣]{2,4}\s*기자(?!\w)/g, '')
-    .slice(0, 8000);
+    .replace(/[가-힣]{2,4}\s*기자(?!\w)/g, '');
 
   return {
     success: true,
