@@ -627,57 +627,77 @@ function App() {
     }
   };
 
+  const processAllPptStages = async (finalReviewList) => {
+    setIsExportingPPT(true);
+    let currentProcessed = [...processedPptItems];
+    
+    for (let i = 0; i < finalReviewList.length; i++) {
+      const item = finalReviewList[i];
+      const originalLikedObj = filteredNews.find(n => n.url === item.url) || {};
+      
+      try {
+        setPptProgressText(`AI 요약 중... (${i + 1}/${finalReviewList.length}) - ${item.crawledTitle || item.originalTitle}`);
+        setPptProgressPercent(20 + Math.floor((i / finalReviewList.length) * 70));
+
+        const res = await fetch('/api/process-ppt-stage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            url: item.url,
+            title: item.reviewTitle,
+            bodyText: item.reviewBodyText,
+            fallbackSummary: item.fallbackSummary
+          })
+        });
+
+        const data = await res.json();
+        if (!data.success || !data.data) {
+          throw new Error(data.error || 'AI 1~2단계 요약 처리 실패');
+        }
+
+        const newItem = {
+          ...data.data,
+          image: originalLikedObj.image
+        };
+
+        currentProcessed = [...currentProcessed, newItem];
+      } catch (err) {
+        console.error(`[Process All PPT Stage Error for ${item.url}]:`, err);
+        // 오류가 발생해도 진행을 멈추지 않고 fallback 사용 등을 고려할 수 있음
+        // 여기서는 그냥 alert 하고 다음 기사로 넘어갑니다 (또는 멈출 수 있음)
+        alert(`1~2단계 AI 요약 중 오류 발생 (${item.crawledTitle}): ` + err.message);
+      }
+    }
+
+    setPptProgressText('PPT 생성 중...');
+    setPptProgressPercent(100);
+    setProcessedPptItems(currentProcessed);
+    await createAndDownloadPpt(currentProcessed);
+  };
+
   const handleConfirmReviewItem = async () => {
-    if (isStageProcessing || !reviewTitle || !reviewBodyText) return;
+    if (!reviewTitle || !reviewBodyText) return;
 
-    const currentItem = reviewList[reviewIndex];
-    const originalLikedObj = filteredNews.find(n => n.url === currentItem.url) || {};
+    // 현재 기사의 수정 내용을 저장
+    const updatedList = [...reviewList];
+    updatedList[reviewIndex] = {
+      ...updatedList[reviewIndex],
+      reviewTitle: reviewTitle,
+      reviewBodyText: reviewBodyText
+    };
+    
+    setReviewList(updatedList);
 
-    try {
-      setIsStageProcessing(true);
-
-      const res = await fetch('/api/process-ppt-stage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: currentItem.url,
-          title: reviewTitle,
-          bodyText: reviewBodyText,
-          fallbackSummary: currentItem.fallbackSummary
-        })
-      });
-
-      const data = await res.json();
-      if (!data.success || !data.data) {
-        throw new Error(data.error || 'AI 1~2단계 요약 처리 실패');
-      }
-
-      const newItem = {
-        ...data.data,
-        image: originalLikedObj.image
-      };
-
-      const nextProcessed = [...processedPptItems, newItem];
-      setProcessedPptItems(nextProcessed);
-
-      if (reviewIndex + 1 < reviewList.length) {
-        // 다음 기사 검토로 이동
-        const nextIdx = reviewIndex + 1;
-        setReviewIndex(nextIdx);
-        setReviewTitle(reviewList[nextIdx].crawledTitle || reviewList[nextIdx].originalTitle);
-        setReviewBodyText(reviewList[nextIdx].crawledBodyText);
-        setIsStageProcessing(false);
-      } else {
-        // 모든 미요약 기사 검토 및 요약 완료 -> 모달 닫고 PPT 다운로드 생성
-        setReviewModalOpen(false);
-        setIsStageProcessing(false);
-        setIsExportingPPT(true);
-        await createAndDownloadPpt(nextProcessed);
-      }
-    } catch (err) {
-      console.error('[ReviewConfirm Error]:', err);
-      alert('1~2단계 AI 요약 수행 중 오류 발생: ' + err.message);
-      setIsStageProcessing(false);
+    if (reviewIndex + 1 < reviewList.length) {
+      // 다음 기사 검토로 이동
+      const nextIdx = reviewIndex + 1;
+      setReviewIndex(nextIdx);
+      setReviewTitle(updatedList[nextIdx].crawledTitle || updatedList[nextIdx].originalTitle);
+      setReviewBodyText(updatedList[nextIdx].crawledBodyText);
+    } else {
+      // 모든 미요약 기사 검토 완료 -> 모달 닫고 일괄 AI 요약 진행
+      setReviewModalOpen(false);
+      await processAllPptStages(updatedList);
     }
   };
 
