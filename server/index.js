@@ -976,6 +976,26 @@ async function crawlArticle(rawUrl) {
   };
 }
 
+// [신규 API] 뉴스 원본 제목 및 본문 전문 크롤링 전용 엔드포인트 (팝업 뷰어용)
+app.post('/api/crawl', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ success: false, error: 'URL이 필요합니다.' });
+
+  try {
+    const result = await crawlArticle(url);
+    res.json({
+      success: true,
+      title: result.title,
+      bodyText: result.bodyText,
+      imageUrl: result.imageUrl,
+      publishedAt: result.publishedAt
+    });
+  } catch (error) {
+    console.error('[API /api/crawl error]:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.post('/api/extract', async (req, res) => {
   const { url: rawUrl } = req.body;
   if (!rawUrl) return res.status(400).json({ success: false, error: 'URL is required' });

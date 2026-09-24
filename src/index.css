@@ -603,6 +603,17 @@ body::before {
   border-color: rgba(16, 185, 129, 0.3);
 }
 
+.source-view-btn:hover {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #818cf8;
+}
+
+.source-view-btn.loading {
+  cursor: wait;
+  opacity: 0.8;
+}
+
 /* 입력창 프리미엄 스타일 */
 .edit-title-input {
   width: 100%;

@@ -6,7 +6,7 @@ import html2canvas from 'html2canvas';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Compass, List, Plus, X, ChevronUp, 
-  RefreshCw, Zap, ExternalLink, CheckCircle2, Copy, Edit3 
+  RefreshCw, Zap, ExternalLink, CheckCircle2, Copy, Edit3, FileText 
 } from 'lucide-react';
 import './index.css';
 
@@ -134,6 +134,14 @@ function App() {
   const [editCategory, setEditCategory] = useState('');
   const [editImage, setEditImage] = useState('');
   const [copiedId, setCopiedId] = useState(null); // 복사 피드백 상태 추가
+  const [crawlingSourceId, setCrawlingSourceId] = useState(null); // 원본 크롤링 진행 중인 뉴스 ID
+  const [sourceModalData, setSourceModalData] = useState({
+    open: false,
+    title: '',
+    bodyText: '',
+    url: '',
+    isCopied: false
+  });
 
   // DB에서 뉴스 읽어오기 (서버 API 경유)
   const fetchNews = async () => {
@@ -908,6 +916,57 @@ function App() {
     }
   };
 
+  const handleOpenSourceModal = async (news) => {
+    if (!news.url) {
+      alert('기사 URL이 존재하지 않습니다.');
+      return;
+    }
+
+    try {
+      setCrawlingSourceId(news.id);
+      const res = await axios.post('/api/crawl', { url: news.url });
+      if (res.data && res.data.success) {
+        setSourceModalData({
+          open: true,
+          title: res.data.title || news.title,
+          bodyText: res.data.bodyText || '',
+          url: news.url,
+          isCopied: false
+        });
+      } else {
+        throw new Error(res.data?.error || '원문 추출에 실패했습니다.');
+      }
+    } catch (err) {
+      console.error('Source crawl error:', err);
+      alert('기사 원문 크롤링 중 오류가 발생했습니다: ' + (err.response?.data?.error || err.message));
+    } finally {
+      setCrawlingSourceId(null);
+    }
+  };
+
+  const handleCopySourceContent = () => {
+    if (!sourceModalData.title && !sourceModalData.bodyText) return;
+    const textToCopy = `${sourceModalData.title}\n\n${sourceModalData.bodyText}`;
+    
+    const showSuccess = () => {
+      setSourceModalData(prev => ({ ...prev, isCopied: true }));
+      setTimeout(() => {
+        setSourceModalData(prev => ({ ...prev, isCopied: false }));
+      }, 2000);
+    };
+
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(textToCopy)
+        .then(() => showSuccess())
+        .catch(err => {
+          console.warn('Modern copy failed, trying fallback...', err);
+          fallbackCopyTextToClipboard(textToCopy, showSuccess);
+        });
+    } else {
+      fallbackCopyTextToClipboard(textToCopy, showSuccess);
+    }
+  };
+
   const startEditing = (news) => {
     setEditingId(news.id);
     setEditTitle(news.title);
@@ -1307,6 +1366,20 @@ function App() {
                               <Copy size={18} />
                             )}
                           </button>
+
+                          <button 
+                            className={`copy-btn source-view-btn ${crawlingSourceId === news.id ? 'loading' : ''}`} 
+                            onClick={() => handleOpenSourceModal(news)}
+                            title="기사 원문 보기 및 복사"
+                            type="button"
+                            disabled={crawlingSourceId === news.id}
+                          >
+                            {crawlingSourceId === news.id ? (
+                              <RefreshCw size={18} className="animate-spin text-primary" />
+                            ) : (
+                              <FileText size={18} />
+                            )}
+                          </button>
                         </div>
                       </div>
                       
@@ -1532,6 +1605,157 @@ function App() {
                     </span>
                   )}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 원본 기사 보기 및 복사 모달 */}
+        {sourceModalData.open && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+            background: 'rgba(15, 23, 42, 0.92)', zIndex: 10000, display: 'flex',
+            alignItems: 'center', justifyContent: 'center', padding: '20px'
+          }}>
+            <div style={{
+              background: '#1e293b', borderRadius: '16px', border: '1px solid #475569',
+              width: '100%', maxWidth: '840px', maxHeight: '90vh', display: 'flex',
+              flexDirection: 'column', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+              overflow: 'hidden'
+            }}>
+              {/* 모달 헤더 */}
+              <div style={{
+                padding: '18px 24px', borderBottom: '1px solid #334155', background: '#0f172a',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+              }}>
+                <div style={{display: 'flex', alignItems: 'center', gap: '10px'}}>
+                  <FileText size={22} className="text-primary" />
+                  <h3 style={{color: '#f8fafc', fontSize: '1.2rem', fontWeight: 'bold', margin: 0}}>
+                    뉴스 원본 기사 전문
+                  </h3>
+                </div>
+                <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                  <button 
+                    onClick={handleCopySourceContent}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      padding: '8px 16px',
+                      background: sourceModalData.isCopied ? 'rgba(16, 185, 129, 0.2)' : 'rgba(99, 102, 241, 0.2)',
+                      border: `1px solid ${sourceModalData.isCopied ? '#10b981' : '#6366f1'}`,
+                      borderRadius: '8px',
+                      color: sourceModalData.isCopied ? '#10b981' : '#818cf8',
+                      cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {sourceModalData.isCopied ? (
+                      <>
+                        <CheckCircle2 size={16} />
+                        <span>복사 완료!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={16} />
+                        <span>제목+본문 복사</span>
+                      </>
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => setSourceModalData(prev => ({ ...prev, open: false }))}
+                    style={{background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: '4px'}}
+                    title="닫기"
+                  >
+                    <X size={22} />
+                  </button>
+                </div>
+              </div>
+
+              {/* 모달 본문 */}
+              <div style={{padding: '24px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '16px'}}>
+                {/* 원본 URL 링크 */}
+                <div style={{background: '#0f172a', padding: '12px 16px', borderRadius: '8px', border: '1px solid #334155', fontSize: '0.85rem'}}>
+                  <div style={{color: '#38bdf8', fontWeight: 'bold', wordBreak: 'break-all', display: 'flex', alignItems: 'center', gap: '6px'}}>
+                    <span>🔗 원본 링크:</span>
+                    <a href={sourceModalData.url} target="_blank" rel="noopener noreferrer" style={{color: '#38bdf8', textDecoration: 'underline'}}>
+                      {sourceModalData.url}
+                    </a>
+                  </div>
+                </div>
+
+                {/* 기사 제목 */}
+                <div style={{background: '#0f172a', padding: '16px', borderRadius: '8px', border: '1px solid #334155'}}>
+                  <div style={{color: '#94a3b8', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '6px'}}>기사 제목</div>
+                  <div style={{color: '#f8fafc', fontSize: '1.1rem', fontWeight: 'bold', lineHeight: '1.5'}}>
+                    {sourceModalData.title}
+                  </div>
+                </div>
+
+                {/* 기사 본문 전문 */}
+                <div style={{background: '#0f172a', padding: '20px', borderRadius: '8px', border: '1px solid #334155', flex: 1}}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px'}}>
+                    <div style={{color: '#94a3b8', fontSize: '0.8rem', fontWeight: 'bold'}}>기사 본문 전문</div>
+                    <div style={{color: '#64748b', fontSize: '0.75rem'}}>
+                      총 {sourceModalData.bodyText?.length?.toLocaleString() || 0}자
+                    </div>
+                  </div>
+                  <div style={{
+                    color: '#cbd5e1', fontSize: '0.95rem', lineHeight: '1.8',
+                    whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: '45vh', overflowY: 'auto'
+                  }}>
+                    {sourceModalData.bodyText || '본문 내용을 불러오지 못했습니다.'}
+                  </div>
+                </div>
+              </div>
+
+              {/* 모달 푸터 */}
+              <div style={{
+                padding: '16px 24px', borderTop: '1px solid #334155', background: '#0f172a',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+              }}>
+                <a 
+                  href={sourceModalData.url} target="_blank" rel="noopener noreferrer"
+                  style={{
+                    padding: '8px 14px', background: 'transparent', border: '1px solid #475569',
+                    borderRadius: '8px', color: '#94a3b8', fontSize: '0.85rem', textDecoration: 'none',
+                    display: 'flex', alignItems: 'center', gap: '6px'
+                  }}
+                >
+                  <ExternalLink size={14} />
+                  <span>브라우저에서 원문 열기</span>
+                </a>
+                <div style={{display: 'flex', gap: '10px'}}>
+                  <button 
+                    onClick={handleCopySourceContent}
+                    style={{
+                      padding: '10px 22px',
+                      background: sourceModalData.isCopied ? '#10b981' : 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                      border: 'none', borderRadius: '8px', color: 'white', fontWeight: 'bold',
+                      cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px',
+                      fontSize: '0.9rem', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.2)'
+                    }}
+                  >
+                    {sourceModalData.isCopied ? (
+                      <>
+                        <CheckCircle2 size={18} />
+                        <span>제목 + 본문 복사 완료!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={18} />
+                        <span>제목 + 본문 복사하기</span>
+                      </>
+                    )}
+                  </button>
+                  <button 
+                    onClick={() => setSourceModalData(prev => ({ ...prev, open: false }))}
+                    style={{
+                      padding: '10px 18px', background: 'transparent', border: '1px solid #475569',
+                      borderRadius: '8px', color: '#cbd5e1', cursor: 'pointer', fontWeight: '500'
+                    }}
+                  >
+                    닫기
+                  </button>
+                </div>
               </div>
             </div>
           </div>
