@@ -411,19 +411,19 @@ async function _summarizeWithOllamaInternal(bodyText, title, publishedAt) {
 
 
 // AI 요약 함수 - Gemini 로직 (REST API 직통 호출 방식)
-// Gemini 9단계 폴백 체인: 앞의 모델이 실패(429/503 등)하면 다음 모델로 넘어갑니다.
-// 9개가 모두 실패해야 유료 백업 엔진인 Claude 3.5 Haiku로 폴백합니다.
-const GEMINI_MODEL_CHAIN = [
-  'gemini-3.8-flash',
-  'gemini-3.7-flash',
-  'gemini-3.6-flash',
-  'gemini-3.5-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-3.1-flash-lite',
-  'gemini-2.5-flash-lite',
-  'gemini-flash-lite-latest',
-  'gemini-2.5-flash'
+// Gemini 5단계 폴백 체인: Pinned 장기 지원 모델 우선 -> Evergreen 최신 별칭 후순위
+// .env의 GEMINI_MODEL_CHAIN 환경변수로 동적 오버라이드 지원
+const DEFAULT_GEMINI_MODEL_CHAIN = [
+  'gemini-3.8-flash',          // 1순위: 현 주력, 2027.09.02까지 장기 보장
+  'gemini-3.5-flash-lite',     // 2순위: 안정적 장기 지원, 2027.07.21까지
+  'gemini-3.1-flash-lite',     // 3순위: 서브 백업, 2027.05.07까지
+  'gemini-flash-latest',       // 4순위: 메인 에버그린, 항상 최신 Flash
+  'gemini-flash-lite-latest'   // 5순위: 초고속 에버그린, 항상 최신 Lite
 ];
+
+const GEMINI_MODEL_CHAIN = process.env.GEMINI_MODEL_CHAIN
+  ? process.env.GEMINI_MODEL_CHAIN.split(',').map(m => m.trim()).filter(Boolean)
+  : DEFAULT_GEMINI_MODEL_CHAIN;
 
 async function summarizeWithGemini(bodyText, title, publishedAt) {
   let lastError;
@@ -600,7 +600,7 @@ async function summarizeWithClaude(bodyText, title, publishedAt) {
  기사 본문: ${bodyText}`;
 
   const msg = await anthropic.messages.create({
-    model: "claude-3-5-haiku-20241022",
+    model: "claude-haiku-5-5",
     max_tokens: 1024,
     system: "당신은 뉴스 요약 전문가입니다. 숫자를 사용하지 말고 문장 위주로만 출력하세요.",
     messages: [{ role: "user", content: prompt }],
@@ -1145,17 +1145,17 @@ async function runAiPrompt(prompt) {
     }
   }
 
-  // 2. Gemini 8개 모델 실패 시 유료 Claude 3.5 Haiku 시도
+  // 2. Gemini 모델 모두 실패 시 유료 Claude Haiku 5.5 시도
   try {
     const msg = await anthropic.messages.create({
-      model: "claude-3-5-haiku-20241022",
+      model: "claude-haiku-5-5",
       max_tokens: 8192,
       system: "당신은 뉴스 요약 및 데이터 구조화 전문가입니다. JSON 출력만 허용합니다.",
       messages: [{ role: "user", content: prompt }],
     });
 
     const text = msg.content[0].text.trim();
-    return { text, engine: "Claude (3.5 Haiku)" };
+    return { text, engine: "Claude (Haiku 5.5)" };
   } catch (claudeErr) {
     console.error('[AI] Claude failed:', claudeErr.message);
   }
